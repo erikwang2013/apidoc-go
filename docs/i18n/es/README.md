@@ -140,13 +140,13 @@ Para Echo / Chi / Fiber solo hay que cambiar el constructor del adaptador: `adap
 
 ### Adaptadores de frameworks
 
-| Framework | Constructor | Versión |
-|-----------|-------------|---------|
-| net/http | `adapter.NewNetHTTP(mux)` | Biblioteca estándar |
-| Gin | `adapter.NewGin(engine)` | v1.10.0 |
-| Echo | `adapter.NewEcho(e)` | v4.12.0 |
-| Chi | `adapter.NewChi(mux)` | v5.3.2 |
-| Fiber | `adapter.NewFiber(app)` | v2.52.5 |
+| Framework | Constructor |
+|-----------|-------------|
+| net/http | `adapter.NewNetHTTP(mux)` |
+| Gin | `adapter.NewGin(engine)` |
+| Echo | `adapter.NewEcho(e)` |
+| Chi | `adapter.NewChi(mux)` |
+| Fiber | `adapter.NewFiber(app)` |
 
 ## Documentación multilingüe
 

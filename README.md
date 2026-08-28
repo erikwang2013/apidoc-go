@@ -4,6 +4,8 @@
 
 ## 项目介绍
 
+**当前版本：v1.0.1** · [Releases](https://github.com/erikwang2013/apidoc-go/releases)
+
 **apidoc-go** 是一个通用 Go API 文档插件库：接口文档以**类型化结构体**随路由注册时一同声明，文档与路由同生；内嵌 Web UI 提供在线浏览与在线调试，并内置密码鉴权、多应用/多版本管理、Mock 数据与 JSON / TypeScript 导出能力。一次接入，全框架通用，无需改造现有项目。
 
 ## 项目功能
@@ -140,13 +142,13 @@ Echo / Chi / Fiber 仅需替换适配器构造器：`adapter.NewEcho(e)`、`adap
 
 ### 框架适配器
 
-| 框架 | 构造器 | 版本 |
-|------|--------|------|
-| net/http | `adapter.NewNetHTTP(mux)` | 标准库 |
-| Gin | `adapter.NewGin(engine)` | v1.10.0 |
-| Echo | `adapter.NewEcho(e)` | v4.12.0 |
-| Chi | `adapter.NewChi(mux)` | v5.3.2 |
-| Fiber | `adapter.NewFiber(app)` | v2.52.5 |
+| 框架 | 构造器 |
+|------|--------|
+| net/http | `adapter.NewNetHTTP(mux)` |
+| Gin | `adapter.NewGin(engine)` |
+| Echo | `adapter.NewEcho(e)` |
+| Chi | `adapter.NewChi(mux)` |
+| Fiber | `adapter.NewFiber(app)` |
 
 ## 多语言文档
 

@@ -140,13 +140,13 @@ Echo / Chi / Fiber는 어댑터 생성자만 교체하면 됩니다: `adapter.Ne
 
 ### 프레임워크 어댑터
 
-| 프레임워크 | 생성자 | 버전 |
-|------|--------|------|
-| net/http | `adapter.NewNetHTTP(mux)` | 표준 라이브러리 |
-| Gin | `adapter.NewGin(engine)` | v1.10.0 |
-| Echo | `adapter.NewEcho(e)` | v4.12.0 |
-| Chi | `adapter.NewChi(mux)` | v5.3.2 |
-| Fiber | `adapter.NewFiber(app)` | v2.52.5 |
+| 프레임워크 | 생성자 |
+|------|--------|
+| net/http | `adapter.NewNetHTTP(mux)` |
+| Gin | `adapter.NewGin(engine)` |
+| Echo | `adapter.NewEcho(e)` |
+| Chi | `adapter.NewChi(mux)` |
+| Fiber | `adapter.NewFiber(app)` |
 
 ## 다국어 문서
 

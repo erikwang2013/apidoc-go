@@ -140,13 +140,13 @@ Echo / Chi / Fiber के लिए केवल एडाप्टर कंस
 
 ### फ्रेमवर्क एडाप्टर
 
-| फ्रेमवर्क | कंस्ट्रक्टर | संस्करण |
-|------|--------|------|
-| net/http | `adapter.NewNetHTTP(mux)` | मानक पुस्तकालय |
-| Gin | `adapter.NewGin(engine)` | v1.10.0 |
-| Echo | `adapter.NewEcho(e)` | v4.12.0 |
-| Chi | `adapter.NewChi(mux)` | v5.3.2 |
-| Fiber | `adapter.NewFiber(app)` | v2.52.5 |
+| फ्रेमवर्क | कंस्ट्रक्टर |
+|------|--------|
+| net/http | `adapter.NewNetHTTP(mux)` |
+| Gin | `adapter.NewGin(engine)` |
+| Echo | `adapter.NewEcho(e)` |
+| Chi | `adapter.NewChi(mux)` |
+| Fiber | `adapter.NewFiber(app)` |
 
 ## बहु-भाषा दस्तावेज़
 

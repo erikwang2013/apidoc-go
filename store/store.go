@@ -85,6 +85,21 @@ func (s *Store) Menus() []*model.App {
 	return out
 }
 
+// Project returns a deep copy of the whole project tree.
+func (s *Store) Project() (*model.Project, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	b, err := json.Marshal(s.proj)
+	if err != nil {
+		return nil, err
+	}
+	var p model.Project
+	if err := json.Unmarshal(b, &p); err != nil {
+		return nil, err
+	}
+	return &p, nil
+}
+
 // Action returns a deep copy of the action with the given ID.
 func (s *Store) Action(id string) (*model.Action, bool) {
 	s.mu.RLock()

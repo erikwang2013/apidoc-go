@@ -140,13 +140,13 @@ r.Run(":8080")
 
 ### محولات الأطر
 
-| الإطار | المُنشئ | الإصدار |
-|------|--------|------|
-| net/http | `adapter.NewNetHTTP(mux)` | المكتبة القياسية |
-| Gin | `adapter.NewGin(engine)` | v1.10.0 |
-| Echo | `adapter.NewEcho(e)` | v4.12.0 |
-| Chi | `adapter.NewChi(mux)` | v5.3.2 |
-| Fiber | `adapter.NewFiber(app)` | v2.52.5 |
+| الإطار | المُنشئ |
+|------|--------|
+| net/http | `adapter.NewNetHTTP(mux)` |
+| Gin | `adapter.NewGin(engine)` |
+| Echo | `adapter.NewEcho(e)` |
+| Chi | `adapter.NewChi(mux)` |
+| Fiber | `adapter.NewFiber(app)` |
 
 ## وثائق متعددة اللغات
 

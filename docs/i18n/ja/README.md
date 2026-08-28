@@ -140,13 +140,13 @@ Echo / Chi / Fiber はアダプターのコンストラクターを差し替え�
 
 ### フレームワークアダプター
 
-| フレームワーク | コンストラクター | バージョン |
-|----------------|------------------|------------|
-| net/http | `adapter.NewNetHTTP(mux)` | 標準ライブラリ |
-| Gin | `adapter.NewGin(engine)` | v1.10.0 |
-| Echo | `adapter.NewEcho(e)` | v4.12.0 |
-| Chi | `adapter.NewChi(mux)` | v5.3.2 |
-| Fiber | `adapter.NewFiber(app)` | v2.52.5 |
+| フレームワーク | コンストラクター |
+|----------------|------------------|
+| net/http | `adapter.NewNetHTTP(mux)` |
+| Gin | `adapter.NewGin(engine)` |
+| Echo | `adapter.NewEcho(e)` |
+| Chi | `adapter.NewChi(mux)` |
+| Fiber | `adapter.NewFiber(app)` |
 
 ## 多言語ドキュメント
 

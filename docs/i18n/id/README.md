@@ -140,13 +140,13 @@ Untuk Echo / Chi / Fiber cukup ganti konstruktor adapter: `adapter.NewEcho(e)`, 
 
 ### Adapter Kerangka
 
-| Kerangka | Konstruktor | Versi |
-|------|--------|------|
-| net/http | `adapter.NewNetHTTP(mux)` | Pustaka standar |
-| Gin | `adapter.NewGin(engine)` | v1.10.0 |
-| Echo | `adapter.NewEcho(e)` | v4.12.0 |
-| Chi | `adapter.NewChi(mux)` | v5.3.2 |
-| Fiber | `adapter.NewFiber(app)` | v2.52.5 |
+| Kerangka | Konstruktor |
+|------|--------|
+| net/http | `adapter.NewNetHTTP(mux)` |
+| Gin | `adapter.NewGin(engine)` |
+| Echo | `adapter.NewEcho(e)` |
+| Chi | `adapter.NewChi(mux)` |
+| Fiber | `adapter.NewFiber(app)` |
 
 ## Dokumentasi Multibahasa
 

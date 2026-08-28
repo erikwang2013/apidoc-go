@@ -140,13 +140,13 @@ Echo / Chi / Fiber-এর ক্ষেত্রে শুধু অ্যাড�
 
 ### ফ্রেমওয়ার্ক অ্যাডাপ্টার
 
-| ফ্রেমওয়ার্ক | কনস্ট্রাক্টর | সংস্করণ |
-|------|--------|------|
-| net/http | `adapter.NewNetHTTP(mux)` | স্ট্যান্ডার্ড লাইব্রেরি |
-| Gin | `adapter.NewGin(engine)` | v1.10.0 |
-| Echo | `adapter.NewEcho(e)` | v4.12.0 |
-| Chi | `adapter.NewChi(mux)` | v5.3.2 |
-| Fiber | `adapter.NewFiber(app)` | v2.52.5 |
+| ফ্রেমওয়ার্ক | কনস্ট্রাক্টর |
+|------|--------|
+| net/http | `adapter.NewNetHTTP(mux)` |
+| Gin | `adapter.NewGin(engine)` |
+| Echo | `adapter.NewEcho(e)` |
+| Chi | `adapter.NewChi(mux)` |
+| Fiber | `adapter.NewFiber(app)` |
 
 ## বহুভাষিক ডকুমেন্টেশন
 

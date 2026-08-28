@@ -13,6 +13,8 @@ import (
 	"time"
 
 	"github.com/erikwang2013/apidoc-go/auth"
+	"github.com/erikwang2013/apidoc-go/export"
+	"github.com/erikwang2013/apidoc-go/mock"
 	"github.com/erikwang2013/apidoc-go/model"
 	"github.com/erikwang2013/apidoc-go/store"
 	"github.com/yuin/goldmark"
@@ -55,6 +57,7 @@ func Handler(o Opts) http.Handler {
 	h := &apiHandler{o: o}
 	mux.HandleFunc("GET /api/menus", h.menus)
 	mux.HandleFunc("GET /api/detail", h.detail)
+	mux.HandleFunc("GET /api/export", h.export)
 	mux.HandleFunc("POST /api/login", h.login)
 	mux.HandleFunc("POST /api/app-login", h.appLogin)
 	mux.HandleFunc("GET /{$}", h.ui)
@@ -177,9 +180,52 @@ func (h *apiHandler) detail(w http.ResponseWriter, r *http.Request) {
 		"id": a.ID, "app": a.App, "version": a.Version, "controller": a.Controller,
 		"method": a.Method, "url": a.URL, "title": a.Title, "desc": a.Desc,
 		"author": a.Author, "params": mergeParams(h.o.GlobalParams, a.Params),
-		"responses": a.Responses, "markdown_html": md.String(), "mock": a.Mock,
+		"responses": a.Responses, "markdown_html": md.String(), "mock": actionMock(a),
 		"protected": protected,
 	}})
+}
+
+// export serves the whole doc tree: format=json (default) returns the
+// project tree, format=typescript returns TypeScript interface
+// definitions. Unknown formats get a 400. Auth gating is inherited from
+// withAuth like every other /api route.
+func (h *apiHandler) export(w http.ResponseWriter, r *http.Request) {
+	// Protected apps' payloads are in the export tree; require the same
+	// session token withAuth uses before dumping it.
+	if len(h.o.AppPWs) > 0 {
+		if c, err := r.Cookie(cookieName); err != nil {
+			errJSON(w, http.StatusUnauthorized, "login required")
+			return
+		} else if data, ok := auth.Verify(h.o.Auth.Secret, c.Value); !ok || data != "session" {
+			errJSON(w, http.StatusUnauthorized, "login required")
+			return
+		}
+	}
+	p, err := h.o.Store.Project()
+	if err != nil {
+		errJSON(w, http.StatusInternalServerError, "export failed")
+		return
+	}
+	switch r.URL.Query().Get("format") {
+	case "", "json":
+		writeJSON(w, http.StatusOK, map[string]any{"code": 0, "msg": "ok", "data": p})
+	case "typescript":
+		b, _ := json.Marshal(map[string]any{"code": 0, "msg": "ok", "data": export.Typescript(p)})
+		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write(b)
+	default:
+		errJSON(w, http.StatusBadRequest, "unknown format")
+	}
+}
+
+// actionMock returns the action's own mock string, or generated example
+// values keyed by param name when none was registered.
+func actionMock(a *model.Action) string {
+	if a.Mock != "" {
+		return a.Mock
+	}
+	return mock.Action(a)
 }
 
 // ui serves the embedded single-file UI.
