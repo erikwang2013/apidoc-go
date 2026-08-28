@@ -4,7 +4,7 @@
 
 ## 项目介绍
 
-**当前版本：v1.0.2** · [Releases](https://github.com/erikwang2013/apidoc-go/releases)
+**当前版本：以 [Releases](https://github.com/erikwang2013/apidoc-go/releases) 为准**
 
 **apidoc-go** 是一个通用 Go API 文档插件库：接口文档以**类型化结构体**随路由注册时一同声明，文档与路由同生；内嵌 Web UI 提供在线浏览与在线调试，并内置密码鉴权、多应用/多版本管理、Mock 数据与 JSON / TypeScript 导出能力、注释解析、接口缓存与参数自动补全。一次接入，全框架通用，无需改造现有项目。
 
