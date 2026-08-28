@@ -1,0 +1,52 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get latest tag
+        id: latest
+        run: |
+          git fetch --tags --force
+          latest=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+          echo "latest=$latest" >> "$GITHUB_OUTPUT"
+
+      - name: Bump patch version
+        id: bump
+        run: |
+          base=${latest#v}
+          IFS='.' read -r major minor patch <<< "$base"
+          echo "tag=v${major}.${minor}.$((patch + 1))" >> "$GITHUB_OUTPUT"
+        env:
+          latest: ${{ steps.latest.outputs.latest }}
+
+      - name: Create and push tag
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag "$tag"
+          git push origin "$tag"
+        env:
+          tag: ${{ steps.bump.outputs.tag }}
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.bump.outputs.tag }}
+          generate_release_notes: true
