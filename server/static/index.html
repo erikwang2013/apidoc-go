@@ -159,15 +159,14 @@ async function openAction(id, li) {
     if (!pw) return;
     await appLogin(data.app, pw);
     const d2 = await fetchDetailWithToken(path, data.app);
-    if (d2) return showDetail(d2, data.app);
+    if (d2) return showDetail(d2);
   }
   if (res.status === 401) { document.getElementById('login').style.display = 'flex'; return; }
-  showDetail(data.data, null);
+  showDetail(data.data);
 }
 
 async function fetchDetailWithToken(path, appKey) {
-  const res = await fetch(base + path, { credentials: 'include', headers: { 'X-Apidoc-App-Token': appTokens[appKey] || '' } });
-  const data = await res.json();
+  const { res, data } = await api(path, { headers: { 'X-Apidoc-App-Token': appTokens[appKey] || '' } });
   return res.status === 200 ? data.data : null;
 }
 
@@ -178,7 +177,7 @@ async function appLogin(appKey, password) {
   if (res.status === 200 && data.data && data.data.token) appTokens[appKey] = data.data.token;
 }
 
-function showDetail(d, appKey) {
+function showDetail(d) {
   current = d;
   document.getElementById('d-title').textContent = d.title || d.url;
   document.getElementById('d-method').textContent = d.method;
@@ -190,7 +189,7 @@ function showDetail(d, appKey) {
   renderResponses(d.responses);
   document.getElementById('d-markdown').innerHTML = d.markdown_html || '';
   document.getElementById('d-mock').textContent = d.mock || '{}';
-  setupDebug(d, appKey);
+  setupDebug(d);
   showTab('info');
 }
 

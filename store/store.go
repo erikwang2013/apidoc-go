@@ -54,7 +54,6 @@ func (s *Store) Register(method, u string, d model.Doc) {
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	ctl := s.controller(s.version(s.app(d.App), d.Version), d.Controller)
 	id := ActionID(d.App, d.Version, method, u)
 	a := &model.Action{
 		ID: id, App: d.App, Version: d.Version, Controller: d.Controller,
@@ -66,20 +65,31 @@ func (s *Store) Register(method, u string, d model.Doc) {
 		*old = *a // keep tree position, replace content
 		return
 	}
+	ctl := s.controller(s.version(s.app(d.App), d.Version), d.Controller)
 	s.byID[id] = a
 	ctl.Actions = append(ctl.Actions, a)
+}
+
+// clone deep-copies v via a JSON round-trip (model types are JSON-shaped).
+// The copy happens while the caller holds the read lock so concurrent
+// Register writes can't race the marshal.
+func clone[T any](v T) (T, error) {
+	b, err := json.Marshal(v)
+	if err != nil {
+		var zero T
+		return zero, err
+	}
+	var out T
+	err = json.Unmarshal(b, &out)
+	return out, err
 }
 
 // Menus returns a deep copy of the app tree (id/title/sort per action).
 func (s *Store) Menus() []*model.App {
 	s.mu.RLock()
-	b, err := json.Marshal(s.proj.Apps)
-	s.mu.RUnlock()
+	defer s.mu.RUnlock()
+	out, err := clone(s.proj.Apps)
 	if err != nil {
-		return nil
-	}
-	var out []*model.App
-	if err := json.Unmarshal(b, &out); err != nil {
 		return nil
 	}
 	return out
@@ -89,34 +99,22 @@ func (s *Store) Menus() []*model.App {
 func (s *Store) Project() (*model.Project, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	b, err := json.Marshal(s.proj)
-	if err != nil {
-		return nil, err
-	}
-	var p model.Project
-	if err := json.Unmarshal(b, &p); err != nil {
-		return nil, err
-	}
-	return &p, nil
+	return clone(s.proj)
 }
 
 // Action returns a deep copy of the action with the given ID.
 func (s *Store) Action(id string) (*model.Action, bool) {
 	s.mu.RLock()
+	defer s.mu.RUnlock()
 	a := s.byID[id]
-	s.mu.RUnlock()
 	if a == nil {
 		return nil, false
 	}
-	b, err := json.Marshal(a)
+	out, err := clone(a)
 	if err != nil {
 		return nil, false
 	}
-	var out model.Action
-	if err := json.Unmarshal(b, &out); err != nil {
-		return nil, false
-	}
-	return &out, true
+	return out, true
 }
 
 // MarshalJSON serializes the whole store (doc data only).

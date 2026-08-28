@@ -1,7 +1,6 @@
 package adapter
 
 import (
-	"fmt"
 	"net/http"
 
 	"github.com/labstack/echo/v4"
@@ -15,15 +14,11 @@ func NewEcho(e *echo.Echo) *Echo { return &Echo{e: e} }
 
 // Register implements Framework.
 func (a *Echo) Register(method, path string, h any) (err error) {
-	hf, ok := h.(echo.HandlerFunc)
-	if !ok {
-		return fmt.Errorf("apidoc: expected echo.HandlerFunc, got %T", h)
+	hf, err := handler[echo.HandlerFunc](h)
+	if err != nil {
+		return err
 	}
-	defer func() {
-		if p := recover(); p != nil {
-			err = fmt.Errorf("apidoc: echo register %s %s: %v", method, path, p)
-		}
-	}()
+	defer recoverRegister("echo", method, path, &err)
 	a.e.Add(method, path, hf)
 	return nil
 }

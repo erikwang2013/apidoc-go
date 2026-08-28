@@ -61,6 +61,31 @@ func TestReflectParamsNoStructArgs(t *testing.T) {
 	}
 }
 
+type node struct {
+	Name   string
+	Parent *node
+}
+
+func TestReflectParamsCyclicStruct(t *testing.T) {
+	ps := reflectParams(func(r *http.Request, n *node) {})
+	if len(ps) != 1 || ps[0].Type != "node" {
+		t.Fatalf("self-referential struct must not recurse: got %+v", ps)
+	}
+}
+
+type wrap struct {
+	X node
+	Y node
+}
+
+func TestReflectParamsRepeatedType(t *testing.T) {
+	ps := reflectParams(func(r *http.Request, w *wrap) {})
+	c := ps[0].Children
+	if len(c) != 2 || c[1].Children == nil || len(c[1].Children) != 2 {
+		t.Fatalf("repeated struct type must expand fully: got %+v", c)
+	}
+}
+
 // The isCtx skip list is name-based: structs named like framework contexts
 // are treated as contexts even when user-defined.
 type Context struct{ Foo string }

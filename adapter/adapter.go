@@ -2,7 +2,28 @@
 // No framework imports live in this file.
 package adapter
 
-import "net/http"
+import (
+	"fmt"
+	"net/http"
+)
+
+// handler type-asserts h to the framework's handler type, naming the
+// expected type on mismatch.
+func handler[T any](h any) (T, error) {
+	var zero T
+	if v, ok := h.(T); ok {
+		return v, nil
+	}
+	return zero, fmt.Errorf("apidoc: expected %T, got %T", zero, h)
+}
+
+// recoverRegister turns a framework registration panic into a returned
+// error carrying the route.
+func recoverRegister(name, method, path string, err *error) {
+	if p := recover(); p != nil {
+		*err = fmt.Errorf("apidoc: %s register %s %s: %v", name, method, path, p)
+	}
+}
 
 // Framework is the minimal surface a host framework must provide.
 // The concrete handlers (http.HandlerFunc, gin.HandlerFunc, ...) are

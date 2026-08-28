@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"net/http"
 	"sync"
-	"time"
 
 	"github.com/erikwang2013/apidoc-go/adapter"
 	"github.com/erikwang2013/apidoc-go/auth"
@@ -58,9 +57,6 @@ func New(cfg Config) *Server {
 	}
 	if cfg.Title == "" {
 		cfg.Title = "API Docs"
-	}
-	if cfg.Auth.Expire <= 0 {
-		cfg.Auth.Expire = 24 * time.Hour
 	}
 	s := &Server{cfg: cfg, st: store.New(cfg.Title), appPw: map[string]string{}, forwarded: map[string]bool{}}
 	for _, a := range cfg.Apps {

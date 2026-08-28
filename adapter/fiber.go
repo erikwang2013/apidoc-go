@@ -1,7 +1,6 @@
 package adapter
 
 import (
-	"fmt"
 	"net/http"
 
 	"github.com/gofiber/fiber/v2"
@@ -16,15 +15,11 @@ func NewFiber(app *fiber.App) *Fiber { return &Fiber{app: app} }
 
 // Register implements Framework.
 func (a *Fiber) Register(method, path string, h any) (err error) {
-	hf, ok := h.(fiber.Handler)
-	if !ok {
-		return fmt.Errorf("apidoc: expected fiber.Handler, got %T", h)
+	hf, err := handler[fiber.Handler](h)
+	if err != nil {
+		return err
 	}
-	defer func() {
-		if p := recover(); p != nil {
-			err = fmt.Errorf("apidoc: fiber register %s %s: %v", method, path, p)
-		}
-	}()
+	defer recoverRegister("fiber", method, path, &err)
 	a.app.Add(method, path, hf)
 	return nil
 }

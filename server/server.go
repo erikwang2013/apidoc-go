@@ -55,6 +55,9 @@ type Opts struct {
 // at /api, embedded UI at /. Adapters mount it under their prefix and
 // strip that prefix, so all routes here are mount-relative.
 func Handler(o Opts) http.Handler {
+	if o.Auth.Expire <= 0 {
+		o.Auth.Expire = 24 * time.Hour
+	}
 	mux := http.NewServeMux()
 	h := &apiHandler{o: o}
 	mux.HandleFunc("GET /api/menus", h.menus)
@@ -81,26 +84,22 @@ type apiHandler struct{ o Opts }
 func (h *apiHandler) login(w http.ResponseWriter, r *http.Request) {
 	var body struct{ Password string }
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		errJSON(w, r, http.StatusBadRequest, "invalid body")
+		errJSON(w, http.StatusBadRequest, "invalid body")
 		return
 	}
 	if !auth.CheckPassword(h.o.Auth.Secret, h.o.Auth.Password, body.Password) {
-		errJSON(w, r, http.StatusUnauthorized, "invalid password")
+		errJSON(w, http.StatusUnauthorized, "invalid password")
 		return
 	}
-	expire := h.o.Auth.Expire
-	if expire <= 0 {
-		expire = 24 * time.Hour
-	}
-	tok, err := auth.Issue(h.o.Auth.Secret, expire, "session")
+	tok, err := auth.Issue(h.o.Auth.Secret, h.o.Auth.Expire, "session")
 	if err != nil {
-		errJSON(w, r, http.StatusInternalServerError, "token issue failed")
+		errJSON(w, http.StatusInternalServerError, "token issue failed")
 		return
 	}
 	http.SetCookie(w, &http.Cookie{
 		Name: cookieName, Value: tok, Path: h.o.Prefix,
 		HttpOnly: true, SameSite: http.SameSiteLaxMode,
-		Expires: time.Now().Add(expire), Secure: h.o.Auth.Secure,
+		Expires: time.Now().Add(h.o.Auth.Expire), Secure: h.o.Auth.Secure,
 	})
 	writeJSON(w, r, http.StatusOK, map[string]any{"code": 0, "msg": "ok"})
 }
@@ -112,21 +111,21 @@ func (h *apiHandler) appLogin(w http.ResponseWriter, r *http.Request) {
 		Password string
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		errJSON(w, r, http.StatusBadRequest, "invalid body")
+		errJSON(w, http.StatusBadRequest, "invalid body")
 		return
 	}
 	pw, ok := h.o.AppPWs[body.App]
 	if !ok {
-		errJSON(w, r, http.StatusNotFound, "no such app")
+		errJSON(w, http.StatusNotFound, "no such app")
 		return
 	}
 	if !auth.CheckPassword(h.o.Auth.Secret, pw, body.Password) {
-		errJSON(w, r, http.StatusUnauthorized, "invalid password")
+		errJSON(w, http.StatusUnauthorized, "invalid password")
 		return
 	}
 	tok, err := auth.Issue(h.o.Auth.Secret, appTokenTTL, body.App)
 	if err != nil {
-		errJSON(w, r, http.StatusInternalServerError, "token issue failed")
+		errJSON(w, http.StatusInternalServerError, "token issue failed")
 		return
 	}
 	writeJSON(w, r, http.StatusOK, map[string]any{
@@ -163,7 +162,7 @@ func (h *apiHandler) menus(w http.ResponseWriter, r *http.Request) {
 func (h *apiHandler) detail(w http.ResponseWriter, r *http.Request) {
 	a, ok := h.o.Store.Action(r.URL.Query().Get("id"))
 	if !ok {
-		errJSON(w, r, http.StatusNotFound, "action not found")
+		errJSON(w, http.StatusNotFound, "action not found")
 		return
 	}
 	_, protected := h.o.AppPWs[a.App]
@@ -194,18 +193,13 @@ func (h *apiHandler) detail(w http.ResponseWriter, r *http.Request) {
 func (h *apiHandler) export(w http.ResponseWriter, r *http.Request) {
 	// Protected apps' payloads are in the export tree; require the same
 	// session token withAuth uses before dumping it.
-	if len(h.o.AppPWs) > 0 {
-		if c, err := r.Cookie(cookieName); err != nil {
-			errJSON(w, r, http.StatusUnauthorized, "login required")
-			return
-		} else if data, ok := auth.Verify(h.o.Auth.Secret, c.Value); !ok || data != "session" {
-			errJSON(w, r, http.StatusUnauthorized, "login required")
-			return
-		}
+	if len(h.o.AppPWs) > 0 && !validSession(h.o, r) {
+		errJSON(w, http.StatusUnauthorized, "login required")
+		return
 	}
 	p, err := h.o.Store.Project()
 	if err != nil {
-		errJSON(w, r, http.StatusInternalServerError, "export failed")
+		errJSON(w, http.StatusInternalServerError, "export failed")
 		return
 	}
 	switch r.URL.Query().Get("format") {
@@ -217,7 +211,7 @@ func (h *apiHandler) export(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write(b)
 	default:
-		errJSON(w, r, http.StatusBadRequest, "unknown format")
+		errJSON(w, http.StatusBadRequest, "unknown format")
 	}
 }
 
@@ -263,9 +257,9 @@ func writeJSON(w http.ResponseWriter, r *http.Request, status int, v any) {
 		body = []byte(`{"code":500,"msg":"encode failed"}`)
 		status = http.StatusInternalServerError
 	}
-	if r.Method == http.MethodGet || r.Method == http.MethodHead {
-		// Cache immutable JSON: ETag lets browsers skip refetching. private:
-		// detail of token-protected apps must not land in a shared cache.
+	if status < 300 && r != nil && (r.Method == http.MethodGet || r.Method == http.MethodHead) {
+		// ETag lets browsers skip refetching. private: detail of
+		// token-protected apps must not land in a shared cache.
 		sum := sha256.Sum256(body)
 		etag := `"` + hex.EncodeToString(sum[:]) + `"`
 		w.Header().Set("ETag", etag)
@@ -280,8 +274,20 @@ func writeJSON(w http.ResponseWriter, r *http.Request, status int, v any) {
 	_, _ = w.Write(body)
 }
 
-func errJSON(w http.ResponseWriter, r *http.Request, status int, msg string) {
-	writeJSON(w, r, status, map[string]any{"code": status, "msg": msg})
+func errJSON(w http.ResponseWriter, status int, msg string) {
+	writeJSON(w, nil, status, map[string]any{"code": status, "msg": msg})
+}
+
+// validSession reports whether the request carries the global session
+// cookie that login issues. Only the "session" token qualifies: an
+// app-scoped token (weaker secret holder) must not bypass the gate.
+func validSession(o Opts, r *http.Request) bool {
+	c, err := r.Cookie(cookieName)
+	if err != nil {
+		return false
+	}
+	data, ok := auth.Verify(o.Auth.Secret, c.Value)
+	return ok && data == "session"
 }
 
 // withAuth gates the /api endpoints when global auth is enabled.
@@ -293,19 +299,11 @@ func withAuth(o Opts, next http.Handler) http.Handler {
 	}
 	open := map[string]bool{"/api/login": true, "/api/app-login": true}
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if !strings.HasPrefix(r.URL.Path, "/api") || open[r.URL.Path] {
+		if !strings.HasPrefix(r.URL.Path, "/api") || open[r.URL.Path] || validSession(o, r) {
 			next.ServeHTTP(w, r)
 			return
 		}
-		if c, err := r.Cookie(cookieName); err == nil {
-			// Only the "session" token may act as the session cookie; an
-			// app-scoped token (weaker secret holder) must not bypass this gate.
-			if data, ok := auth.Verify(o.Auth.Secret, c.Value); ok && data == "session" {
-				next.ServeHTTP(w, r)
-				return
-			}
-		}
-		errJSON(w, r, http.StatusUnauthorized, "unauthorized")
+		errJSON(w, http.StatusUnauthorized, "unauthorized")
 	})
 }
 

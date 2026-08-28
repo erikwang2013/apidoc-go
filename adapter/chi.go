@@ -1,7 +1,6 @@
 package adapter
 
 import (
-	"fmt"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -15,15 +14,11 @@ func NewChi(mux *chi.Mux) *Chi { return &Chi{mux: mux} }
 
 // Register implements Framework.
 func (a *Chi) Register(method, path string, h any) (err error) {
-	hf, ok := h.(http.HandlerFunc)
-	if !ok {
-		return fmt.Errorf("apidoc: expected http.HandlerFunc, got %T", h)
+	hf, err := handler[http.HandlerFunc](h)
+	if err != nil {
+		return err
 	}
-	defer func() {
-		if p := recover(); p != nil {
-			err = fmt.Errorf("apidoc: chi register %s %s: %v", method, path, p)
-		}
-	}()
+	defer recoverRegister("chi", method, path, &err)
 	a.mux.Method(method, path, hf)
 	return nil
 }

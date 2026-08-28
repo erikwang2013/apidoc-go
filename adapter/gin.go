@@ -1,7 +1,6 @@
 package adapter
 
 import (
-	"fmt"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -15,15 +14,11 @@ func NewGin(e *gin.Engine) *Gin { return &Gin{e: e} }
 
 // Register implements Framework.
 func (a *Gin) Register(method, path string, h any) (err error) {
-	hf, ok := h.(gin.HandlerFunc)
-	if !ok {
-		return fmt.Errorf("apidoc: expected gin.HandlerFunc, got %T", h)
+	hf, err := handler[gin.HandlerFunc](h)
+	if err != nil {
+		return err
 	}
-	defer func() {
-		if p := recover(); p != nil {
-			err = fmt.Errorf("apidoc: gin register %s %s: %v", method, path, p)
-		}
-	}()
+	defer recoverRegister("gin", method, path, &err)
 	a.e.Handle(method, path, hf)
 	return nil
 }
