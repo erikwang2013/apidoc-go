@@ -60,6 +60,12 @@ func Verify(secret, token string) (string, bool) {
 	if err != nil {
 		return "", false
 	}
+	// Reject non-canonical encodings: base64 ignores trailing padding bits,
+	// so a tampered last char could decode to the same bytes.
+	if base64.RawURLEncoding.EncodeToString(payload) != parts[0] ||
+		base64.RawURLEncoding.EncodeToString(sig) != parts[1] {
+		return "", false
+	}
 	mac := hmac.New(sha256.New, []byte(secret))
 	mac.Write(payload)
 	if !hmac.Equal(sig, mac.Sum(nil)) {
