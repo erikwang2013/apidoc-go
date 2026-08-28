@@ -1,0 +1,57 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 300" font-family="system-ui, -apple-system, 'Segoe UI', 'PingFang SC', sans-serif">
+  <rect width="900" height="300" fill="#ffffff"/>
+  <text x="450" y="40" text-anchor="middle" font-size="24" font-weight="700" fill="#1a1a2e">Ciclo de vida do projeto</text>
+  <text x="450" y="64" text-anchor="middle" font-size="14" fill="#666">O fluxo completo de um documento de API, da declaração à atualização iterativa</text>
+
+  <defs>
+    <marker id="larrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#4a7dff"/>
+    </marker>
+  </defs>
+
+  <!-- 6 阶段 -->
+  <rect x="40" y="110" width="120" height="86" rx="10" fill="#eef4ff" stroke="#4a7dff"/>
+  <text x="100" y="144" text-anchor="middle" font-size="14" font-weight="600" fill="#1a1a2e">1. Declarar Doc</text>
+  <text x="100" y="166" text-anchor="middle" font-size="11" fill="#555">Estrutura tipada</text>
+  <text x="100" y="184" text-anchor="middle" font-size="11" fill="#555">Título / parâmetros / resposta</text>
+
+  <rect x="190" y="110" width="120" height="86" rx="10" fill="#f0fdf4" stroke="#22c55e"/>
+  <text x="250" y="144" text-anchor="middle" font-size="14" font-weight="600" fill="#1a1a2e">2. Registro</text>
+  <text x="250" y="166" text-anchor="middle" font-size="11" fill="#555">Register(Route)</text>
+  <text x="250" y="184" text-anchor="middle" font-size="11" fill="#555">A documentação nasce junto com a rota</text>
+
+  <rect x="340" y="110" width="120" height="86" rx="10" fill="#fff7ed" stroke="#f97316"/>
+  <text x="400" y="144" text-anchor="middle" font-size="14" font-weight="600" fill="#1a1a2e">3. Armazenamento</text>
+  <text x="400" y="166" text-anchor="middle" font-size="11" fill="#555">Deduplicação no Store</text>
+  <text x="400" y="184" text-anchor="middle" font-size="11" fill="#555">JSON serializável</text>
+
+  <rect x="490" y="110" width="120" height="86" rx="10" fill="#fdf2f8" stroke="#ec4899"/>
+  <text x="550" y="144" text-anchor="middle" font-size="14" font-weight="600" fill="#1a1a2e">4. Serviço</text>
+  <text x="550" y="166" text-anchor="middle" font-size="11" fill="#555">Server JSON API</text>
+  <text x="550" y="184" text-anchor="middle" font-size="11" fill="#555">Autenticação · CORS</text>
+
+  <rect x="640" y="110" width="120" height="86" rx="10" fill="#ecfeff" stroke="#06b6d4"/>
+  <text x="700" y="144" text-anchor="middle" font-size="14" font-weight="600" fill="#1a1a2e">5. Exibição / depuração</text>
+  <text x="700" y="166" text-anchor="middle" font-size="11" fill="#555">Web UI integrada</text>
+  <text x="700" y="184" text-anchor="middle" font-size="11" fill="#555">Solicita as interfaces reais on-line</text>
+
+  <rect x="790" y="110" width="90" height="86" rx="10" fill="#f5f3ff" stroke="#8b5cf6"/>
+  <text x="835" y="144" text-anchor="middle" font-size="14" font-weight="600" fill="#1a1a2e">6. Iteração</text>
+  <text x="835" y="166" text-anchor="middle" font-size="11" fill="#555">Registrar novamente</text>
+  <text x="835" y="184" text-anchor="middle" font-size="11" fill="#555">Atualização por sobrescrita</text>
+
+  <line x1="160" y1="153" x2="188" y2="153" stroke="#4a7dff" stroke-width="2.5" marker-end="url(#larrow)"/>
+  <line x1="310" y1="153" x2="338" y2="153" stroke="#4a7dff" stroke-width="2.5" marker-end="url(#larrow)"/>
+  <line x1="460" y1="153" x2="488" y2="153" stroke="#4a7dff" stroke-width="2.5" marker-end="url(#larrow)"/>
+  <line x1="610" y1="153" x2="638" y2="153" stroke="#4a7dff" stroke-width="2.5" marker-end="url(#larrow)"/>
+  <line x1="760" y1="153" x2="788" y2="153" stroke="#4a7dff" stroke-width="2.5" marker-end="url(#larrow)"/>
+
+  <!-- 迭代回环 -->
+  <path d="M 835 196 C 835 262 100 262 100 196" fill="none" stroke="#8b5cf6" stroke-width="2" stroke-dasharray="6 4" marker-end="url(#larrow)"/>
+  <text x="467" y="262" text-anchor="middle" font-size="12" fill="#8b5cf6">Quando a API muda, basta registrá-la novamente para sobrescrever a documentação; ela evolui em sincronia com o código</text>
+
+  <!-- 水印 -->
+  <g opacity="0.4">
+    <text x="826" y="286" font-size="15" fill="#94a3b8" text-anchor="end" transform="rotate(-18 826 286)">https://erik.xyz</text>
+  </g>
+</svg>

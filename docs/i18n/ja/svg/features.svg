@@ -1,0 +1,74 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 560" font-family="system-ui, -apple-system, 'Segoe UI', 'PingFang SC', sans-serif">
+  <rect width="900" height="560" fill="#ffffff"/>
+  <text x="450" y="40" text-anchor="middle" font-size="24" font-weight="700" fill="#1a1a2e">プロジェクト機能</text>
+  <text x="450" y="64" text-anchor="middle" font-size="14" fill="#666">apidoc-go コア機能の概要</text>
+
+  <!-- 3x3 機能グリッド -->
+  <rect x="60" y="100" width="246" height="130" rx="12" fill="#eef4ff" stroke="#4a7dff"/>
+  <circle cx="183" cy="138" r="14" fill="#4a7dff"/>
+  <text x="183" y="144" text-anchor="middle" font-size="15" font-weight="700" fill="#ffffff">1</text>
+  <text x="183" y="176" text-anchor="middle" font-size="15" font-weight="600" fill="#1a1a2e">ドキュメント自動生成</text>
+  <text x="183" y="200" text-anchor="middle" font-size="12" fill="#555">型付き Doc 宣言をルート登録と同時に</text>
+  <text x="183" y="218" text-anchor="middle" font-size="12" fill="#555">一度宣言でドキュメントはルートと共に生まれる</text>
+
+  <rect x="327" y="100" width="246" height="130" rx="12" fill="#f0fdf4" stroke="#22c55e"/>
+  <circle cx="450" cy="138" r="14" fill="#22c55e"/>
+  <text x="450" y="144" text-anchor="middle" font-size="15" font-weight="700" fill="#ffffff">2</text>
+  <text x="450" y="176" text-anchor="middle" font-size="15" font-weight="600" fill="#1a1a2e">オンライン実行</text>
+  <text x="450" y="200" text-anchor="middle" font-size="12" fill="#555">ブラウザから直接実 API をリクエスト</text>
+  <text x="450" y="218" text-anchor="middle" font-size="12" fill="#555">サーバー転送なしで SSRF もなし</text>
+
+  <rect x="594" y="100" width="246" height="130" rx="12" fill="#fff7ed" stroke="#f97316"/>
+  <circle cx="717" cy="138" r="14" fill="#f97316"/>
+  <text x="717" y="144" text-anchor="middle" font-size="15" font-weight="700" fill="#ffffff">3</text>
+  <text x="717" y="176" text-anchor="middle" font-size="15" font-weight="600" fill="#1a1a2e">Mock データ</text>
+  <text x="717" y="200" text-anchor="middle" font-size="12" fill="#555">フィールド単位の Mock サンプル</text>
+  <text x="717" y="218" text-anchor="middle" font-size="12" fill="#555">API 連携を一歩先取り</text>
+
+  <rect x="60" y="250" width="246" height="130" rx="12" fill="#fdf2f8" stroke="#ec4899"/>
+  <circle cx="183" cy="288" r="14" fill="#ec4899"/>
+  <text x="183" y="294" text-anchor="middle" font-size="15" font-weight="700" fill="#ffffff">4</text>
+  <text x="183" y="326" text-anchor="middle" font-size="15" font-weight="600" fill="#1a1a2e">複数アプリ / 複数バージョン</text>
+  <text x="183" y="350" text-anchor="middle" font-size="12" fill="#555">App / Version のツリー管理</text>
+  <text x="183" y="368" text-anchor="middle" font-size="12" fill="#555">1 つのプラグインで全プロジェクトのドキュメント</text>
+
+  <rect x="327" y="250" width="246" height="130" rx="12" fill="#f5f3ff" stroke="#8b5cf6"/>
+  <circle cx="450" cy="288" r="14" fill="#8b5cf6"/>
+  <text x="450" y="294" text-anchor="middle" font-size="15" font-weight="700" fill="#ffffff">5</text>
+  <text x="450" y="326" text-anchor="middle" font-size="15" font-weight="600" fill="#1a1a2e">パスワード認証</text>
+  <text x="450" y="350" text-anchor="middle" font-size="12" fill="#555">グローバルパスワード + アプリ単位パスワード</text>
+  <text x="450" y="368" text-anchor="middle" font-size="12" fill="#555">HMAC トークン・定数時間比較</text>
+
+  <rect x="594" y="250" width="246" height="130" rx="12" fill="#ecfeff" stroke="#06b6d4"/>
+  <circle cx="717" cy="288" r="14" fill="#06b6d4"/>
+  <text x="717" y="294" text-anchor="middle" font-size="15" font-weight="700" fill="#ffffff">6</text>
+  <text x="717" y="326" text-anchor="middle" font-size="15" font-weight="600" fill="#1a1a2e">Markdown ドキュメント</text>
+  <text x="717" y="350" text-anchor="middle" font-size="12" fill="#555">goldmark による安全なレンダリング</text>
+  <text x="717" y="368" text-anchor="middle" font-size="12" fill="#555">生の HTML は自動除去</text>
+
+  <rect x="60" y="400" width="246" height="130" rx="12" fill="#fefce8" stroke="#eab308"/>
+  <circle cx="183" cy="438" r="14" fill="#eab308"/>
+  <text x="183" y="444" text-anchor="middle" font-size="15" font-weight="700" fill="#ffffff">7</text>
+  <text x="183" y="476" text-anchor="middle" font-size="15" font-weight="600" fill="#1a1a2e">複数フレームワーク対応</text>
+  <text x="183" y="500" text-anchor="middle" font-size="12" fill="#555">net/http · Gin · Echo · Chi · Fiber</text>
+  <text x="183" y="518" text-anchor="middle" font-size="12" fill="#555">一度組み込めば全フレームワークで利用可能</text>
+
+  <rect x="327" y="400" width="246" height="130" rx="12" fill="#fef2f2" stroke="#ef4444"/>
+  <circle cx="450" cy="438" r="14" fill="#ef4444"/>
+  <text x="450" y="444" text-anchor="middle" font-size="15" font-weight="700" fill="#ffffff">8</text>
+  <text x="450" y="476" text-anchor="middle" font-size="15" font-weight="600" fill="#1a1a2e">JSON / TypeScript エクスポート</text>
+  <text x="450" y="500" text-anchor="middle" font-size="12" fill="#555">インターフェース型をワンクリックエクスポート</text>
+  <text x="450" y="518" text-anchor="middle" font-size="12" fill="#555">フロントエンド連携がよりスムーズに</text>
+
+  <rect x="594" y="400" width="246" height="130" rx="12" fill="#f0f9ff" stroke="#3b82f6"/>
+  <circle cx="717" cy="438" r="14" fill="#3b82f6"/>
+  <text x="717" y="444" text-anchor="middle" font-size="15" font-weight="700" fill="#ffffff">9</text>
+  <text x="717" y="476" text-anchor="middle" font-size="15" font-weight="600" fill="#1a1a2e">セキュリティ対策</text>
+  <text x="717" y="500" text-anchor="middle" font-size="12" fill="#555">SSRF なし・CORS ホワイトリスト制限</text>
+  <text x="717" y="518" text-anchor="middle" font-size="12" fill="#555">XSS 対策・パストラバーサル対策</text>
+
+  <!-- ウォーターマーク -->
+  <g opacity="0.4">
+    <text x="826" y="536" font-size="15" fill="#94a3b8" text-anchor="end" transform="rotate(-18 826 536)">https://erik.xyz</text>
+  </g>
+</svg>

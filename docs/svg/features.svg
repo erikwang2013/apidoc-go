@@ -1,0 +1,74 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 560" font-family="system-ui, -apple-system, 'Segoe UI', 'PingFang SC', sans-serif">
+  <rect width="900" height="560" fill="#ffffff"/>
+  <text x="450" y="40" text-anchor="middle" font-size="24" font-weight="700" fill="#1a1a2e">项目功能</text>
+  <text x="450" y="64" text-anchor="middle" font-size="14" fill="#666">apidoc-go 核心功能总览</text>
+
+  <!-- 3x3 功能网格 -->
+  <rect x="60" y="100" width="246" height="130" rx="12" fill="#eef4ff" stroke="#4a7dff"/>
+  <circle cx="183" cy="138" r="14" fill="#4a7dff"/>
+  <text x="183" y="144" text-anchor="middle" font-size="15" font-weight="700" fill="#ffffff">1</text>
+  <text x="183" y="176" text-anchor="middle" font-size="15" font-weight="600" fill="#1a1a2e">文档自动生成</text>
+  <text x="183" y="200" text-anchor="middle" font-size="12" fill="#555">类型化 Doc 声明，随路由注册</text>
+  <text x="183" y="218" text-anchor="middle" font-size="12" fill="#555">一处声明，文档与路由同生</text>
+
+  <rect x="327" y="100" width="246" height="130" rx="12" fill="#f0fdf4" stroke="#22c55e"/>
+  <circle cx="450" cy="138" r="14" fill="#22c55e"/>
+  <text x="450" y="144" text-anchor="middle" font-size="15" font-weight="700" fill="#ffffff">2</text>
+  <text x="450" y="176" text-anchor="middle" font-size="15" font-weight="600" fill="#1a1a2e">在线调试</text>
+  <text x="450" y="200" text-anchor="middle" font-size="12" fill="#555">浏览器端直接请求真实接口</text>
+  <text x="450" y="218" text-anchor="middle" font-size="12" fill="#555">无服务端转发，天然无 SSRF</text>
+
+  <rect x="594" y="100" width="246" height="130" rx="12" fill="#fff7ed" stroke="#f97316"/>
+  <circle cx="717" cy="138" r="14" fill="#f97316"/>
+  <text x="717" y="144" text-anchor="middle" font-size="15" font-weight="700" fill="#ffffff">3</text>
+  <text x="717" y="176" text-anchor="middle" font-size="15" font-weight="600" fill="#1a1a2e">Mock 数据</text>
+  <text x="717" y="200" text-anchor="middle" font-size="12" fill="#555">字段级 Mock 示例</text>
+  <text x="717" y="218" text-anchor="middle" font-size="12" fill="#555">接口联调快人一步</text>
+
+  <rect x="60" y="250" width="246" height="130" rx="12" fill="#fdf2f8" stroke="#ec4899"/>
+  <circle cx="183" cy="288" r="14" fill="#ec4899"/>
+  <text x="183" y="294" text-anchor="middle" font-size="15" font-weight="700" fill="#ffffff">4</text>
+  <text x="183" y="326" text-anchor="middle" font-size="15" font-weight="600" fill="#1a1a2e">多应用 / 多版本</text>
+  <text x="183" y="350" text-anchor="middle" font-size="12" fill="#555">App / Version 树形管理</text>
+  <text x="183" y="368" text-anchor="middle" font-size="12" fill="#555">一套插件，全项目文档</text>
+
+  <rect x="327" y="250" width="246" height="130" rx="12" fill="#f5f3ff" stroke="#8b5cf6"/>
+  <circle cx="450" cy="288" r="14" fill="#8b5cf6"/>
+  <text x="450" y="294" text-anchor="middle" font-size="15" font-weight="700" fill="#ffffff">5</text>
+  <text x="450" y="326" text-anchor="middle" font-size="15" font-weight="600" fill="#1a1a2e">密码鉴权</text>
+  <text x="450" y="350" text-anchor="middle" font-size="12" fill="#555">全局密码 + 应用级密码</text>
+  <text x="450" y="368" text-anchor="middle" font-size="12" fill="#555">HMAC Token · 恒时比较</text>
+
+  <rect x="594" y="250" width="246" height="130" rx="12" fill="#ecfeff" stroke="#06b6d4"/>
+  <circle cx="717" cy="288" r="14" fill="#06b6d4"/>
+  <text x="717" y="294" text-anchor="middle" font-size="15" font-weight="700" fill="#ffffff">6</text>
+  <text x="717" y="326" text-anchor="middle" font-size="15" font-weight="600" fill="#1a1a2e">Markdown 文档</text>
+  <text x="717" y="350" text-anchor="middle" font-size="12" fill="#555">goldmark 安全渲染</text>
+  <text x="717" y="368" text-anchor="middle" font-size="12" fill="#555">原生 HTML 自动剥离</text>
+
+  <rect x="60" y="400" width="246" height="130" rx="12" fill="#fefce8" stroke="#eab308"/>
+  <circle cx="183" cy="438" r="14" fill="#eab308"/>
+  <text x="183" y="444" text-anchor="middle" font-size="15" font-weight="700" fill="#ffffff">7</text>
+  <text x="183" y="476" text-anchor="middle" font-size="15" font-weight="600" fill="#1a1a2e">多框架适配</text>
+  <text x="183" y="500" text-anchor="middle" font-size="12" fill="#555">net/http · Gin · Echo · Chi · Fiber</text>
+  <text x="183" y="518" text-anchor="middle" font-size="12" fill="#555">一次接入，全框架通用</text>
+
+  <rect x="327" y="400" width="246" height="130" rx="12" fill="#fef2f2" stroke="#ef4444"/>
+  <circle cx="450" cy="438" r="14" fill="#ef4444"/>
+  <text x="450" y="444" text-anchor="middle" font-size="15" font-weight="700" fill="#ffffff">8</text>
+  <text x="450" y="476" text-anchor="middle" font-size="15" font-weight="600" fill="#1a1a2e">JSON / TypeScript 导出</text>
+  <text x="450" y="500" text-anchor="middle" font-size="12" fill="#555">接口类型一键导出</text>
+  <text x="450" y="518" text-anchor="middle" font-size="12" fill="#555">前后端联调更顺畅</text>
+
+  <rect x="594" y="400" width="246" height="130" rx="12" fill="#f0f9ff" stroke="#3b82f6"/>
+  <circle cx="717" cy="438" r="14" fill="#3b82f6"/>
+  <text x="717" y="444" text-anchor="middle" font-size="15" font-weight="700" fill="#ffffff">9</text>
+  <text x="717" y="476" text-anchor="middle" font-size="15" font-weight="600" fill="#1a1a2e">安全防护</text>
+  <text x="717" y="500" text-anchor="middle" font-size="12" fill="#555">无 SSRF · CORS 白名单限定</text>
+  <text x="717" y="518" text-anchor="middle" font-size="12" fill="#555">防 XSS · 防路径穿越</text>
+
+  <!-- 水印 -->
+  <g opacity="0.4">
+    <text x="826" y="536" font-size="15" fill="#94a3b8" text-anchor="end" transform="rotate(-18 826 536)">https://erik.xyz</text>
+  </g>
+</svg>

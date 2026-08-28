@@ -1,0 +1,74 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 560" font-family="system-ui, -apple-system, 'Segoe UI', 'PingFang SC', sans-serif">
+  <rect width="900" height="560" fill="#ffffff"/>
+  <text x="450" y="40" text-anchor="middle" font-size="24" font-weight="700" fill="#1a1a2e">ميزات المشروع</text>
+  <text x="450" y="64" text-anchor="middle" font-size="14" fill="#666">نظرة عامة على الميزات الأساسية لـ apidoc-go</text>
+
+  <!-- شبكة ميزات 3×3 -->
+  <rect x="60" y="100" width="246" height="130" rx="12" fill="#eef4ff" stroke="#4a7dff"/>
+  <circle cx="183" cy="138" r="14" fill="#4a7dff"/>
+  <text x="183" y="144" text-anchor="middle" font-size="15" font-weight="700" fill="#ffffff">1</text>
+  <text x="183" y="176" text-anchor="middle" font-size="15" font-weight="600" fill="#1a1a2e">توليد تلقائي للوثائق</text>
+  <text x="183" y="200" text-anchor="middle" font-size="12" fill="#555">إعلان Doc مصنّف، مع تسجيل المسار</text>
+  <text x="183" y="218" text-anchor="middle" font-size="12" fill="#555">إعلان واحد يولّد الوثائق مع المسار</text>
+
+  <rect x="327" y="100" width="246" height="130" rx="12" fill="#f0fdf4" stroke="#22c55e"/>
+  <circle cx="450" cy="138" r="14" fill="#22c55e"/>
+  <text x="450" y="144" text-anchor="middle" font-size="15" font-weight="700" fill="#ffffff">2</text>
+  <text x="450" y="176" text-anchor="middle" font-size="15" font-weight="600" fill="#1a1a2e">اختبار مباشر عبر الإنترنت</text>
+  <text x="450" y="200" text-anchor="middle" font-size="12" fill="#555">طلب مباشر للواجهة الحقيقية من المتصفح</text>
+  <text x="450" y="218" text-anchor="middle" font-size="12" fill="#555">بلا وساطة خادم، فلا SSRF بطبيعته</text>
+
+  <rect x="594" y="100" width="246" height="130" rx="12" fill="#fff7ed" stroke="#f97316"/>
+  <circle cx="717" cy="138" r="14" fill="#f97316"/>
+  <text x="717" y="144" text-anchor="middle" font-size="15" font-weight="700" fill="#ffffff">3</text>
+  <text x="717" y="176" text-anchor="middle" font-size="15" font-weight="600" fill="#1a1a2e">بيانات Mock</text>
+  <text x="717" y="200" text-anchor="middle" font-size="12" fill="#555">أمثلة Mock على مستوى الحقل</text>
+  <text x="717" y="218" text-anchor="middle" font-size="12" fill="#555">تسريع تكامل الواجهات</text>
+
+  <rect x="60" y="250" width="246" height="130" rx="12" fill="#fdf2f8" stroke="#ec4899"/>
+  <circle cx="183" cy="288" r="14" fill="#ec4899"/>
+  <text x="183" y="294" text-anchor="middle" font-size="15" font-weight="700" fill="#ffffff">4</text>
+  <text x="183" y="326" text-anchor="middle" font-size="15" font-weight="600" fill="#1a1a2e">تطبيقات / إصدارات متعددة</text>
+  <text x="183" y="350" text-anchor="middle" font-size="12" fill="#555">إدارة شجرية لـ App / Version</text>
+  <text x="183" y="368" text-anchor="middle" font-size="12" fill="#555">مكوّن واحد يغطي وثائق المشروع كله</text>
+
+  <rect x="327" y="250" width="246" height="130" rx="12" fill="#f5f3ff" stroke="#8b5cf6"/>
+  <circle cx="450" cy="288" r="14" fill="#8b5cf6"/>
+  <text x="450" y="294" text-anchor="middle" font-size="15" font-weight="700" fill="#ffffff">5</text>
+  <text x="450" y="326" text-anchor="middle" font-size="15" font-weight="600" fill="#1a1a2e">مصادقة بكلمة مرور</text>
+  <text x="450" y="350" text-anchor="middle" font-size="12" fill="#555">كلمة مرور عامة + كلمة مرور لكل تطبيق</text>
+  <text x="450" y="368" text-anchor="middle" font-size="12" fill="#555">HMAC Token · مقارنة زمنية ثابتة</text>
+
+  <rect x="594" y="250" width="246" height="130" rx="12" fill="#ecfeff" stroke="#06b6d4"/>
+  <circle cx="717" cy="288" r="14" fill="#06b6d4"/>
+  <text x="717" y="294" text-anchor="middle" font-size="15" font-weight="700" fill="#ffffff">6</text>
+  <text x="717" y="326" text-anchor="middle" font-size="15" font-weight="600" fill="#1a1a2e">وثائق Markdown</text>
+  <text x="717" y="350" text-anchor="middle" font-size="12" fill="#555">عرض آمن عبر goldmark</text>
+  <text x="717" y="368" text-anchor="middle" font-size="12" fill="#555">إزالة HTML الأصلي تلقائيًا</text>
+
+  <rect x="60" y="400" width="246" height="130" rx="12" fill="#fefce8" stroke="#eab308"/>
+  <circle cx="183" cy="438" r="14" fill="#eab308"/>
+  <text x="183" y="444" text-anchor="middle" font-size="15" font-weight="700" fill="#ffffff">7</text>
+  <text x="183" y="476" text-anchor="middle" font-size="15" font-weight="600" fill="#1a1a2e">تكيّف مع أطر متعددة</text>
+  <text x="183" y="500" text-anchor="middle" font-size="12" fill="#555">net/http · Gin · Echo · Chi · Fiber</text>
+  <text x="183" y="518" text-anchor="middle" font-size="12" fill="#555">تكامل واحد يغطي كل الأطر</text>
+
+  <rect x="327" y="400" width="246" height="130" rx="12" fill="#fef2f2" stroke="#ef4444"/>
+  <circle cx="450" cy="438" r="14" fill="#ef4444"/>
+  <text x="450" y="444" text-anchor="middle" font-size="15" font-weight="700" fill="#ffffff">8</text>
+  <text x="450" y="476" text-anchor="middle" font-size="15" font-weight="600" fill="#1a1a2e">تصدير JSON / TypeScript</text>
+  <text x="450" y="500" text-anchor="middle" font-size="12" fill="#555">تصدير أنواع الواجهات بضغطة واحدة</text>
+  <text x="450" y="518" text-anchor="middle" font-size="12" fill="#555">تكامل أنعم بين الواجهتين</text>
+
+  <rect x="594" y="400" width="246" height="130" rx="12" fill="#f0f9ff" stroke="#3b82f6"/>
+  <circle cx="717" cy="438" r="14" fill="#3b82f6"/>
+  <text x="717" y="444" text-anchor="middle" font-size="15" font-weight="700" fill="#ffffff">9</text>
+  <text x="717" y="476" text-anchor="middle" font-size="15" font-weight="600" fill="#1a1a2e">الحماية الأمنية</text>
+  <text x="717" y="500" text-anchor="middle" font-size="12" fill="#555">بلا SSRF · CORS بقائمة بيضاء</text>
+  <text x="717" y="518" text-anchor="middle" font-size="12" fill="#555">منع XSS · منع تجاوز المسارات</text>
+
+  <!-- علامة مائية -->
+  <g opacity="0.4">
+    <text x="826" y="536" font-size="15" fill="#94a3b8" text-anchor="end" transform="rotate(-18 826 536)">https://erik.xyz</text>
+  </g>
+</svg>

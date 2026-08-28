@@ -1,0 +1,74 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 560" font-family="system-ui, -apple-system, 'Segoe UI', 'PingFang SC', sans-serif">
+  <rect width="900" height="560" fill="#ffffff"/>
+  <text x="450" y="40" text-anchor="middle" font-size="24" font-weight="700" fill="#1a1a2e">परियोजना की विशेषताएँ</text>
+  <text x="450" y="64" text-anchor="middle" font-size="14" fill="#666">apidoc-go मुख्य विशेषताओं का अवलोकन</text>
+
+  <!-- 3x3 功能网格 -->
+  <rect x="60" y="100" width="246" height="130" rx="12" fill="#eef4ff" stroke="#4a7dff"/>
+  <circle cx="183" cy="138" r="14" fill="#4a7dff"/>
+  <text x="183" y="144" text-anchor="middle" font-size="15" font-weight="700" fill="#ffffff">1</text>
+  <text x="183" y="176" text-anchor="middle" font-size="15" font-weight="600" fill="#1a1a2e">दस्तावेज़ स्वतः जनरेट</text>
+  <text x="183" y="200" text-anchor="middle" font-size="12" fill="#555">टाइप किया हुआ Doc घोषणा, रूट पंजीकरण के साथ</text>
+  <text x="183" y="218" text-anchor="middle" font-size="12" fill="#555">एक स्थान पर घोषणा, दस्तावेज़ और रूट एक साथ</text>
+
+  <rect x="327" y="100" width="246" height="130" rx="12" fill="#f0fdf4" stroke="#22c55e"/>
+  <circle cx="450" cy="138" r="14" fill="#22c55e"/>
+  <text x="450" y="144" text-anchor="middle" font-size="15" font-weight="700" fill="#ffffff">2</text>
+  <text x="450" y="176" text-anchor="middle" font-size="15" font-weight="600" fill="#1a1a2e">ऑनलाइन डिबगिंग</text>
+  <text x="450" y="200" text-anchor="middle" font-size="12" fill="#555">ब्राउज़र से सीधे वास्तविक इंटरफ़ेस का अनुरोध</text>
+  <text x="450" y="218" text-anchor="middle" font-size="12" fill="#555">कोई सर्वर फ़ॉरवर्डिंग नहीं, स्वाभाविक रूप से कोई SSRF नहीं</text>
+
+  <rect x="594" y="100" width="246" height="130" rx="12" fill="#fff7ed" stroke="#f97316"/>
+  <circle cx="717" cy="138" r="14" fill="#f97316"/>
+  <text x="717" y="144" text-anchor="middle" font-size="15" font-weight="700" fill="#ffffff">3</text>
+  <text x="717" y="176" text-anchor="middle" font-size="15" font-weight="600" fill="#1a1a2e">Mock डेटा</text>
+  <text x="717" y="200" text-anchor="middle" font-size="12" fill="#555">फ़ील्ड-स्तरीय Mock उदाहरण</text>
+  <text x="717" y="218" text-anchor="middle" font-size="12" fill="#555">इंटरफ़ेस समेकन में तेज़ी</text>
+
+  <rect x="60" y="250" width="246" height="130" rx="12" fill="#fdf2f8" stroke="#ec4899"/>
+  <circle cx="183" cy="288" r="14" fill="#ec4899"/>
+  <text x="183" y="294" text-anchor="middle" font-size="15" font-weight="700" fill="#ffffff">4</text>
+  <text x="183" y="326" text-anchor="middle" font-size="15" font-weight="600" fill="#1a1a2e">बहु-ऐप / बहु-संस्करण</text>
+  <text x="183" y="350" text-anchor="middle" font-size="12" fill="#555">App / Version ट्री-आधारित प्रबंधन</text>
+  <text x="183" y="368" text-anchor="middle" font-size="12" fill="#555">एक प्लगइन, पूरे प्रोजेक्ट के दस्तावेज़</text>
+
+  <rect x="327" y="250" width="246" height="130" rx="12" fill="#f5f3ff" stroke="#8b5cf6"/>
+  <circle cx="450" cy="288" r="14" fill="#8b5cf6"/>
+  <text x="450" y="294" text-anchor="middle" font-size="15" font-weight="700" fill="#ffffff">5</text>
+  <text x="450" y="326" text-anchor="middle" font-size="15" font-weight="600" fill="#1a1a2e">पासवर्ड प्रमाणीकरण</text>
+  <text x="450" y="350" text-anchor="middle" font-size="12" fill="#555">ग्लोबल पासवर्ड + ऐप-स्तरीय पासवर्ड</text>
+  <text x="450" y="368" text-anchor="middle" font-size="12" fill="#555">HMAC Token · निरंतर-समय तुलना</text>
+
+  <rect x="594" y="250" width="246" height="130" rx="12" fill="#ecfeff" stroke="#06b6d4"/>
+  <circle cx="717" cy="288" r="14" fill="#06b6d4"/>
+  <text x="717" y="294" text-anchor="middle" font-size="15" font-weight="700" fill="#ffffff">6</text>
+  <text x="717" y="326" text-anchor="middle" font-size="15" font-weight="600" fill="#1a1a2e">Markdown दस्तावेज़</text>
+  <text x="717" y="350" text-anchor="middle" font-size="12" fill="#555">goldmark सुरक्षित रेंडरिंग</text>
+  <text x="717" y="368" text-anchor="middle" font-size="12" fill="#555">मूल HTML स्वतः हटा दिया जाता है</text>
+
+  <rect x="60" y="400" width="246" height="130" rx="12" fill="#fefce8" stroke="#eab308"/>
+  <circle cx="183" cy="438" r="14" fill="#eab308"/>
+  <text x="183" y="444" text-anchor="middle" font-size="15" font-weight="700" fill="#ffffff">7</text>
+  <text x="183" y="476" text-anchor="middle" font-size="15" font-weight="600" fill="#1a1a2e">बहु-फ्रेमवर्क अनुकूलन</text>
+  <text x="183" y="500" text-anchor="middle" font-size="12" fill="#555">net/http · Gin · Echo · Chi · Fiber</text>
+  <text x="183" y="518" text-anchor="middle" font-size="12" fill="#555">एक बार जोड़ें, सभी फ्रेमवर्क पर काम करे</text>
+
+  <rect x="327" y="400" width="246" height="130" rx="12" fill="#fef2f2" stroke="#ef4444"/>
+  <circle cx="450" cy="438" r="14" fill="#ef4444"/>
+  <text x="450" y="444" text-anchor="middle" font-size="15" font-weight="700" fill="#ffffff">8</text>
+  <text x="450" y="476" text-anchor="middle" font-size="15" font-weight="600" fill="#1a1a2e">JSON / TypeScript निर्यात</text>
+  <text x="450" y="500" text-anchor="middle" font-size="12" fill="#555">इंटरफ़ेस प्रकार एक क्लिक में निर्यात</text>
+  <text x="450" y="518" text-anchor="middle" font-size="12" fill="#555">फ्रंट-बैक समेकन अधिक सुगम</text>
+
+  <rect x="594" y="400" width="246" height="130" rx="12" fill="#f0f9ff" stroke="#3b82f6"/>
+  <circle cx="717" cy="438" r="14" fill="#3b82f6"/>
+  <text x="717" y="444" text-anchor="middle" font-size="15" font-weight="700" fill="#ffffff">9</text>
+  <text x="717" y="476" text-anchor="middle" font-size="15" font-weight="600" fill="#1a1a2e">सुरक्षा संरक्षण</text>
+  <text x="717" y="500" text-anchor="middle" font-size="12" fill="#555">कोई SSRF नहीं · CORS श्वेतसूची प्रतिबंध</text>
+  <text x="717" y="518" text-anchor="middle" font-size="12" fill="#555">XSS से सुरक्षा · पथ ट्रैवर्सल से सुरक्षा</text>
+
+  <!-- 水印 -->
+  <g opacity="0.4">
+    <text x="826" y="536" font-size="15" fill="#94a3b8" text-anchor="end" transform="rotate(-18 826 536)">https://erik.xyz</text>
+  </g>
+</svg>
