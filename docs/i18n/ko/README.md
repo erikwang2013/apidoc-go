@@ -4,7 +4,7 @@
 
 ## 프로젝트 소개
 
-**apidoc-go**는 Go용 범용 API 문서 플러그인 라이브러리입니다. 인터페이스 문서는 **타입화된 구조체**로 라우트 등록 시 함께 선언되어, 문서와 라우트가 동시에 생성됩니다. 내장 Web UI는 온라인 열람과 온라인 디버깅을 제공하며, 비밀번호 인증, 다중 앱/다중 버전 관리, Mock 데이터, JSON / TypeScript 내보내기 기능을 내장하고 있습니다. 한 번 연동하면 모든 프레임워크에서 사용할 수 있으며, 기존 프로젝트를 개조할 필요가 없습니다.
+**apidoc-go**는 Go용 범용 API 문서 플러그인 라이브러리입니다. 인터페이스 문서는 **타입화된 구조체**로 라우트 등록 시 함께 선언되어, 문서와 라우트가 동시에 생성됩니다. 내장 Web UI는 온라인 열람과 온라인 디버깅을 제공하며, 비밀번호 인증, 다중 앱/다중 버전 관리, Mock 데이터, JSON / TypeScript 내보내기, 어노테이션 자동 파싱, HTTP 캐싱, 파라미터 자동 완성 기능을 내장하고 있습니다. 한 번 연동하면 모든 프레임워크에서 사용할 수 있으며, 기존 프로젝트를 개조할 필요가 없습니다.
 
 ## 프로젝트 기능
 
@@ -19,6 +19,9 @@
 | 7 | 다중 프레임워크 지원 | net/http · Gin · Echo · Chi · Fiber, 한 번 연동으로 전 프레임워크 공용 |
 | 8 | JSON / TypeScript 내보내기 | 인터페이스 타입 원클릭 내보내기, 프런트·백엔드 연동이 더 원활 |
 | 9 | 보안 | SSRF 없음 · CORS 화이트리스트 제한 · XSS 방지 · 경로 탐색 방지 |
+| 10 | 어노테이션 자동 파싱 | go/ast가 주석에서 문서를 생성, `@apidoc` 마커만 있으면 됨 |
+| 11 | HTTP 캐싱 | ETag + 304, 문서 응답이 즉시 열림 |
+| 12 | 파라미터 자동 완성 | reflect가 핸들러 시그니처에서 요청 파라미터를 추론 |
 
 ## 아키텍처 개요
 
@@ -51,6 +54,15 @@ apidoc-go/
 │   ├── echo.go          #   echo.HandlerFunc
 │   ├── chi.go           #   http.HandlerFunc
 │   └── fiber.go         #   fiber.Handler
+├── parse/               # 어노테이션 자동 파서
+│   └── parse.go         #   go/ast · @apidoc 주석 마커
+├── export/              # 내보내기
+│   └── export.go        #   TypeScript 인터페이스 정의
+├── mock/                # Mock 데이터
+│   └── mock.go          #   필드 수준 예시 생성
+├── example/             # 샘플 프로젝트 (프레임워크 5종 :8081–:8085)
+│   ├── main.go
+│   └── handlers/        #   @apidoc 주석 예시
 └── docs/                # 문서와 자료
     ├── alipay.png
     ├── weixinpay.png
@@ -147,6 +159,51 @@ Echo / Chi / Fiber는 어댑터 생성자만 교체하면 됩니다: `adapter.Ne
 | Echo | `adapter.NewEcho(e)` |
 | Chi | `adapter.NewChi(mux)` |
 | Fiber | `adapter.NewFiber(app)` |
+
+### 어노테이션 자동 파싱 (go/ast)
+
+핸들러 위에 `@apidoc` 주석을 작성한 후, 파싱 결과를 등록합니다:
+
+```go
+// @apidoc
+// @method POST
+// @url /api/v1/users
+// @title Create user
+// @param name string true "Username"
+// @success ok User "Success"
+func CreateUser(c *gin.Context, req *CreateUserReq) { ... }
+```
+
+```go
+results, err := parse.ParseDir("./handlers")
+if err != nil { log.Fatal(err) }
+for _, r := range results {
+    s.Register(apidoc.Route{Method: r.Method, URL: r.URL, Handler: CreateUser, Doc: r.Doc})
+}
+```
+
+### 파라미터 자동 완성 (reflect)
+
+`Doc.Params`가 비어 있으면 Register가 핸들러 시그니처에서 reflect로 파라미터를 추론합니다. struct 인자는 본문 필드로 확장되고(json 태그를 따름), 프레임워크 컨텍스트(gin.Context / echo.Context / fiber.Ctx)는 자동으로 건너뜁니다.
+
+### HTTP 캐싱 (ETag)
+
+모든 문서 엔드포인트에 `ETag` + `Cache-Control: private, max-age=300`가 자동으로 적용되어, 재방문 시 304를 반환합니다. 설정이 필요 없습니다.
+
+### 내보내기
+
+| 형식 | 엔드포인트 | 설명 |
+|------|----------|-------------|
+| JSON | `GET /apidoc/api/export` | 전체 프로젝트 트리 |
+| TypeScript | `GET /apidoc/api/export?format=typescript` | 인터페이스 타입 정의 |
+
+### Mock 데이터
+
+상세 페이지에 Mock 예시가 자동으로 표시됩니다. `Doc.Params[].Mock`으로 커스터마이즈하거나 필드 타입에서 자동 생성됩니다(string→"sample", int→0, bool→true, ...).
+
+### 샘플 프로젝트
+
+`example/`에는 5개의 프레임워크 서버(net/http :8081, Gin :8082, Echo :8083, Chi :8084, Fiber :8085)가 포함되어 있습니다. `go run ./example`로 모두 실행할 수 있습니다.
 
 ## 다국어 문서
 

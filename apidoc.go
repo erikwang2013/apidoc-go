@@ -80,6 +80,12 @@ func (s *Server) Register(r Route) error {
 	if r.Method == "" || r.URL == "" {
 		return fmt.Errorf("apidoc: method and url are required")
 	}
+	// Derive body params from the handler's struct args when the doc has none.
+	if len(r.Doc.Params) == 0 && r.Handler != nil {
+		if ps := reflectParams(r.Handler); len(ps) > 0 {
+			r.Doc.Params = ps
+		}
+	}
 	s.st.Register(r.Method, r.URL, r.Doc)
 	s.mu.Lock()
 	defer s.mu.Unlock()

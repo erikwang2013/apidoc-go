@@ -14,7 +14,9 @@ body{font:14px/1.6 -apple-system,Segoe UI,Roboto,sans-serif;color:#24292f;height
 aside{width:300px;min-width:300px;border-right:1px solid #d0d7de;overflow:auto;background:#f6f8fa}
 aside h1{font-size:15px;padding:12px 14px;border-bottom:1px solid #d0d7de}
 aside ul{list-style:none}
-aside .app{padding:10px 12px;font-weight:600;background:#eaeef2}
+aside .app{padding:10px 12px;font-weight:600;background:#eaeef2;cursor:pointer}
+aside .ver{padding:6px 12px 2px;font-size:12px;font-weight:600;color:#57606a}
+aside .ctl{padding:2px 12px 2px 24px;font-size:12px;color:#57606a}
 aside li.act{padding:4px 12px 4px 28px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 aside li.act:hover{background:#eaeef2}
 aside li.act.sel{background:#ddf4ff;color:#0969da}
@@ -113,24 +115,38 @@ async function loadMenus() {
 function renderTree(apps) {
   const tree = document.getElementById('tree');
   tree.innerHTML = '';
-  for (const app of apps) {
-    const ah = document.createElement('div');
+  apps.forEach((app, ai) => {
+    const ah = document.createElement('li');
     ah.className = 'app';
     ah.textContent = app.title + ' (' + app.key + ')';
     tree.appendChild(ah);
+    const box = document.createElement('li');
+    const inner = document.createElement('ul');
+    box.appendChild(inner);
+    box.style.display = ai === 0 ? 'block' : 'none';
+    tree.appendChild(box);
+    ah.onclick = () => { box.style.display = box.style.display === 'none' ? 'block' : 'none'; };
     for (const v of app.versions) {
+      const vl = document.createElement('li');
+      vl.className = 'ver';
+      vl.textContent = v.name;
+      inner.appendChild(vl);
       for (const c of v.controllers) {
+        const cl = document.createElement('li');
+        cl.className = 'ctl';
+        cl.textContent = c.name;
+        inner.appendChild(cl);
         for (const a of c.actions) {
           const li = document.createElement('li');
           li.className = 'act';
           li.textContent = a.title || a.id;
           li.dataset.id = a.id;
           li.onclick = () => openAction(a.id, li);
-          tree.appendChild(li);
+          inner.appendChild(li);
         }
       }
     }
-  }
+  });
 }
 
 async function openAction(id, li) {

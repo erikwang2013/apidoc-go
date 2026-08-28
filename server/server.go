@@ -4,7 +4,9 @@ package server
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"embed"
+	"encoding/hex"
 	"encoding/json"
 	"net/http"
 	"slices"
@@ -79,11 +81,11 @@ type apiHandler struct{ o Opts }
 func (h *apiHandler) login(w http.ResponseWriter, r *http.Request) {
 	var body struct{ Password string }
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		errJSON(w, http.StatusBadRequest, "invalid body")
+		errJSON(w, r, http.StatusBadRequest, "invalid body")
 		return
 	}
 	if !auth.CheckPassword(h.o.Auth.Secret, h.o.Auth.Password, body.Password) {
-		errJSON(w, http.StatusUnauthorized, "invalid password")
+		errJSON(w, r, http.StatusUnauthorized, "invalid password")
 		return
 	}
 	expire := h.o.Auth.Expire
@@ -92,7 +94,7 @@ func (h *apiHandler) login(w http.ResponseWriter, r *http.Request) {
 	}
 	tok, err := auth.Issue(h.o.Auth.Secret, expire, "session")
 	if err != nil {
-		errJSON(w, http.StatusInternalServerError, "token issue failed")
+		errJSON(w, r, http.StatusInternalServerError, "token issue failed")
 		return
 	}
 	http.SetCookie(w, &http.Cookie{
@@ -100,7 +102,7 @@ func (h *apiHandler) login(w http.ResponseWriter, r *http.Request) {
 		HttpOnly: true, SameSite: http.SameSiteLaxMode,
 		Expires: time.Now().Add(expire), Secure: h.o.Auth.Secure,
 	})
-	writeJSON(w, http.StatusOK, map[string]any{"code": 0, "msg": "ok"})
+	writeJSON(w, r, http.StatusOK, map[string]any{"code": 0, "msg": "ok"})
 }
 
 // appLogin issues a short-lived token scoped to one app.
@@ -110,24 +112,24 @@ func (h *apiHandler) appLogin(w http.ResponseWriter, r *http.Request) {
 		Password string
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		errJSON(w, http.StatusBadRequest, "invalid body")
+		errJSON(w, r, http.StatusBadRequest, "invalid body")
 		return
 	}
 	pw, ok := h.o.AppPWs[body.App]
 	if !ok {
-		errJSON(w, http.StatusNotFound, "no such app")
+		errJSON(w, r, http.StatusNotFound, "no such app")
 		return
 	}
 	if !auth.CheckPassword(h.o.Auth.Secret, pw, body.Password) {
-		errJSON(w, http.StatusUnauthorized, "invalid password")
+		errJSON(w, r, http.StatusUnauthorized, "invalid password")
 		return
 	}
 	tok, err := auth.Issue(h.o.Auth.Secret, appTokenTTL, body.App)
 	if err != nil {
-		errJSON(w, http.StatusInternalServerError, "token issue failed")
+		errJSON(w, r, http.StatusInternalServerError, "token issue failed")
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{
+	writeJSON(w, r, http.StatusOK, map[string]any{
 		"code": 0, "msg": "ok",
 		"data": map[string]any{"token": tok, "expire": appTokenTTL.Seconds()},
 	})
@@ -153,7 +155,7 @@ func (h *apiHandler) menus(w http.ResponseWriter, r *http.Request) {
 		}
 		out = append(out, ma)
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"code": 0, "msg": "ok", "data": out})
+	writeJSON(w, r, http.StatusOK, map[string]any{"code": 0, "msg": "ok", "data": out})
 }
 
 // detail returns one full action. Actions of password-protected apps
@@ -161,14 +163,14 @@ func (h *apiHandler) menus(w http.ResponseWriter, r *http.Request) {
 func (h *apiHandler) detail(w http.ResponseWriter, r *http.Request) {
 	a, ok := h.o.Store.Action(r.URL.Query().Get("id"))
 	if !ok {
-		errJSON(w, http.StatusNotFound, "action not found")
+		errJSON(w, r, http.StatusNotFound, "action not found")
 		return
 	}
 	_, protected := h.o.AppPWs[a.App]
 	if protected {
 		tok := r.Header.Get("X-Apidoc-App-Token")
 		if data, ok := auth.Verify(h.o.Auth.Secret, tok); !ok || data != a.App {
-			writeJSON(w, http.StatusUnauthorized, map[string]any{
+			writeJSON(w, r, http.StatusUnauthorized, map[string]any{
 				"code": http.StatusUnauthorized, "msg": "app token required", "app": a.App,
 			})
 			return
@@ -176,7 +178,7 @@ func (h *apiHandler) detail(w http.ResponseWriter, r *http.Request) {
 	}
 	var md bytes.Buffer
 	_ = goldmark.Convert([]byte(a.Markdown), &md)
-	writeJSON(w, http.StatusOK, map[string]any{"code": 0, "msg": "ok", "data": map[string]any{
+	writeJSON(w, r, http.StatusOK, map[string]any{"code": 0, "msg": "ok", "data": map[string]any{
 		"id": a.ID, "app": a.App, "version": a.Version, "controller": a.Controller,
 		"method": a.Method, "url": a.URL, "title": a.Title, "desc": a.Desc,
 		"author": a.Author, "params": mergeParams(h.o.GlobalParams, a.Params),
@@ -194,28 +196,28 @@ func (h *apiHandler) export(w http.ResponseWriter, r *http.Request) {
 	// session token withAuth uses before dumping it.
 	if len(h.o.AppPWs) > 0 {
 		if c, err := r.Cookie(cookieName); err != nil {
-			errJSON(w, http.StatusUnauthorized, "login required")
+			errJSON(w, r, http.StatusUnauthorized, "login required")
 			return
 		} else if data, ok := auth.Verify(h.o.Auth.Secret, c.Value); !ok || data != "session" {
-			errJSON(w, http.StatusUnauthorized, "login required")
+			errJSON(w, r, http.StatusUnauthorized, "login required")
 			return
 		}
 	}
 	p, err := h.o.Store.Project()
 	if err != nil {
-		errJSON(w, http.StatusInternalServerError, "export failed")
+		errJSON(w, r, http.StatusInternalServerError, "export failed")
 		return
 	}
 	switch r.URL.Query().Get("format") {
 	case "", "json":
-		writeJSON(w, http.StatusOK, map[string]any{"code": 0, "msg": "ok", "data": p})
+		writeJSON(w, r, http.StatusOK, map[string]any{"code": 0, "msg": "ok", "data": p})
 	case "typescript":
 		b, _ := json.Marshal(map[string]any{"code": 0, "msg": "ok", "data": export.Typescript(p)})
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write(b)
 	default:
-		errJSON(w, http.StatusBadRequest, "unknown format")
+		errJSON(w, r, http.StatusBadRequest, "unknown format")
 	}
 }
 
@@ -255,14 +257,31 @@ func mergeParams(global, own []model.Param) []model.Param {
 
 func key(p model.Param) string { return p.Name + "\x00" + p.In }
 
-func writeJSON(w http.ResponseWriter, status int, v any) {
+func writeJSON(w http.ResponseWriter, r *http.Request, status int, v any) {
+	body, err := json.Marshal(v)
+	if err != nil {
+		body = []byte(`{"code":500,"msg":"encode failed"}`)
+		status = http.StatusInternalServerError
+	}
+	if r.Method == http.MethodGet || r.Method == http.MethodHead {
+		// Cache immutable JSON: ETag lets browsers skip refetching. private:
+		// detail of token-protected apps must not land in a shared cache.
+		sum := sha256.Sum256(body)
+		etag := `"` + hex.EncodeToString(sum[:]) + `"`
+		w.Header().Set("ETag", etag)
+		w.Header().Set("Cache-Control", "private, max-age=300")
+		if r.Header.Get("If-None-Match") == etag {
+			w.WriteHeader(http.StatusNotModified)
+			return
+		}
+	}
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(v)
+	_, _ = w.Write(body)
 }
 
-func errJSON(w http.ResponseWriter, status int, msg string) {
-	writeJSON(w, status, map[string]any{"code": status, "msg": msg})
+func errJSON(w http.ResponseWriter, r *http.Request, status int, msg string) {
+	writeJSON(w, r, status, map[string]any{"code": status, "msg": msg})
 }
 
 // withAuth gates the /api endpoints when global auth is enabled.
@@ -286,7 +305,7 @@ func withAuth(o Opts, next http.Handler) http.Handler {
 				return
 			}
 		}
-		errJSON(w, http.StatusUnauthorized, "unauthorized")
+		errJSON(w, r, http.StatusUnauthorized, "unauthorized")
 	})
 }
 

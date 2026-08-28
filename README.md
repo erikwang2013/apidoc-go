@@ -4,9 +4,9 @@
 
 ## 项目介绍
 
-**当前版本：v1.0.1** · [Releases](https://github.com/erikwang2013/apidoc-go/releases)
+**当前版本：v1.0.2** · [Releases](https://github.com/erikwang2013/apidoc-go/releases)
 
-**apidoc-go** 是一个通用 Go API 文档插件库：接口文档以**类型化结构体**随路由注册时一同声明，文档与路由同生；内嵌 Web UI 提供在线浏览与在线调试，并内置密码鉴权、多应用/多版本管理、Mock 数据与 JSON / TypeScript 导出能力。一次接入，全框架通用，无需改造现有项目。
+**apidoc-go** 是一个通用 Go API 文档插件库：接口文档以**类型化结构体**随路由注册时一同声明，文档与路由同生；内嵌 Web UI 提供在线浏览与在线调试，并内置密码鉴权、多应用/多版本管理、Mock 数据与 JSON / TypeScript 导出能力、注释解析、接口缓存与参数自动补全。一次接入，全框架通用，无需改造现有项目。
 
 ## 项目功能
 
@@ -21,6 +21,9 @@
 | 7 | 多框架适配 | net/http · Gin · Echo · Chi · Fiber，一次接入全框架通用 |
 | 8 | JSON / TypeScript 导出 | 接口类型一键导出，前后端联调更顺畅 |
 | 9 | 安全防护 | 无 SSRF · CORS 白名单限定 · 防 XSS · 防路径穿越 |
+| 10 | 注释自动解析 | go/ast 从注释自动生成文档，`@apidoc` 标记即注册 |
+| 11 | 接口缓存 | ETag + 304，文档响应秒开 |
+| 12 | 参数自动补全 | reflect 从 handler 签名自动推断请求参数 |
 
 ## 架构总览
 
@@ -53,6 +56,15 @@ apidoc-go/
 │   ├── echo.go          #   echo.HandlerFunc
 │   ├── chi.go           #   http.HandlerFunc
 │   └── fiber.go         #   fiber.Handler
+├── parse/               # 注释自动解析
+│   └── parse.go         #   go/ast · @apidoc 注释标记
+├── export/              # 导出
+│   └── export.go        #   TypeScript 接口定义
+├── mock/                # Mock 数据
+│   └── mock.go          #   字段级示例值生成
+├── example/             # 示例项目（5 框架 :8081–:8085）
+│   ├── main.go
+│   └── handlers/        #   @apidoc 注释示例
 └── docs/                # 文档与素材
     ├── alipay.png
     ├── weixinpay.png
@@ -149,6 +161,51 @@ Echo / Chi / Fiber 仅需替换适配器构造器：`adapter.NewEcho(e)`、`adap
 | Echo | `adapter.NewEcho(e)` |
 | Chi | `adapter.NewChi(mux)` |
 | Fiber | `adapter.NewFiber(app)` |
+
+### 注释自动解析（go/ast）
+
+在 handler 上方写 `@apidoc` 注释，用 `parse.ParseDir` 解析后注册：
+
+```go
+// @apidoc
+// @method POST
+// @url /api/v1/users
+// @title 创建用户
+// @param name string true "用户名"
+// @success ok User "成功"
+func CreateUser(c *gin.Context, req *CreateUserReq) { ... }
+```
+
+```go
+results, err := parse.ParseDir("./handlers")
+if err != nil { log.Fatal(err) }
+for _, r := range results {
+    s.Register(apidoc.Route{Method: r.Method, URL: r.URL, Handler: CreateUser, Doc: r.Doc})
+}
+```
+
+### 参数自动补全（reflect）
+
+`Register` 时若 `Doc.Params` 为空，插件用 reflect 从 handler 签名自动推断：结构体参数展开为 body 字段（遵循 json tag），框架 Context（gin.Context / echo.Context / fiber.Ctx）自动跳过。
+
+### 接口缓存（ETag）
+
+所有文档接口自动携带 `ETag` + `Cache-Control: private, max-age=300`，浏览器再次访问命中 304，无需额外配置。
+
+### 导出
+
+| 格式 | 地址 | 说明 |
+|------|------|------|
+| JSON | `GET /apidoc/api/export` | 完整项目树 |
+| TypeScript | `GET /apidoc/api/export?format=typescript` | 接口类型定义 |
+
+### Mock 数据
+
+接口详情页自动展示 Mock 示例：`Doc.Params[].Mock` 可自定义，未指定时按字段类型自动生成（string→"sample"、int→0、bool→true 等）。
+
+### 示例项目
+
+`example/` 内置 5 个框架服务器（net/http :8081、Gin :8082、Echo :8083、Chi :8084、Fiber :8085），`go run ./example` 一键启动。
 
 ## 多语言文档
 

@@ -4,7 +4,7 @@
 
 ## Introduction
 
-**apidoc-go** is a universal Go API documentation plugin library: interface documentation is declared as **typed structs** alongside route registration, so documentation is born together with the route. The embedded Web UI provides online browsing and online debugging, with built-in password authentication, multi-app / multi-version management, Mock data, and JSON / TypeScript export. Integrate once, and it works with every framework — no need to modify your existing project.
+**apidoc-go** is a universal Go API documentation plugin library: interface documentation is declared as **typed structs** alongside route registration, so documentation is born together with the route. The embedded Web UI provides online browsing and online debugging, with built-in password authentication, multi-app / multi-version management, Mock data, and JSON / TypeScript export, annotation auto-parsing, HTTP caching, and automatic param completion. Integrate once, and it works with every framework — no need to modify your existing project.
 
 ## Features
 
@@ -19,6 +19,9 @@
 | 7 | Multi-framework adaptation | net/http · Gin · Echo · Chi · Fiber, integrate once and it works with every framework |
 | 8 | JSON / TypeScript export | One-click export of interface types, smoother frontend-backend integration |
 | 9 | Security protection | No SSRF · CORS whitelist restriction · XSS protection · path traversal protection |
+| 10 | Annotation auto-parsing | go/ast generates docs from comments; the `@apidoc` marker is all it takes |
+| 11 | HTTP caching | ETag + 304, doc responses open instantly |
+| 12 | Automatic param completion | reflect infers request params from the handler signature |
 
 ## Architecture Overview
 
@@ -51,6 +54,15 @@ apidoc-go/
 │   ├── echo.go          #   echo.HandlerFunc
 │   ├── chi.go           #   http.HandlerFunc
 │   └── fiber.go         #   fiber.Handler
+├── parse/               # Annotation auto-parser
+│   └── parse.go         #   go/ast · @apidoc comment markers
+├── export/              # Exports
+│   └── export.go        #   TypeScript interface definitions
+├── mock/                # Mock data
+│   └── mock.go          #   Field-level example generation
+├── example/             # Sample project (5 frameworks :8081–:8085)
+│   ├── main.go
+│   └── handlers/        #   @apidoc comment examples
 └── docs/                # Documentation and assets
     ├── alipay.png
     ├── weixinpay.png
@@ -147,6 +159,51 @@ For Echo / Chi / Fiber, just replace the adapter constructor: `adapter.NewEcho(e
 | Echo | `adapter.NewEcho(e)` |
 | Chi | `adapter.NewChi(mux)` |
 | Fiber | `adapter.NewFiber(app)` |
+
+### Annotation Auto-parsing (go/ast)
+
+Write `@apidoc` comments above a handler, then register the parse results:
+
+```go
+// @apidoc
+// @method POST
+// @url /api/v1/users
+// @title Create user
+// @param name string true "Username"
+// @success ok User "Success"
+func CreateUser(c *gin.Context, req *CreateUserReq) { ... }
+```
+
+```go
+results, err := parse.ParseDir("./handlers")
+if err != nil { log.Fatal(err) }
+for _, r := range results {
+    s.Register(apidoc.Route{Method: r.Method, URL: r.URL, Handler: CreateUser, Doc: r.Doc})
+}
+```
+
+### Automatic Param Completion (reflect)
+
+When `Doc.Params` is empty, Register infers them with reflect from the handler signature: struct args expand into body fields (following json tags), framework contexts (gin.Context / echo.Context / fiber.Ctx) are skipped automatically.
+
+### HTTP Caching (ETag)
+
+All doc endpoints carry `ETag` + `Cache-Control: private, max-age=300` automatically; repeat visits hit 304. No configuration needed.
+
+### Export
+
+| Format | Endpoint | Description |
+|--------|----------|-------------|
+| JSON | `GET /apidoc/api/export` | Full project tree |
+| TypeScript | `GET /apidoc/api/export?format=typescript` | Interface type definitions |
+
+### Mock Data
+
+The detail page shows a Mock example automatically: customize with `Doc.Params[].Mock`, or let it be generated from the field type (string→"sample", int→0, bool→true, ...).
+
+### Example Project
+
+`example/` ships 5 framework servers (net/http :8081, Gin :8082, Echo :8083, Chi :8084, Fiber :8085). Start them all with `go run ./example`.
 
 ## Multilingual Documentation
 

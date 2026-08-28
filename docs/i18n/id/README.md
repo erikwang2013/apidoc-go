@@ -4,7 +4,7 @@
 
 ## Pendahuluan
 
-**apidoc-go** adalah pustaka plugin dokumentasi API umum untuk Go: dokumentasi antarmuka dideklarasikan bersama rute sebagai **struct bertipe (typed struct)** saat rute didaftarkan, sehingga dokumentasi lahir bersama rute; Web UI tertanam menyediakan penelusuran dan pengujian daring, serta dilengkapi autentikasi kata sandi, manajemen multi-aplikasi/multi-versi, data Mock, dan kemampuan ekspor JSON / TypeScript. Sekali integrasi, berlaku untuk semua kerangka kerja, tanpa perlu mengubah proyek yang sudah ada.
+**apidoc-go** adalah pustaka plugin dokumentasi API umum untuk Go: dokumentasi antarmuka dideklarasikan bersama rute sebagai **struct bertipe (typed struct)** saat rute didaftarkan, sehingga dokumentasi lahir bersama rute; Web UI tertanam menyediakan penelusuran dan pengujian daring, serta dilengkapi autentikasi kata sandi, manajemen multi-aplikasi/multi-versi, data Mock, dan kemampuan ekspor JSON / TypeScript, serta parsing anotasi otomatis, cache HTTP, dan pelengkapan parameter otomatis. Sekali integrasi, berlaku untuk semua kerangka kerja, tanpa perlu mengubah proyek yang sudah ada.
 
 ## Fitur Proyek
 
@@ -19,6 +19,9 @@
 | 7 | Adaptasi multi-kerangka | net/http · Gin · Echo · Chi · Fiber, sekali integrasi berlaku untuk semua kerangka |
 | 8 | Ekspor JSON / TypeScript | Ekspor tipe antarmuka sekali klik, integrasi frontend-backend lebih lancar |
 | 9 | Perlindungan keamanan | Tanpa SSRF · CORS dibatasi daftar putih · cegah XSS · cegah path traversal |
+| 10 | Parsing anotasi otomatis | go/ast menghasilkan dokumentasi dari komentar; penanda `@apidoc` sudah cukup |
+| 11 | Cache HTTP | ETag + 304, respons dokumentasi terbuka seketika |
+| 12 | Pelengkapan parameter otomatis | reflect menyimpulkan parameter permintaan dari tanda tangan handler |
 
 ## Ikhtisar Arsitektur
 
@@ -51,6 +54,15 @@ apidoc-go/
 │   ├── echo.go          #   echo.HandlerFunc
 │   ├── chi.go           #   http.HandlerFunc
 │   └── fiber.go         #   fiber.Handler
+├── parse/               # Parser anotasi otomatis
+│   └── parse.go         #   go/ast · penanda komentar @apidoc
+├── export/              # Ekspor
+│   └── export.go        #   Definisi antarmuka TypeScript
+├── mock/                # Data Mock
+│   └── mock.go          #   Pembuatan contoh tingkat bidang
+├── example/             # Proyek contoh (5 kerangka :8081–:8085)
+│   ├── main.go
+│   └── handlers/        #   Contoh komentar @apidoc
 └── docs/                # Dokumentasi dan aset
     ├── alipay.png
     ├── weixinpay.png
@@ -147,6 +159,51 @@ Untuk Echo / Chi / Fiber cukup ganti konstruktor adapter: `adapter.NewEcho(e)`, 
 | Echo | `adapter.NewEcho(e)` |
 | Chi | `adapter.NewChi(mux)` |
 | Fiber | `adapter.NewFiber(app)` |
+
+### Parsing Anotasi Otomatis (go/ast)
+
+Tulis komentar `@apidoc` di atas handler, lalu daftarkan hasil parsing:
+
+```go
+// @apidoc
+// @method POST
+// @url /api/v1/users
+// @title Create user
+// @param name string true "Username"
+// @success ok User "Success"
+func CreateUser(c *gin.Context, req *CreateUserReq) { ... }
+```
+
+```go
+results, err := parse.ParseDir("./handlers")
+if err != nil { log.Fatal(err) }
+for _, r := range results {
+    s.Register(apidoc.Route{Method: r.Method, URL: r.URL, Handler: CreateUser, Doc: r.Doc})
+}
+```
+
+### Pelengkapan Parameter Otomatis (reflect)
+
+Saat `Doc.Params` kosong, Register menyimpulkannya dengan reflect dari tanda tangan handler: argumen struct diperluas menjadi kolom body (mengikuti tag json), konteks kerangka (gin.Context / echo.Context / fiber.Ctx) dilewati secara otomatis.
+
+### Cache HTTP (ETag)
+
+Semua endpoint dokumentasi membawa `ETag` + `Cache-Control: private, max-age=300` secara otomatis; kunjungan berulang langsung mendapat 304. Tidak perlu konfigurasi apa pun.
+
+### Ekspor
+
+| Format | Endpoint | Deskripsi |
+|--------|----------|-----------|
+| JSON | `GET /apidoc/api/export` | Pohon proyek lengkap |
+| TypeScript | `GET /apidoc/api/export?format=typescript` | Definisi tipe antarmuka |
+
+### Data Mock
+
+Halaman detail menampilkan contoh Mock secara otomatis: sesuaikan dengan `Doc.Params[].Mock`, atau biarkan dibuat dari tipe kolom (string→"sample", int→0, bool→true, ...).
+
+### Proyek Contoh
+
+`example/` menyediakan 5 server kerangka (net/http :8081, Gin :8082, Echo :8083, Chi :8084, Fiber :8085). Jalankan semuanya dengan `go run ./example`.
 
 ## Dokumentasi Multibahasa
 

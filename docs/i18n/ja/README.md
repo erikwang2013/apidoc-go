@@ -4,7 +4,7 @@
 
 ## プロジェクト紹介
 
-**apidoc-go** は、汎用の Go API ドキュメントプラグインライブラリです。インターフェースのドキュメントは**型付き構造体**としてルート登録と同時に宣言され、ドキュメントはルートと共に生まれます。組み込みの Web UI によりオンライン閲覧とオンライン実行（デバッグ）が可能で、パスワード認証、複数アプリ / 複数バージョン管理、Mock データ、JSON / TypeScript エクスポート機能を内蔵しています。一度組み込めば全フレームワークで利用でき、既存プロジェクトを改造する必要はありません。
+**apidoc-go** は、汎用の Go API ドキュメントプラグインライブラリです。インターフェースのドキュメントは**型付き構造体**としてルート登録と同時に宣言され、ドキュメントはルートと共に生まれます。組み込みの Web UI によりオンライン閲覧とオンライン実行（デバッグ）が可能で、パスワード認証、複数アプリ / 複数バージョン管理、Mock データ、JSON / TypeScript エクスポート、アノテーション自動パース、HTTP キャッシュ、パラメータ自動補完機能を内蔵しています。一度組み込めば全フレームワークで利用でき、既存プロジェクトを改造する必要はありません。
 
 ## プロジェクト機能
 
@@ -19,6 +19,9 @@
 | 7 | 複数フレームワーク対応 | net/http · Gin · Echo · Chi · Fiber。一度組み込めば全フレームワークで利用可能 |
 | 8 | JSON / TypeScript エクスポート | インターフェース型をワンクリックでエクスポート。フロントエンドとの連携がよりスムーズに |
 | 9 | セキュリティ対策 | SSRF なし・CORS ホワイトリスト制限・XSS 対策・パストラバーサル対策 |
+| 10 | アノテーション自動パース | go/ast がコメントからドキュメントを生成。`@apidoc` マーカーだけで完了 |
+| 11 | HTTP キャッシュ | ETag + 304 で、ドキュメントレスポンスが即座に開く |
+| 12 | パラメータ自動補完 | reflect がハンドラーシグネチャからリクエストパラメータを推論 |
 
 ## アーキテクチャ概要
 
@@ -51,6 +54,15 @@ apidoc-go/
 │   ├── echo.go          #   echo.HandlerFunc
 │   ├── chi.go           #   http.HandlerFunc
 │   └── fiber.go         #   fiber.Handler
+├── parse/               # アノテーション自動パーサー
+│   └── parse.go         #   go/ast · @apidoc コメントマーカー
+├── export/              # エクスポート
+│   └── export.go        #   TypeScript インターフェース定義
+├── mock/                # Mock データ
+│   └── mock.go          #   フィールド単位のサンプル生成
+├── example/             # サンプルプロジェクト（5 フレームワーク :8081–:8085）
+│   ├── main.go
+│   └── handlers/        #   @apidoc コメントの例
 └── docs/                # ドキュメントと素材
     ├── alipay.png
     ├── weixinpay.png
@@ -147,6 +159,51 @@ Echo / Chi / Fiber はアダプターのコンストラクターを差し替え�
 | Echo | `adapter.NewEcho(e)` |
 | Chi | `adapter.NewChi(mux)` |
 | Fiber | `adapter.NewFiber(app)` |
+
+### アノテーション自動パース (go/ast)
+
+ハンドラーの上に `@apidoc` コメントを書き、パース結果を登録します:
+
+```go
+// @apidoc
+// @method POST
+// @url /api/v1/users
+// @title Create user
+// @param name string true "Username"
+// @success ok User "Success"
+func CreateUser(c *gin.Context, req *CreateUserReq) { ... }
+```
+
+```go
+results, err := parse.ParseDir("./handlers")
+if err != nil { log.Fatal(err) }
+for _, r := range results {
+    s.Register(apidoc.Route{Method: r.Method, URL: r.URL, Handler: CreateUser, Doc: r.Doc})
+}
+```
+
+### パラメータ自動補完 (reflect)
+
+`Doc.Params` が空の場合、Register はハンドラーのシグネチャから reflect でパラメータを推論します。struct 引数は本文フィールドに展開され（json タグに従う）、フレームワークのコンテキスト（gin.Context / echo.Context / fiber.Ctx）は自動的にスキップされます。
+
+### HTTP キャッシュ (ETag)
+
+すべてのドキュメントエンドポイントに `ETag` + `Cache-Control: private, max-age=300` が自動で付与され、再訪時は 304 になります。設定は不要です。
+
+### エクスポート
+
+| 形式 | エンドポイント | 説明 |
+|------|----------|-------------|
+| JSON | `GET /apidoc/api/export` | プロジェクト全体のツリー |
+| TypeScript | `GET /apidoc/api/export?format=typescript` | インターフェースの型定義 |
+
+### Mock データ
+
+詳細ページに Mock の例が自動で表示されます。`Doc.Params[].Mock` でカスタマイズするか、フィールドの型から自動生成されます（string→"sample", int→0, bool→true, ...）。
+
+### サンプルプロジェクト
+
+`example/` には 5 つのフレームワークサーバー（net/http :8081、Gin :8082、Echo :8083、Chi :8084、Fiber :8085）が同梱されています。`go run ./example` で全部起動できます。
 
 ## 多言語ドキュメント
 

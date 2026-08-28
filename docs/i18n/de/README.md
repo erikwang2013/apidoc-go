@@ -4,7 +4,7 @@
 
 ## Projektbeschreibung
 
-**apidoc-go** ist eine universelle API-Dokumentations-Plugin-Bibliothek für Go: Die Schnittstellendokumentation wird als **typisierte Strukturen** zusammen mit der Routenregistrierung deklariert — Dokumentation und Route entstehen Seite an Seite. Die eingebettete Web-UI bietet Online-Anzeige und Online-Debugging und umfasst Passwort-Authentifizierung, Verwaltung mehrerer Anwendungen/Versionen, Mock-Daten sowie JSON-/TypeScript-Export. Einmal integriert, mit allen Frameworks kompatibel — ohne Umbau bestehender Projekte.
+**apidoc-go** ist eine universelle API-Dokumentations-Plugin-Bibliothek für Go: Die Schnittstellendokumentation wird als **typisierte Strukturen** zusammen mit der Routenregistrierung deklariert — Dokumentation und Route entstehen Seite an Seite. Die eingebettete Web-UI bietet Online-Anzeige und Online-Debugging und umfasst Passwort-Authentifizierung, Verwaltung mehrerer Anwendungen/Versionen, Mock-Daten sowie JSON-/TypeScript-Export, Annotation-Auto-Parsing, HTTP-Caching und automatische Parametervervollständigung. Einmal integriert, mit allen Frameworks kompatibel — ohne Umbau bestehender Projekte.
 
 ## Funktionen
 
@@ -19,6 +19,9 @@
 | 7 | Multi-Framework-Anpassung | net/http · Gin · Echo · Chi · Fiber — einmal integriert, mit allen Frameworks kompatibel |
 | 8 | JSON-/TypeScript-Export | Schnittstellentypen mit einem Klick exportieren, reibungslosere Frontend-Backend-Integration |
 | 9 | Sicherheitsschutz | Kein SSRF · CORS-Whitelist-Einschränkung · XSS-Schutz · Schutz vor Pfad-Traversal |
+| 10 | Annotation-Auto-Parsing | go/ast erzeugt die Dokumentation aus Kommentaren; der Marker `@apidoc` genügt |
+| 11 | HTTP-Caching | ETag + 304, Doc-Antworten öffnen sofort |
+| 12 | Automatische Parametervervollständigung | reflect leitet die Request-Parameter aus der Handler-Signatur ab |
 
 ## Architekturübersicht
 
@@ -51,6 +54,15 @@ apidoc-go/
 │   ├── echo.go          #   echo.HandlerFunc
 │   ├── chi.go           #   http.HandlerFunc
 │   └── fiber.go         #   fiber.Handler
+├── parse/               # Annotation-Auto-Parser
+│   └── parse.go         #   go/ast · @apidoc-Kommentarmarker
+├── export/              # Exporte
+│   └── export.go        #   TypeScript-Interface-Definitionen
+├── mock/                # Mock-Daten
+│   └── mock.go          #   Feldgenaue Beispielgenerierung
+├── example/             # Beispielprojekt (5 Frameworks :8081–:8085)
+│   ├── main.go
+│   └── handlers/        #   @apidoc-Kommentarbeispiele
 └── docs/                # Dokumentation und Ressourcen
     ├── alipay.png
     ├── weixinpay.png
@@ -147,6 +159,45 @@ Bei Echo / Chi / Fiber muss lediglich der Adapter-Konstruktor ausgetauscht werde
 | Echo | `adapter.NewEcho(e)` |
 | Chi | `adapter.NewChi(mux)` |
 | Fiber | `adapter.NewFiber(app)` |
+
+### Annotation-Auto-Parsing (go/ast)
+Schreiben Sie `@apidoc`-Kommentare über einen Handler und registrieren Sie anschließend die Parsing-Ergebnisse:
+
+```go
+// @apidoc
+// @method POST
+// @url /api/v1/users
+// @title Create user
+// @param name string true "Username"
+// @success ok User "Success"
+func CreateUser(c *gin.Context, req *CreateUserReq) { ... }
+```
+
+```go
+results, err := parse.ParseDir("./handlers")
+if err != nil { log.Fatal(err) }
+for _, r := range results {
+    s.Register(apidoc.Route{Method: r.Method, URL: r.URL, Handler: CreateUser, Doc: r.Doc})
+}
+```
+
+### Automatische Parametervervollständigung (reflect)
+Wenn `Doc.Params` leer ist, leitet Register die Parameter per reflect aus der Handler-Signatur ab: Struktur-Argumente werden zu Body-Feldern (gemäß json-Tags), Framework-Kontexte (gin.Context / echo.Context / fiber.Ctx) werden automatisch übersprungen.
+
+### HTTP-Caching (ETag)
+Alle Doc-Endpunkte senden automatisch `ETag` + `Cache-Control: private, max-age=300`; wiederholte Aufrufe erhalten 304. Keine Konfiguration erforderlich.
+
+### Export
+| Format | Endpunkt | Beschreibung |
+|--------|----------|-------------|
+| JSON | `GET /apidoc/api/export` | Vollständiger Projektbaum |
+| TypeScript | `GET /apidoc/api/export?format=typescript` | Interface-Typdefinitionen |
+
+### Mock-Daten
+Die Detailseite zeigt automatisch ein Mock-Beispiel an: Passen Sie es mit `Doc.Params[].Mock` an oder lassen Sie es aus dem Feldtyp generieren (string→"sample", int→0, bool→true, ...).
+
+### Beispielprojekt
+`example/` enthält 5 Framework-Server (net/http :8081, Gin :8082, Echo :8083, Chi :8084, Fiber :8085). Starten Sie alle mit `go run ./example`.
 
 ## Mehrsprachige Dokumentation
 

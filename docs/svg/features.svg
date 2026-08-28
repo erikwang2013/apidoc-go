@@ -1,5 +1,5 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 560" font-family="system-ui, -apple-system, 'Segoe UI', 'PingFang SC', sans-serif">
-  <rect width="900" height="560" fill="#ffffff"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 710" font-family="system-ui, -apple-system, 'Segoe UI', 'PingFang SC', sans-serif">
+  <rect width="900" height="710" fill="#ffffff"/>
   <text x="450" y="40" text-anchor="middle" font-size="24" font-weight="700" fill="#1a1a2e">项目功能</text>
   <text x="450" y="64" text-anchor="middle" font-size="14" fill="#666">apidoc-go 核心功能总览</text>
 
@@ -67,8 +67,29 @@
   <text x="717" y="500" text-anchor="middle" font-size="12" fill="#555">无 SSRF · CORS 白名单限定</text>
   <text x="717" y="518" text-anchor="middle" font-size="12" fill="#555">防 XSS · 防路径穿越</text>
 
+  <rect x="60" y="550" width="246" height="130" rx="12" fill="#ecfdf5" stroke="#10b981"/>
+  <circle cx="183" cy="588" r="14" fill="#10b981"/>
+  <text x="183" y="594" text-anchor="middle" font-size="15" font-weight="700" fill="#ffffff">10</text>
+  <text x="183" y="626" text-anchor="middle" font-size="15" font-weight="600" fill="#1a1a2e">注释自动解析</text>
+  <text x="183" y="650" text-anchor="middle" font-size="12" fill="#555">go/ast 从注释生成文档</text>
+  <text x="183" y="668" text-anchor="middle" font-size="12" fill="#555">`@apidoc` 标记即注册</text>
+
+  <rect x="327" y="550" width="246" height="130" rx="12" fill="#fffbeb" stroke="#f59e0b"/>
+  <circle cx="450" cy="588" r="14" fill="#f59e0b"/>
+  <text x="450" y="594" text-anchor="middle" font-size="15" font-weight="700" fill="#ffffff">11</text>
+  <text x="450" y="626" text-anchor="middle" font-size="15" font-weight="600" fill="#1a1a2e">接口缓存</text>
+  <text x="450" y="650" text-anchor="middle" font-size="12" fill="#555">ETag + 304 秒开</text>
+  <text x="450" y="668" text-anchor="middle" font-size="12" fill="#555">无需额外配置</text>
+
+  <rect x="594" y="550" width="246" height="130" rx="12" fill="#faf5ff" stroke="#a855f7"/>
+  <circle cx="717" cy="588" r="14" fill="#a855f7"/>
+  <text x="717" y="594" text-anchor="middle" font-size="15" font-weight="700" fill="#ffffff">12</text>
+  <text x="717" y="626" text-anchor="middle" font-size="15" font-weight="600" fill="#1a1a2e">参数自动补全</text>
+  <text x="717" y="650" text-anchor="middle" font-size="12" fill="#555">reflect 签名推断</text>
+  <text x="717" y="668" text-anchor="middle" font-size="12" fill="#555">无需手写参数</text>
+
   <!-- 水印 -->
   <g opacity="0.4">
-    <text x="826" y="536" font-size="15" fill="#94a3b8" text-anchor="end" transform="rotate(-18 826 536)">https://erik.xyz</text>
+    <text x="826" y="690" font-size="15" fill="#94a3b8" text-anchor="end" transform="rotate(-18 826 690)">https://erik.xyz</text>
   </g>
 </svg>
