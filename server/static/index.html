@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>API Docs</title>
+<link rel="icon" type="image/svg+xml" id="favicon">
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{font:14px/1.6 -apple-system,Segoe UI,Roboto,sans-serif;color:#24292f;height:100vh;display:flex}
@@ -13,6 +14,7 @@ body{font:14px/1.6 -apple-system,Segoe UI,Roboto,sans-serif;color:#24292f;height
 #app{display:flex;flex:1;min-width:0}
 aside{width:300px;min-width:300px;border-right:1px solid #d0d7de;overflow:auto;background:#f6f8fa}
 aside h1{font-size:15px;padding:12px 14px;border-bottom:1px solid #d0d7de}
+aside h1 img{vertical-align:-4px}
 aside ul{list-style:none}
 aside .app{padding:10px 12px;font-weight:600;background:#eaeef2;cursor:pointer}
 aside .ver{padding:6px 12px 2px;font-size:12px;font-weight:600;color:#57606a}
@@ -59,7 +61,7 @@ input[type=text],input[type=password]{padding:6px 8px;border:1px solid #d0d7de;b
 </div>
 <div id="app">
   <aside>
-    <h1 id="proj"></h1>
+    <h1 id="proj"><img id="pet" alt="apidoc" width="20" height="20"></h1>
     <ul id="tree"></ul>
   </aside>
   <main>
@@ -94,6 +96,10 @@ input[type=text],input[type=password]{padding:6px 8px;border:1px solid #d0d7de;b
 const appTokens = {}; // app key -> scoped token
 let current = null;   // detail response
 const base = location.pathname.replace(/\/+$/, ''); // mount prefix, e.g. "/apidoc" or ""
+
+// Mount-relative pet asset: favicon + sidebar logo work under any prefix.
+document.getElementById('favicon').href = base + '/apidoc-pet.svg';
+document.getElementById('pet').src = base + '/apidoc-pet.svg';
 
 async function api(path, opts) {
   opts = opts || {};

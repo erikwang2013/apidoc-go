@@ -25,16 +25,21 @@ import (
 //go:embed static
 var uiFS embed.FS
 
-// indexHTML is the embedded UI. (Read through embed.FS rather than a
-// plain []byte embed: some hardened toolchains reject string/[]byte
-// go:embed directives.)
-var indexHTML = func() []byte {
-	b, err := uiFS.ReadFile("static/index.html")
+// indexHTML / petSVG are the embedded UI assets. (Read through embed.FS
+// rather than a plain []byte embed: some hardened toolchains reject
+// string/[]byte go:embed directives.)
+var (
+	indexHTML = readUI("static/index.html")
+	petSVG    = readUI("static/apidoc-pet.svg")
+)
+
+func readUI(name string) []byte {
+	b, err := uiFS.ReadFile(name)
 	if err != nil {
-		panic("apidoc: embedded UI missing: " + err.Error())
+		panic("apidoc: embedded UI missing: " + name)
 	}
 	return b
-}()
+}
 
 const (
 	cookieName  = "apidoc_token"
@@ -66,6 +71,7 @@ func Handler(o Opts) http.Handler {
 	mux.HandleFunc("POST /api/login", h.login)
 	mux.HandleFunc("POST /api/app-login", h.appLogin)
 	mux.HandleFunc("GET /{$}", h.ui)
+	mux.HandleFunc("GET /apidoc-pet.svg", h.pet)
 	// CORS outermost so even 401s carry the headers the browser needs.
 	inner := withCORS(o, withAuth(o, mux))
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -228,6 +234,13 @@ func actionMock(a *model.Action) string {
 func (h *apiHandler) ui(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	_, _ = w.Write(indexHTML)
+}
+
+// pet serves the project mascot: the UI favicon and sidebar logo.
+func (h *apiHandler) pet(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "image/svg+xml; charset=utf-8")
+	w.Header().Set("Cache-Control", "public, max-age=86400")
+	_, _ = w.Write(petSVG)
 }
 
 // mergeParams returns global params with per-action params overriding by

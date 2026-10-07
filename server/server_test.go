@@ -231,3 +231,21 @@ func TestCORSAllowedOriginsOnly(t *testing.T) {
 		t.Fatal("disallowed origin got CORS headers")
 	}
 }
+
+func TestPetIconServedAndReferencedByUI(t *testing.T) {
+	h := Handler(Opts{Prefix: "/apidoc", Store: newTestStore()})
+	rec := req(t, h, http.MethodGet, "/apidoc-pet.svg", "")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("pet status %d", rec.Code)
+	}
+	if ct := rec.Header().Get("Content-Type"); !strings.HasPrefix(ct, "image/svg+xml") {
+		t.Fatalf("pet content-type %q", ct)
+	}
+	if !strings.Contains(rec.Body.String(), "<svg") {
+		t.Fatal("pet body is not an SVG")
+	}
+	ui := req(t, h, http.MethodGet, "/", "")
+	if !strings.Contains(ui.Body.String(), "apidoc-pet.svg") {
+		t.Fatal("UI HTML does not reference the pet icon")
+	}
+}
