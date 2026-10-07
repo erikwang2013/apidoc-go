@@ -1,3 +1,5 @@
+![Apidoc মাসকট](../../svg/apidoc-pet.svg)
+
 # apidoc-go — Go জেনেরিক API ডকুমেন্টেশন প্লাগইন
 
 [中文](../../../README.md) · [English](../en/README.md) · [한국어](../ko/README.md) · [Русский](../ru/README.md) · [Deutsch](../de/README.md) · [Français](../fr/README.md) · [Español](../es/README.md) · [Português](../pt/README.md) · [हिन्दी](../hi/README.md) · [العربية](../ar/README.md) · [বাংলা](../bn/README.md) · [Bahasa Indonesia](../id/README.md) · [日本語](../ja/README.md)
@@ -25,11 +27,11 @@
 
 ## আর্কিটেকচার ওভারভিউ
 
-![প্রজেক্ট আর্কিটেকচার](../../docs/svg/architecture.svg)
+![প্রজেক্ট আর্কিটেকচার](../../svg/architecture.svg)
 
-![প্রজেক্টের বৈশিষ্ট্য](../../docs/svg/features.svg)
+![প্রজেক্টের বৈশিষ্ট্য](../../svg/features.svg)
 
-![প্রজেক্ট লাইফসাইকেল](../../docs/svg/lifecycle.svg)
+![প্রজেক্ট লাইফসাইকেল](../../svg/lifecycle.svg)
 
 ## প্রকল্প কাঠামো
 

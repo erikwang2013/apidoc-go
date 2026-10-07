@@ -1,3 +1,5 @@
+![تميمة Apidoc](../../svg/apidoc-pet.svg)
+
 # apidoc-go — ملحق توثيق واجهات برمجة التطبيقات العام للغة Go
 
 [中文](../../../README.md) · [English](../en/README.md) · [한국어](../ko/README.md) · [Русский](../ru/README.md) · [Deutsch](../de/README.md) · [Français](../fr/README.md) · [Español](../es/README.md) · [Português](../pt/README.md) · [हिन्दी](../hi/README.md) · [العربية](../ar/README.md) · [বাংলা](../bn/README.md) · [Bahasa Indonesia](../id/README.md) · [日本語](../ja/README.md)
@@ -25,11 +27,11 @@
 
 ## نظرة عامة على البنية
 
-![بنية المشروع](../../docs/svg/architecture.svg)
+![بنية المشروع](../../svg/architecture.svg)
 
-![ميزات المشروع](../../docs/svg/features.svg)
+![ميزات المشروع](../../svg/features.svg)
 
-![دورة حياة المشروع](../../docs/svg/lifecycle.svg)
+![دورة حياة المشروع](../../svg/lifecycle.svg)
 
 ## بنية المشروع
 

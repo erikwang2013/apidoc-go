@@ -1,3 +1,5 @@
+![Apidoc शुभंकर](../../svg/apidoc-pet.svg)
+
 # apidoc-go — Go सामान्य-उद्देश्य API दस्तावेज़ प्लगइन
 
 [中文](../../../README.md) · [English](../en/README.md) · [한국어](../ko/README.md) · [Русский](../ru/README.md) · [Deutsch](../de/README.md) · [Français](../fr/README.md) · [Español](../es/README.md) · [Português](../pt/README.md) · [हिन्दी](../hi/README.md) · [العربية](../ar/README.md) · [বাংলা](../bn/README.md) · [Bahasa Indonesia](../id/README.md) · [日本語](../ja/README.md)
@@ -25,11 +27,11 @@
 
 ## वास्तुकला अवलोकन
 
-![परियोजना वास्तुकला](../../docs/svg/architecture.svg)
+![परियोजना वास्तुकला](../../svg/architecture.svg)
 
-![परियोजना की विशेषताएँ](../../docs/svg/features.svg)
+![परियोजना की विशेषताएँ](../../svg/features.svg)
 
-![परियोजना जीवनचक्र](../../docs/svg/lifecycle.svg)
+![परियोजना जीवनचक्र](../../svg/lifecycle.svg)
 
 ## परियोजना संरचना
 
