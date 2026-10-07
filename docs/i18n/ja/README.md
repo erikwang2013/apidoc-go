@@ -18,7 +18,7 @@
 | 4 | 複数アプリ / 複数バージョン | App / Version のツリー管理。1 つのプラグインでプロジェクト全体のドキュメントをカバー |
 | 5 | パスワード認証 | グローバルパスワード + アプリ単位パスワード。HMAC トークン・定数時間比較 |
 | 6 | Markdown ドキュメント | goldmark による安全なレンダリング。生の HTML は自動的に除去 |
-| 7 | 複数フレームワーク対応 | net/http · Gin · Echo · Chi · Fiber。一度組み込めば全フレームワークで利用可能 |
+| 7 | 複数フレームワーク対応 | net/http · Gin · Echo · Chi · Fiber · beego · Kratos · go-zero。一度組み込めば全フレームワークで利用可能 |
 | 8 | JSON / TypeScript エクスポート | インターフェース型をワンクリックでエクスポート。フロントエンドとの連携がよりスムーズに |
 | 9 | セキュリティ対策 | SSRF なし・CORS ホワイトリスト制限・XSS 対策・パストラバーサル対策 |
 | 10 | アノテーション自動パース | go/ast がコメントからドキュメントを生成。`@apidoc` マーカーだけで完了 |
@@ -62,7 +62,7 @@ apidoc-go/
 │   └── export.go        #   TypeScript インターフェース定義
 ├── mock/                # Mock データ
 │   └── mock.go          #   フィールド単位のサンプル生成
-├── example/             # サンプルプロジェクト（5 フレームワーク :8081–:8085）
+├── example/             # サンプルプロジェクト（8 フレームワーク :8081–:8088）
 │   ├── main.go
 │   └── handlers/        #   @apidoc コメントの例
 └── docs/                # ドキュメントと素材
@@ -138,7 +138,7 @@ s.Mount(adapter.NewGin(r))
 r.Run(":8080")
 ```
 
-Echo / Chi / Fiber はアダプターのコンストラクターを差し替えるだけです。`adapter.NewEcho(e)`、`adapter.NewChi(mux)`、`adapter.NewFiber(app)` の順で、残りのコードは完全に同じです。
+Echo / Chi / Fiber はアダプターのコンストラクターを差し替えるだけです。`adapter.NewEcho(e)`、`adapter.NewChi(mux)`、`adapter.NewFiber(app)` の順で、残りのコードは完全に同じです。beego / Kratos / go-zero については下の「フレームワークアダプター」表を参照してください。
 
 ### 設定項目
 
@@ -161,6 +161,9 @@ Echo / Chi / Fiber はアダプターのコンストラクターを差し替え�
 | Echo | `adapter.NewEcho(e)` |
 | Chi | `adapter.NewChi(mux)` |
 | Fiber | `adapter.NewFiber(app)` |
+| beego | `adapter.NewBeego(app)` |
+| Kratos | `adapter.NewKratos(srv)` |
+| go-zero | `adapter.NewGoZero(srv)` |
 
 ### アノテーション自動パース (go/ast)
 
@@ -205,7 +208,7 @@ for _, r := range results {
 
 ### サンプルプロジェクト
 
-`example/` には 5 つのフレームワークサーバー（net/http :8081、Gin :8082、Echo :8083、Chi :8084、Fiber :8085）が同梱されています。`go run ./example` で全部起動できます。
+`example/` には 8 つのフレームワークサーバー（net/http :8081、Gin :8082、Echo :8083、Chi :8084、Fiber :8085、beego :8086、Kratos :8087、go-zero :8088）が同梱されています。`go run ./example` で全部起動できます。
 
 ## 多言語ドキュメント
 

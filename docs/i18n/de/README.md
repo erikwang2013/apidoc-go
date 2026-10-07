@@ -18,7 +18,7 @@
 | 4 | Mehrere Apps / Versionen | Baumartige Verwaltung von App / Version — ein Plugin deckt die gesamte Projektdokumentation ab |
 | 5 | Passwort-Authentifizierung | Globales Passwort + app-spezifisches Passwort, HMAC-Token · zeitkonstanter Vergleich |
 | 6 | Markdown-Dokumentation | Sichere goldmark-Renderung, natives HTML wird automatisch entfernt |
-| 7 | Multi-Framework-Anpassung | net/http · Gin · Echo · Chi · Fiber — einmal integriert, mit allen Frameworks kompatibel |
+| 7 | Multi-Framework-Anpassung | net/http · Gin · Echo · Chi · Fiber · beego · Kratos · go-zero — einmal integriert, mit allen Frameworks kompatibel |
 | 8 | JSON-/TypeScript-Export | Schnittstellentypen mit einem Klick exportieren, reibungslosere Frontend-Backend-Integration |
 | 9 | Sicherheitsschutz | Kein SSRF · CORS-Whitelist-Einschränkung · XSS-Schutz · Schutz vor Pfad-Traversal |
 | 10 | Annotation-Auto-Parsing | go/ast erzeugt die Dokumentation aus Kommentaren; der Marker `@apidoc` genügt |
@@ -62,7 +62,7 @@ apidoc-go/
 │   └── export.go        #   TypeScript-Interface-Definitionen
 ├── mock/                # Mock-Daten
 │   └── mock.go          #   Feldgenaue Beispielgenerierung
-├── example/             # Beispielprojekt (5 Frameworks :8081–:8085)
+├── example/             # Beispielprojekt (8 Frameworks :8081–:8088)
 │   ├── main.go
 │   └── handlers/        #   @apidoc-Kommentarbeispiele
 └── docs/                # Dokumentation und Ressourcen
@@ -138,7 +138,7 @@ s.Mount(adapter.NewGin(r))
 r.Run(":8080")
 ```
 
-Bei Echo / Chi / Fiber muss lediglich der Adapter-Konstruktor ausgetauscht werden: `adapter.NewEcho(e)`, `adapter.NewChi(mux)`, `adapter.NewFiber(app)` — der übrige Code bleibt vollständig identisch.
+Bei Echo / Chi / Fiber muss lediglich der Adapter-Konstruktor ausgetauscht werden: `adapter.NewEcho(e)`, `adapter.NewChi(mux)`, `adapter.NewFiber(app)` — der übrige Code bleibt vollständig identisch. Für beego / Kratos / go-zero siehe die Tabelle „Framework-Adapter“ unten.
 
 ### Konfigurationsoptionen
 
@@ -161,6 +161,9 @@ Bei Echo / Chi / Fiber muss lediglich der Adapter-Konstruktor ausgetauscht werde
 | Echo | `adapter.NewEcho(e)` |
 | Chi | `adapter.NewChi(mux)` |
 | Fiber | `adapter.NewFiber(app)` |
+| beego | `adapter.NewBeego(app)` |
+| Kratos | `adapter.NewKratos(srv)` |
+| go-zero | `adapter.NewGoZero(srv)` |
 
 ### Annotation-Auto-Parsing (go/ast)
 Schreiben Sie `@apidoc`-Kommentare über einen Handler und registrieren Sie anschließend die Parsing-Ergebnisse:
@@ -199,7 +202,7 @@ Alle Doc-Endpunkte senden automatisch `ETag` + `Cache-Control: private, max-age=
 Die Detailseite zeigt automatisch ein Mock-Beispiel an: Passen Sie es mit `Doc.Params[].Mock` an oder lassen Sie es aus dem Feldtyp generieren (string→"sample", int→0, bool→true, ...).
 
 ### Beispielprojekt
-`example/` enthält 5 Framework-Server (net/http :8081, Gin :8082, Echo :8083, Chi :8084, Fiber :8085). Starten Sie alle mit `go run ./example`.
+`example/` enthält 8 Framework-Server (net/http :8081, Gin :8082, Echo :8083, Chi :8084, Fiber :8085, beego :8086, Kratos :8087, go-zero :8088). Starten Sie alle mit `go run ./example`.
 
 ## Mehrsprachige Dokumentation
 

@@ -11,20 +11,26 @@
 
   <!-- 框架 pills -->
   <g font-size="20" font-weight="600">
-    <rect x="88"  y="392" width="128" height="44" rx="22" fill="#eef4ff" stroke="#4a7dff"/>
-    <text x="152" y="421" text-anchor="middle" fill="#1a1a2e">net/http</text>
-    <rect x="230" y="392" width="76"  height="44" rx="22" fill="#eef4ff" stroke="#4a7dff"/>
-    <text x="268" y="421" text-anchor="middle" fill="#1a1a2e">Gin</text>
-    <rect x="320" y="392" width="86"  height="44" rx="22" fill="#eef4ff" stroke="#4a7dff"/>
-    <text x="363" y="421" text-anchor="middle" fill="#1a1a2e">Echo</text>
-    <rect x="420" y="392" width="76"  height="44" rx="22" fill="#eef4ff" stroke="#4a7dff"/>
-    <text x="458" y="421" text-anchor="middle" fill="#1a1a2e">Chi</text>
-    <rect x="510" y="392" width="97"  height="44" rx="22" fill="#eef4ff" stroke="#4a7dff"/>
-    <text x="558" y="421" text-anchor="middle" fill="#1a1a2e">Fiber</text>
+    <rect x="88"  y="380" width="128" height="44" rx="22" fill="#eef4ff" stroke="#4a7dff"/>
+    <text x="152" y="409" text-anchor="middle" fill="#1a1a2e">net/http</text>
+    <rect x="230" y="380" width="76"  height="44" rx="22" fill="#eef4ff" stroke="#4a7dff"/>
+    <text x="268" y="409" text-anchor="middle" fill="#1a1a2e">Gin</text>
+    <rect x="320" y="380" width="86"  height="44" rx="22" fill="#eef4ff" stroke="#4a7dff"/>
+    <text x="363" y="409" text-anchor="middle" fill="#1a1a2e">Echo</text>
+    <rect x="420" y="380" width="76"  height="44" rx="22" fill="#eef4ff" stroke="#4a7dff"/>
+    <text x="458" y="409" text-anchor="middle" fill="#1a1a2e">Chi</text>
+    <rect x="88"  y="434" width="97"  height="44" rx="22" fill="#eef4ff" stroke="#4a7dff"/>
+    <text x="136" y="463" text-anchor="middle" fill="#1a1a2e">Fiber</text>
+    <rect x="199" y="434" width="90"  height="44" rx="22" fill="#eef4ff" stroke="#4a7dff"/>
+    <text x="244" y="463" text-anchor="middle" fill="#1a1a2e">beego</text>
+    <rect x="303" y="434" width="100" height="44" rx="22" fill="#eef4ff" stroke="#4a7dff"/>
+    <text x="353" y="463" text-anchor="middle" fill="#1a1a2e">Kratos</text>
+    <rect x="417" y="434" width="112" height="44" rx="22" fill="#eef4ff" stroke="#4a7dff"/>
+    <text x="473" y="463" text-anchor="middle" fill="#1a1a2e">go-zero</text>
   </g>
 
   <!-- 能力行 -->
-  <text x="88" y="496" font-size="20" fill="#64748b">在线调试 · Mock 数据 · JSON/TS 导出 · 注释解析 · ETag 缓存 · 密码鉴权</text>
+  <text x="88" y="516" font-size="20" fill="#64748b">在线调试 · Mock 数据 · JSON/TS 导出 · 注释解析 · ETag 缓存 · 密码鉴权</text>
 
   <!-- 页脚 -->
   <text x="88" y="582" font-size="18" fill="#94a3b8">github.com/erikwang2013/apidoc-go</text>

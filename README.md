@@ -20,7 +20,7 @@
 | 4 | 多应用 / 多版本 | App / Version 树形管理，一套插件覆盖全项目文档 |
 | 5 | 密码鉴权 | 全局密码 + 应用级密码，HMAC Token · 恒时比较 |
 | 6 | Markdown 文档 | goldmark 安全渲染，原生 HTML 自动剥离 |
-| 7 | 多框架适配 | net/http · Gin · Echo · Chi · Fiber，一次接入全框架通用 |
+| 7 | 多框架适配 | net/http · Gin · Echo · Chi · Fiber · beego · Kratos · go-zero，一次接入全框架通用 |
 | 8 | JSON / TypeScript 导出 | 接口类型一键导出，前后端联调更顺畅 |
 | 9 | 安全防护 | 无 SSRF · CORS 白名单限定 · 防 XSS · 防路径穿越 |
 | 10 | 注释自动解析 | go/ast 从注释自动生成文档，`@apidoc` 标记即注册 |
@@ -64,7 +64,7 @@ apidoc-go/
 │   └── export.go        #   TypeScript 接口定义
 ├── mock/                # Mock 数据
 │   └── mock.go          #   字段级示例值生成
-├── example/             # 示例项目（5 框架 :8081–:8085）
+├── example/             # 示例项目（8 框架 :8081–:8088）
 │   ├── main.go
 │   └── handlers/        #   @apidoc 注释示例
 └── docs/                # 文档与素材
@@ -140,7 +140,7 @@ s.Mount(adapter.NewGin(r))
 r.Run(":8080")
 ```
 
-Echo / Chi / Fiber 仅需替换适配器构造器：`adapter.NewEcho(e)`、`adapter.NewChi(mux)`、`adapter.NewFiber(app)`，其余代码完全一致。
+Echo / Chi / Fiber 仅需替换适配器构造器：`adapter.NewEcho(e)`、`adapter.NewChi(mux)`、`adapter.NewFiber(app)`，其余代码完全一致；beego / Kratos / go-zero 见下方「框架适配器」表。
 
 ### 配置项
 
@@ -163,6 +163,9 @@ Echo / Chi / Fiber 仅需替换适配器构造器：`adapter.NewEcho(e)`、`adap
 | Echo | `adapter.NewEcho(e)` |
 | Chi | `adapter.NewChi(mux)` |
 | Fiber | `adapter.NewFiber(app)` |
+| beego | `adapter.NewBeego(app)` |
+| Kratos | `adapter.NewKratos(srv)` |
+| go-zero | `adapter.NewGoZero(srv)` |
 
 ### 注释自动解析（go/ast）
 
@@ -207,7 +210,7 @@ for _, r := range results {
 
 ### 示例项目
 
-`example/` 内置 5 个框架服务器（net/http :8081、Gin :8082、Echo :8083、Chi :8084、Fiber :8085），`go run ./example` 一键启动。
+`example/` 内置 8 个框架服务器（net/http :8081、Gin :8082、Echo :8083、Chi :8084、Fiber :8085、beego :8086、Kratos :8087、go-zero :8088），`go run ./example` 一键启动。
 
 ## 多语言文档
 

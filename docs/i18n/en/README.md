@@ -18,7 +18,7 @@
 | 4 | Multi-app / multi-version | App / Version tree management, one plugin covers documentation for the whole project |
 | 5 | Password authentication | Global password + app-level password, HMAC Token · constant-time comparison |
 | 6 | Markdown documentation | Safe rendering with goldmark, native HTML automatically stripped |
-| 7 | Multi-framework adaptation | net/http · Gin · Echo · Chi · Fiber, integrate once and it works with every framework |
+| 7 | Multi-framework adaptation | net/http · Gin · Echo · Chi · Fiber · beego · Kratos · go-zero, integrate once and it works with every framework |
 | 8 | JSON / TypeScript export | One-click export of interface types, smoother frontend-backend integration |
 | 9 | Security protection | No SSRF · CORS whitelist restriction · XSS protection · path traversal protection |
 | 10 | Annotation auto-parsing | go/ast generates docs from comments; the `@apidoc` marker is all it takes |
@@ -62,7 +62,7 @@ apidoc-go/
 │   └── export.go        #   TypeScript interface definitions
 ├── mock/                # Mock data
 │   └── mock.go          #   Field-level example generation
-├── example/             # Sample project (5 frameworks :8081–:8085)
+├── example/             # Sample project (8 frameworks :8081–:8088)
 │   ├── main.go
 │   └── handlers/        #   @apidoc comment examples
 └── docs/                # Documentation and assets
@@ -138,7 +138,7 @@ s.Mount(adapter.NewGin(r))
 r.Run(":8080")
 ```
 
-For Echo / Chi / Fiber, just replace the adapter constructor: `adapter.NewEcho(e)`, `adapter.NewChi(mux)`, `adapter.NewFiber(app)` — the rest of the code stays exactly the same.
+For Echo / Chi / Fiber, just replace the adapter constructor: `adapter.NewEcho(e)`, `adapter.NewChi(mux)`, `adapter.NewFiber(app)` — the rest of the code stays exactly the same. For beego / Kratos / go-zero, see the Framework Adapters table below.
 
 ### Configuration
 
@@ -161,6 +161,9 @@ For Echo / Chi / Fiber, just replace the adapter constructor: `adapter.NewEcho(e
 | Echo | `adapter.NewEcho(e)` |
 | Chi | `adapter.NewChi(mux)` |
 | Fiber | `adapter.NewFiber(app)` |
+| beego | `adapter.NewBeego(app)` |
+| Kratos | `adapter.NewKratos(srv)` |
+| go-zero | `adapter.NewGoZero(srv)` |
 
 ### Annotation Auto-parsing (go/ast)
 
@@ -205,7 +208,7 @@ The detail page shows a Mock example automatically: customize with `Doc.Params[]
 
 ### Example Project
 
-`example/` ships 5 framework servers (net/http :8081, Gin :8082, Echo :8083, Chi :8084, Fiber :8085). Start them all with `go run ./example`.
+`example/` ships 8 framework servers (net/http :8081, Gin :8082, Echo :8083, Chi :8084, Fiber :8085, beego :8086, Kratos :8087, go-zero :8088). Start them all with `go run ./example`.
 
 ## Multilingual Documentation
 

@@ -18,7 +18,7 @@
 | 4 | 다중 앱 / 다중 버전 | App / Version 트리 관리, 플러그인 하나로 전체 프로젝트 문서 |
 | 5 | 비밀번호 인증 | 전역 비밀번호 + 앱 수준 비밀번호, HMAC 토큰 · 항시 비교 |
 | 6 | Markdown 문서 | goldmark 안전 렌더링, 네이티브 HTML 자동 제거 |
-| 7 | 다중 프레임워크 지원 | net/http · Gin · Echo · Chi · Fiber, 한 번 연동으로 전 프레임워크 공용 |
+| 7 | 다중 프레임워크 지원 | net/http · Gin · Echo · Chi · Fiber · beego · Kratos · go-zero, 한 번 연동으로 전 프레임워크 공용 |
 | 8 | JSON / TypeScript 내보내기 | 인터페이스 타입 원클릭 내보내기, 프런트·백엔드 연동이 더 원활 |
 | 9 | 보안 | SSRF 없음 · CORS 화이트리스트 제한 · XSS 방지 · 경로 탐색 방지 |
 | 10 | 어노테이션 자동 파싱 | go/ast가 주석에서 문서를 생성, `@apidoc` 마커만 있으면 됨 |
@@ -62,7 +62,7 @@ apidoc-go/
 │   └── export.go        #   TypeScript 인터페이스 정의
 ├── mock/                # Mock 데이터
 │   └── mock.go          #   필드 수준 예시 생성
-├── example/             # 샘플 프로젝트 (프레임워크 5종 :8081–:8085)
+├── example/             # 샘플 프로젝트 (프레임워크 8종 :8081–:8088)
 │   ├── main.go
 │   └── handlers/        #   @apidoc 주석 예시
 └── docs/                # 문서와 자료
@@ -138,7 +138,7 @@ s.Mount(adapter.NewGin(r))
 r.Run(":8080")
 ```
 
-Echo / Chi / Fiber는 어댑터 생성자만 교체하면 됩니다: `adapter.NewEcho(e)`、`adapter.NewChi(mux)`、`adapter.NewFiber(app)`, 나머지 코드는 완전히 동일합니다.
+Echo / Chi / Fiber는 어댑터 생성자만 교체하면 됩니다: `adapter.NewEcho(e)`、`adapter.NewChi(mux)`、`adapter.NewFiber(app)`, 나머지 코드는 완전히 동일합니다. beego / Kratos / go-zero는 아래 프레임워크 어댑터 표를 참고하세요.
 
 ### 설정 항목
 
@@ -161,6 +161,9 @@ Echo / Chi / Fiber는 어댑터 생성자만 교체하면 됩니다: `adapter.Ne
 | Echo | `adapter.NewEcho(e)` |
 | Chi | `adapter.NewChi(mux)` |
 | Fiber | `adapter.NewFiber(app)` |
+| beego | `adapter.NewBeego(app)` |
+| Kratos | `adapter.NewKratos(srv)` |
+| go-zero | `adapter.NewGoZero(srv)` |
 
 ### 어노테이션 자동 파싱 (go/ast)
 
@@ -205,7 +208,7 @@ for _, r := range results {
 
 ### 샘플 프로젝트
 
-`example/`에는 5개의 프레임워크 서버(net/http :8081, Gin :8082, Echo :8083, Chi :8084, Fiber :8085)가 포함되어 있습니다. `go run ./example`로 모두 실행할 수 있습니다.
+`example/`에는 8개의 프레임워크 서버(net/http :8081, Gin :8082, Echo :8083, Chi :8084, Fiber :8085, beego :8086, Kratos :8087, go-zero :8088)가 포함되어 있습니다. `go run ./example`로 모두 실행할 수 있습니다.
 
 ## 다국어 문서
 

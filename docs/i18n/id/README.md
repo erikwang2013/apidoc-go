@@ -18,7 +18,7 @@
 | 4 | Multi-aplikasi / multi-versi | Manajemen pohon App / Version, satu plugin mencakup dokumentasi seluruh proyek |
 | 5 | Autentikasi kata sandi | Kata sandi global + kata sandi tingkat aplikasi, HMAC Token · perbandingan waktu konstan |
 | 6 | Dokumentasi Markdown | Rendering aman dengan goldmark, HTML asli otomatis dihilangkan |
-| 7 | Adaptasi multi-kerangka | net/http · Gin · Echo · Chi · Fiber, sekali integrasi berlaku untuk semua kerangka |
+| 7 | Adaptasi multi-kerangka | net/http · Gin · Echo · Chi · Fiber · beego · Kratos · go-zero, sekali integrasi berlaku untuk semua kerangka |
 | 8 | Ekspor JSON / TypeScript | Ekspor tipe antarmuka sekali klik, integrasi frontend-backend lebih lancar |
 | 9 | Perlindungan keamanan | Tanpa SSRF · CORS dibatasi daftar putih · cegah XSS · cegah path traversal |
 | 10 | Parsing anotasi otomatis | go/ast menghasilkan dokumentasi dari komentar; penanda `@apidoc` sudah cukup |
@@ -62,7 +62,7 @@ apidoc-go/
 │   └── export.go        #   Definisi antarmuka TypeScript
 ├── mock/                # Data Mock
 │   └── mock.go          #   Pembuatan contoh tingkat bidang
-├── example/             # Proyek contoh (5 kerangka :8081–:8085)
+├── example/             # Proyek contoh (8 kerangka :8081–:8088)
 │   ├── main.go
 │   └── handlers/        #   Contoh komentar @apidoc
 └── docs/                # Dokumentasi dan aset
@@ -138,7 +138,7 @@ s.Mount(adapter.NewGin(r))
 r.Run(":8080")
 ```
 
-Untuk Echo / Chi / Fiber cukup ganti konstruktor adapter: `adapter.NewEcho(e)`, `adapter.NewChi(mux)`, `adapter.NewFiber(app)`, kode lainnya sepenuhnya sama.
+Untuk Echo / Chi / Fiber cukup ganti konstruktor adapter: `adapter.NewEcho(e)`, `adapter.NewChi(mux)`, `adapter.NewFiber(app)`, kode lainnya sepenuhnya sama. Untuk beego / Kratos / go-zero, lihat tabel Adapter Kerangka di bawah.
 
 ### Opsi Konfigurasi
 
@@ -161,6 +161,9 @@ Untuk Echo / Chi / Fiber cukup ganti konstruktor adapter: `adapter.NewEcho(e)`, 
 | Echo | `adapter.NewEcho(e)` |
 | Chi | `adapter.NewChi(mux)` |
 | Fiber | `adapter.NewFiber(app)` |
+| beego | `adapter.NewBeego(app)` |
+| Kratos | `adapter.NewKratos(srv)` |
+| go-zero | `adapter.NewGoZero(srv)` |
 
 ### Parsing Anotasi Otomatis (go/ast)
 
@@ -205,7 +208,7 @@ Halaman detail menampilkan contoh Mock secara otomatis: sesuaikan dengan `Doc.Pa
 
 ### Proyek Contoh
 
-`example/` menyediakan 5 server kerangka (net/http :8081, Gin :8082, Echo :8083, Chi :8084, Fiber :8085). Jalankan semuanya dengan `go run ./example`.
+`example/` menyediakan 8 server kerangka (net/http :8081, Gin :8082, Echo :8083, Chi :8084, Fiber :8085, beego :8086, Kratos :8087, go-zero :8088). Jalankan semuanya dengan `go run ./example`.
 
 ## Dokumentasi Multibahasa
 

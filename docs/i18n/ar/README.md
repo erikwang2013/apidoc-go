@@ -18,7 +18,7 @@
 | 4 | تطبيقات / إصدارات متعددة | إدارة شجرية لـ App / Version، ومكوّن إضافي واحد يغطي وثائق المشروع كله |
 | 5 | مصادقة بكلمة مرور | كلمة مرور عامة + كلمة مرور لكل تطبيق، رمز HMAC Token · مقارنة زمنية ثابتة |
 | 6 | وثائق Markdown | عرض آمن عبر goldmark، مع إزالة HTML الأصلي تلقائيًا |
-| 7 | تكيّف مع أطر متعددة | net/http · Gin · Echo · Chi · Fiber، تكامل واحد يغطي كل الأطر |
+| 7 | تكيّف مع أطر متعددة | net/http · Gin · Echo · Chi · Fiber · beego · Kratos · go-zero، تكامل واحد يغطي كل الأطر |
 | 8 | تصدير JSON / TypeScript | تصدير أنواع الواجهات بضغطة واحدة، لتنسيق التكامل بين الواجهة الأمامية والخلفية |
 | 9 | الحماية الأمنية | بلا SSRF · تقييد CORS بالقائمة البيضاء · منع XSS · منع تجاوز المسارات |
 | 10 | التحليل التلقائي للتعليقات التوضيحية | يولّد go/ast الوثائق من التعليقات؛ ويكفي وسم `@apidoc` |
@@ -62,7 +62,7 @@ apidoc-go/
 │   └── export.go        #   تعريفات واجهات TypeScript
 ├── mock/                # بيانات Mock
 │   └── mock.go          #   توليد أمثلة على مستوى الحقل
-├── example/             # مشروع نموذجي (5 أطر :8081–:8085)
+├── example/             # مشروع نموذجي (8 أطر :8081–:8088)
 │   ├── main.go
 │   └── handlers/        #   أمثلة تعليقات @apidoc
 └── docs/                # الوثائق والمواد
@@ -138,7 +138,7 @@ s.Mount(adapter.NewGin(r))
 r.Run(":8080")
 ```
 
-بالنسبة إلى Echo / Chi / Fiber يكفي استبدال مُنشئ المحول: `adapter.NewEcho(e)` و `adapter.NewChi(mux)` و `adapter.NewFiber(app)`، وبقية الكود متطابق تمامًا.
+بالنسبة إلى Echo / Chi / Fiber يكفي استبدال مُنشئ المحول: `adapter.NewEcho(e)` و `adapter.NewChi(mux)` و `adapter.NewFiber(app)`، وبقية الكود متطابق تمامًا. أما beego / Kratos / go-zero فراجع جدول محولات الأطر أدناه.
 
 ### خيارات الإعداد
 
@@ -161,6 +161,9 @@ r.Run(":8080")
 | Echo | `adapter.NewEcho(e)` |
 | Chi | `adapter.NewChi(mux)` |
 | Fiber | `adapter.NewFiber(app)` |
+| beego | `adapter.NewBeego(app)` |
+| Kratos | `adapter.NewKratos(srv)` |
+| go-zero | `adapter.NewGoZero(srv)` |
 
 ### التحليل التلقائي للتعليقات التوضيحية (go/ast)
 اكتب تعليقات `@apidoc` فوق المعالج (handler)، ثم سجّل نتائج التحليل:
@@ -199,7 +202,7 @@ for _, r := range results {
 تعرض صفحة التفاصيل مثال Mock تلقائيًا: خصّصه عبر `Doc.Params[].Mock`، أو اتركه يُولَّد من نوع الحقل (string→"sample"، int→0، bool→true، ...).
 
 ### المشروع النموذجي
-يضم `example/` خمسة خوادم أطر (net/http :8081، Gin :8082، Echo :8083، Chi :8084، Fiber :8085). شغّلها كلها عبر `go run ./example`.
+يضم `example/` ثمانية خوادم أطر (net/http :8081، Gin :8082، Echo :8083، Chi :8084، Fiber :8085, beego :8086, Kratos :8087, go-zero :8088). شغّلها كلها عبر `go run ./example`.
 
 ## وثائق متعددة اللغات
 

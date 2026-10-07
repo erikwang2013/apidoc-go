@@ -18,7 +18,7 @@
 | 4 | बहु-ऐप / बहु-संस्करण | App / Version ट्री-आधारित प्रबंधन; एक प्लगइन पूरे प्रोजेक्ट के दस्तावेज़ों को कवर करता है |
 | 5 | पासवर्ड प्रमाणीकरण | ग्लोबल पासवर्ड + ऐप-स्तरीय पासवर्ड; HMAC Token · निरंतर-समय तुलना |
 | 6 | Markdown दस्तावेज़ | goldmark सुरक्षित रेंडरिंग; मूल HTML स्वतः हटा दिया जाता है |
-| 7 | बहु-फ्रेमवर्क अनुकूलन | net/http · Gin · Echo · Chi · Fiber; एक बार जोड़ें, सभी फ्रेमवर्क पर काम करे |
+| 7 | बहु-फ्रेमवर्क अनुकूलन | net/http · Gin · Echo · Chi · Fiber · beego · Kratos · go-zero; एक बार जोड़ें, सभी फ्रेमवर्क पर काम करे |
 | 8 | JSON / TypeScript निर्यात | इंटरफ़ेस प्रकार एक क्लिक में निर्यात; फ्रंट-बैक समेकन अधिक सुगम |
 | 9 | सुरक्षा संरक्षण | कोई SSRF नहीं · CORS श्वेतसूची प्रतिबंध · XSS से सुरक्षा · पथ ट्रैवर्सल से सुरक्षा |
 | 10 | एनोटेशन ऑटो-पार्सिंग | go/ast कमेंट्स से दस्तावेज़ जनरेट करता है; बस `@apidoc` मार्कर काफी है |
@@ -62,7 +62,7 @@ apidoc-go/
 │   └── export.go        #   TypeScript इंटरफ़ेस परिभाषाएँ
 ├── mock/                # Mock डेटा
 │   └── mock.go          #   फ़ील्ड-स्तरीय उदाहरण जनरेशन
-├── example/             # नमूना प्रोजेक्ट (5 फ्रेमवर्क :8081–:8085)
+├── example/             # नमूना प्रोजेक्ट (8 फ्रेमवर्क :8081–:8088)
 │   ├── main.go
 │   └── handlers/        #   @apidoc कमेंट उदाहरण
 └── docs/                # दस्तावेज़ और संपत्तियाँ
@@ -138,7 +138,7 @@ s.Mount(adapter.NewGin(r))
 r.Run(":8080")
 ```
 
-Echo / Chi / Fiber के लिए केवल एडाप्टर कंस्ट्रक्टर बदलें: `adapter.NewEcho(e)`, `adapter.NewChi(mux)`, `adapter.NewFiber(app)` — बाकी कोड बिल्कुल समान रहता है।
+Echo / Chi / Fiber के लिए केवल एडाप्टर कंस्ट्रक्टर बदलें: `adapter.NewEcho(e)`, `adapter.NewChi(mux)`, `adapter.NewFiber(app)` — बाकी कोड बिल्कुल समान रहता है। beego / Kratos / go-zero के लिए नीचे फ्रेमवर्क एडाप्टर तालिका देखें।
 
 ### कॉन्फ़िगरेशन विकल्प
 
@@ -161,6 +161,9 @@ Echo / Chi / Fiber के लिए केवल एडाप्टर कंस
 | Echo | `adapter.NewEcho(e)` |
 | Chi | `adapter.NewChi(mux)` |
 | Fiber | `adapter.NewFiber(app)` |
+| beego | `adapter.NewBeego(app)` |
+| Kratos | `adapter.NewKratos(srv)` |
+| go-zero | `adapter.NewGoZero(srv)` |
 
 ### एनोटेशन ऑटो-पार्सिंग (go/ast)
 हैंडलर के ऊपर `@apidoc` कमेंट लिखें, फिर पार्स परिणाम रजिस्टर करें:
@@ -199,7 +202,7 @@ for _, r := range results {
 विवरण पृष्ठ स्वतः एक Mock उदाहरण दिखाता है: `Doc.Params[].Mock` से इसे अनुकूलित करें, या फ़ील्ड प्रकार से जनरेट होने दें (string→"sample", int→0, bool→true, ...)।
 
 ### नमूना प्रोजेक्ट
-`example/` में 5 फ्रेमवर्क सर्वर शामिल हैं (net/http :8081, Gin :8082, Echo :8083, Chi :8084, Fiber :8085)। `go run ./example` से सभी चालू करें।
+`example/` में 8 फ्रेमवर्क सर्वर शामिल हैं (net/http :8081, Gin :8082, Echo :8083, Chi :8084, Fiber :8085, beego :8086, Kratos :8087, go-zero :8088)। `go run ./example` से सभी चालू करें।
 
 ## बहु-भाषा दस्तावेज़
 
