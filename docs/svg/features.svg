@@ -14,9 +14,9 @@
   <rect x="327" y="100" width="246" height="130" rx="12" fill="#f0fdf4" stroke="#22c55e"/>
   <circle cx="450" cy="138" r="14" fill="#22c55e"/>
   <text x="450" y="144" text-anchor="middle" font-size="15" font-weight="700" fill="#ffffff">2</text>
-  <text x="450" y="176" text-anchor="middle" font-size="15" font-weight="600" fill="#1a1a2e">在线调试</text>
-  <text x="450" y="200" text-anchor="middle" font-size="12" fill="#555">浏览器端直接请求真实接口</text>
-  <text x="450" y="218" text-anchor="middle" font-size="12" fill="#555">无服务端转发，天然无 SSRF</text>
+  <text x="450" y="176" text-anchor="middle" font-size="15" font-weight="600" fill="#1a1a2e">文档 API</text>
+  <text x="450" y="200" text-anchor="middle" font-size="12" fill="#555">外部 UI 读取文档数据</text>
+  <text x="450" y="218" text-anchor="middle" font-size="12" fill="#555">渲染面板并发起测试请求</text>
 
   <rect x="594" y="100" width="246" height="130" rx="12" fill="#fff7ed" stroke="#f97316"/>
   <circle cx="717" cy="138" r="14" fill="#f97316"/>
@@ -65,7 +65,7 @@
   <circle cx="717" cy="438" r="14" fill="#3b82f6"/>
   <text x="717" y="444" text-anchor="middle" font-size="15" font-weight="700" fill="#ffffff">9</text>
   <text x="717" y="476" text-anchor="middle" font-size="15" font-weight="600" fill="#1a1a2e">安全防护</text>
-  <text x="717" y="500" text-anchor="middle" font-size="12" fill="#555">无 SSRF · CORS 白名单限定</text>
+  <text x="717" y="500" text-anchor="middle" font-size="12" fill="#555">密码鉴权 · CORS 白名单限定</text>
   <text x="717" y="518" text-anchor="middle" font-size="12" fill="#555">防 XSS · 防路径穿越</text>
 
   <rect x="60" y="550" width="246" height="130" rx="12" fill="#ecfdf5" stroke="#10b981"/>

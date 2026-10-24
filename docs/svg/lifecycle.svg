@@ -31,9 +31,9 @@
   <text x="550" y="184" text-anchor="middle" font-size="11" fill="#555">鉴权 · CORS</text>
 
   <rect x="640" y="110" width="120" height="86" rx="10" fill="#ecfeff" stroke="#06b6d4"/>
-  <text x="700" y="144" text-anchor="middle" font-size="14" font-weight="600" fill="#1a1a2e">5. 展示 / 调试</text>
-  <text x="700" y="166" text-anchor="middle" font-size="11" fill="#555">内嵌 Web UI</text>
-  <text x="700" y="184" text-anchor="middle" font-size="11" fill="#555">在线请求真实接口</text>
+  <text x="700" y="144" text-anchor="middle" font-size="14" font-weight="600" fill="#1a1a2e">5. 展示 / 测试</text>
+  <text x="700" y="166" text-anchor="middle" font-size="11" fill="#555">外部 UI</text>
+  <text x="700" y="184" text-anchor="middle" font-size="11" fill="#555">读取文档 API 并发请求</text>
 
   <rect x="790" y="110" width="90" height="86" rx="10" fill="#f5f3ff" stroke="#8b5cf6"/>
   <text x="835" y="144" text-anchor="middle" font-size="14" font-weight="600" fill="#1a1a2e">6. 迭代</text>

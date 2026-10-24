@@ -30,7 +30,7 @@
   </g>
 
   <!-- 能力行 -->
-  <text x="88" y="516" font-size="20" fill="#64748b">在线调试 · Mock 数据 · JSON/TS 导出 · 注释解析 · ETag 缓存 · 密码鉴权</text>
+  <text x="88" y="516" font-size="20" fill="#64748b">注解文档 · Mock 数据 · JSON/TS 导出 · 注释解析 · ETag 缓存 · 密码鉴权</text>
 
   <!-- 页脚 -->
   <text x="88" y="582" font-size="18" fill="#94a3b8">github.com/erikwang2013/apidoc-go</text>
