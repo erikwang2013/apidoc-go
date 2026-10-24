@@ -5,6 +5,8 @@
 
 ## [Unreleased]
 
+## [v1.0.9] - 2026-10-24
+
 ### Added
 
 - **协议无关调试（P1）**
@@ -55,6 +57,11 @@
 - bool 默认值与空可选参数：checkbox 应用 mock/default；空的可选参数不发送。
 - Content-Type 解析改用 `mime.ParseMediaType`，拒绝 `application/jsonfoo`。
 - `sendServerDebug` 捕获网络异常并显示失败状态。
+- 流式会话切换到 browser-mode action 后 Send 按钮恢复显示。
+- 声明为 `file` 的字段中无效 base64 返回 400；超过 256 KiB 仍返回 413。
+- SSE 断线后关闭 EventSource 并提示重新连接，不再对已移除 session 无限重试。
+- `AllowPorts` 为常见协议补齐默认端口；无默认端口的 scheme 返回显式端口提示。
+- `docs/protocols.md` 区分 JSON/CSRF 端点与 SSE events 端点。
 
 ### Security
 
@@ -63,3 +70,5 @@
 - 执行目标默认绑定已注册 action，只有 `Spec.AllowTargetOverride` 才允许改 URL。
 - 库级 `DebugPolicy` 是兜底，适配器仍负责自己的目标策略。
 - 文件上传、请求体、响应体、事件数量与并发均有上限。
+- `debugOpen` 握手复用并发信号量；响应 header key 也有上限。
+- 审计 Target 与 Policy 错误剥离 URL userinfo，避免凭据进入日志。
