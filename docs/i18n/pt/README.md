@@ -13,17 +13,20 @@
 | # | Função | Descrição |
 |---|--------|-----------|
 | 1 | Geração automática de documentação | Declaração tipada de Doc junto com o registro da rota; declare uma única vez e a documentação nasce junto com a rota |
-| 2 | Depuração on-line | Solicite as interfaces reais diretamente do navegador, sem encaminhamento pelo servidor, naturalmente sem SSRF |
+| 2 | Depuração on-line | No modo navegador as requisições vão diretamente aos endpoints reais (sem encaminhamento no servidor, sem SSRF); a depuração no modo server exige autenticação + CSRF + limites |
 | 3 | Dados Mock | Exemplos Mock por campo, adiante-se na integração de interfaces |
 | 4 | Múltiplos aplicativos / versões | Gestão hierárquica de App / Version, um único plugin cobre a documentação de todo o projeto |
 | 5 | Autenticação por senha | Senha global + senha por aplicativo, HMAC Token · comparação em tempo constante |
 | 6 | Documentos Markdown | Renderização segura com goldmark, o HTML nativo é removido automaticamente |
 | 7 | Suporte a vários frameworks | net/http · Gin · Echo · Chi · Fiber · beego · Kratos · go-zero, integre uma única vez e funcionará com todos os frameworks |
 | 8 | Exportação JSON / TypeScript | Exporte os tipos das interfaces com um clique, integração frontend-backend mais fluida |
-| 9 | Proteção de segurança | Sem SSRF · CORS restrito por lista de permissões · proteção anti-XSS · proteção contra path traversal |
+| 9 | Proteção de segurança | Modo navegador sem SSRF · a depuração no modo server exige autenticação + cabeçalho CSRF + limites de recursos (a lista de permissões de destinos é responsabilidade do adaptador) · CORS restrito por lista de permissões · proteção anti-XSS · proteção contra path traversal |
 | 10 | Parsing automático de anotações | go/ast gera a documentação a partir de comentários; basta o marcador `@apidoc` |
 | 11 | Cache HTTP | ETag + 304, as respostas da documentação abrem instantaneamente |
 | 12 | Preenchimento automático de parâmetros | reflect infere os parâmetros da solicitação a partir da assinatura do handler |
+| 13 | Depuração de qualquer protocolo | Declaração `@protocol` + extensão `Debugger`: um painel para preencher, enviar e ver a resposta |
+| 14 | Sessões de streaming | `StreamDebugger` mantém sessões de longa duração: open / send / transcrição SSE ao vivo |
+| 15 | Endurecimento da depuração | TargetPolicy · log de auditoria · mascaramento de segredos · upload de arquivos/certificados · snippets de código · harness de testes de adaptadores |
 
 ## Visão geral da arquitetura
 
@@ -139,6 +142,37 @@ r.Run(":8080")
 ```
 
 Para Echo / Chi / Fiber basta trocar o construtor do adaptador: `adapter.NewEcho(e)`, `adapter.NewChi(mux)`, `adapter.NewFiber(app)`; o restante do código é idêntico. Para beego / Kratos / go-zero, consulte a tabela «Adaptadores de frameworks» abaixo.
+
+### Depuração de qualquer protocolo
+
+Endpoints não HTTP reutilizam `@method` + `@url`; `@protocol` nomeia o protocolo (também pode ser inferido do esquema da URL):
+
+```go
+// @apidoc
+// @protocol mqtt
+// @method PUBLISH
+// @url mqtt://broker:1883/sensors/temp
+// @title Publicar temperatura
+// @param qos int false "QoS" in=option default=1
+// @param payload json true "Corpo da mensagem" in=payload
+func PublishTemp() {}
+```
+
+O protocolo é executado por um `Debugger` fornecido por você — geralmente um invólucro fino sobre um cliente que o projeto já possui:
+
+```go
+s := apidoc.New(apidoc.Config{
+    Debuggers: []apidoc.Debugger{
+        apidoc.DebuggerFunc("mqtt", apidoc.DebugSpec{
+            Mode: "server", Actions: []string{"PUBLISH"},
+        }, func(ctx context.Context, req apidoc.DebugRequest) (*apidoc.DebugResponse, error) {
+            return mqttClient.Publish(ctx, req)
+        }),
+    },
+})
+```
+
+O modo `server` exige autenticação; se a autenticação estiver desativada, defina explicitamente `DebugAllowUnauth: true`. O modo navegador HTTP continua direto e sem SSRF. Proteja os destinos do modo server com `DebugPolicy` (a verificação própria do adaptador continua valendo) e ative `DebugAudit`. Protocolos de streaming implementam `StreamDebugger` e aparecem como transcrição SSE ao vivo (open / send / events). Convenções de URI e esqueletos de adaptadores: [protocols.md](../../protocols.md); notas de compatibilidade: [CHANGELOG.md](../../../CHANGELOG.md).
 
 ### Opções de configuração
 

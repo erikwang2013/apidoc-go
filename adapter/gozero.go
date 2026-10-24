@@ -42,6 +42,12 @@ func (a *GoZero) Mount(prefix string, h http.Handler) {
 		prefix + "/api/export",
 		prefix + "/api/login",
 		prefix + "/api/app-login",
+		prefix + "/api/debug/exec",
+		prefix + "/api/debug/open",
+		prefix + "/api/debug/send",
+		prefix + "/api/debug/close",
+		prefix + "/api/debug/events",
+		prefix + "/debug.js",
 		prefix + "/apidoc-pet.svg",
 	} {
 		for _, method := range []string{http.MethodGet, http.MethodPost, http.MethodOptions} {

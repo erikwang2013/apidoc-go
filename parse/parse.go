@@ -120,6 +120,9 @@ func parseFunc(fset *token.FileSet, f *ast.File, fn *ast.FuncDecl) (Result, erro
 		return r, err
 	}
 	extractStructs(f, fn, &r)
+	if r.Doc.Protocol == "" {
+		r.Doc.Protocol = model.ProtocolOf(r.URL)
+	}
 	if r.Doc.Controller == "" {
 		r.Doc.Controller = fn.Name.Name
 	}
@@ -154,6 +157,12 @@ func parseTags(fset *token.FileSet, f *ast.File, fn *ast.FuncDecl, r *Result) er
 			r.Doc.Desc = strings.Join(toks, " ")
 		case "author":
 			r.Doc.Author = strings.Join(toks, " ")
+		case "protocol":
+			if len(toks) < 1 {
+				err = fmt.Errorf("@protocol wants a name")
+			} else {
+				r.Doc.Protocol = strings.ToLower(toks[0])
+			}
 		case "app":
 			r.Doc.App = strings.Join(toks, " ")
 		case "version":
@@ -221,12 +230,10 @@ func parseParam(f *ast.File, kw string, toks []string) (model.Param, error) {
 		}
 		switch key {
 		case "in":
-			switch val {
-			case "header", "query", "body", "path":
-				p.In = val
-			default:
-				return p, fmt.Errorf("bad in=%q", val)
+			if val == "" {
+				return p, fmt.Errorf("empty in=")
 			}
+			p.In = strings.ToLower(val)
 		case "default":
 			p.Default = val
 		case "mock":

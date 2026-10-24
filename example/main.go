@@ -14,7 +14,9 @@
 package main
 
 import (
+	"io"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"strings"
@@ -22,6 +24,7 @@ import (
 	"github.com/beego/beego/v2/server/web"
 	"github.com/erikwang2013/apidoc-go"
 	"github.com/erikwang2013/apidoc-go/adapter"
+	"github.com/erikwang2013/apidoc-go/example/debugger"
 	"github.com/erikwang2013/apidoc-go/example/handlers"
 	"github.com/erikwang2013/apidoc-go/parse"
 	"github.com/gin-gonic/gin"
@@ -35,6 +38,7 @@ import (
 
 func main() {
 	rs := parsedDocs()
+	go tcpEchoDemo()
 	go nethttpDemo(rs)
 	go ginDemo(rs)
 	go echoDemo(rs)
@@ -66,13 +70,29 @@ var parsedFns = []http.HandlerFunc{handlers.ListUsers, handlers.GetUser, handler
 
 func nethttpDemo(rs []parse.Result) {
 	mux := http.NewServeMux()
-	s := apidoc.New(apidoc.Config{Prefix: "/apidoc", Title: "net/http demo"})
+	s := apidoc.New(apidoc.Config{
+		Prefix: "/apidoc", Title: "net/http demo",
+		Debuggers:        []apidoc.Debugger{debugger.TCP()},
+		DebugAllowUnauth: true, // demo only
+	})
 	must(s.Register(apidoc.Route{Method: "GET", URL: "/api/health",
 		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.Write([]byte("ok")) }),
 		Doc: apidoc.Doc{Title: "健康检查", Author: "demo",
 			Params:    []apidoc.Param{{Name: "verbose", In: "query", Type: "bool", Desc: "详细输出"}},
 			Responses: []apidoc.Response{{Name: "ok", Type: "string", Desc: "状态"}},
 		}}))
+	must(s.Register(apidoc.Route{
+		Method: "SEND",
+		URL:    "tcp://127.0.0.1:19000",
+		Doc: apidoc.Doc{
+			Protocol: "tcp", Title: "TCP Echo", Author: "demo",
+			Params: []apidoc.Param{{
+				Name: "payload", In: "payload", Type: "text",
+				Required: true, Desc: "发送内容",
+			}},
+			Responses: []apidoc.Response{{Name: "ok", Type: "string", Desc: "回显内容"}},
+		},
+	}))
 	for i, r := range rs {
 		must(s.Register(apidoc.Route{Method: r.Method, URL: r.URL, Handler: parsedFns[i], Doc: r.Doc}))
 	}
@@ -228,6 +248,25 @@ func gozeroDemo(rs []parse.Result) {
 	}
 	must(s.Mount(adapter.NewGoZero(srv)))
 	srv.Start() // blocks; go-zero logs its own startup failures
+}
+
+// tcpEchoDemo runs a raw TCP echo server for the example debugger.
+func tcpEchoDemo() {
+	ln, err := net.Listen("tcp", "127.0.0.1:19000")
+	if err != nil {
+		log.Printf("tcp echo: %v", err)
+		return
+	}
+	for {
+		c, err := ln.Accept()
+		if err != nil {
+			return
+		}
+		go func() {
+			defer c.Close()
+			_, _ = io.Copy(c, c)
+		}()
+	}
 }
 
 func must(err error) {

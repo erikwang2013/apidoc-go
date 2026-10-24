@@ -13,17 +13,20 @@
 | # | 機能 | 説明 |
 |---|------|------|
 | 1 | ドキュメント自動生成 | 型付き Doc 宣言をルート登録と同時に行う。一度宣言すれば、ドキュメントはルートと共に生まれる |
-| 2 | オンライン実行 | ブラウザから直接実 API をリクエスト。サーバー経由の転送なしで、SSRF の心配が根本的にない |
+| 2 | オンライン実行 | ブラウザモードで実 API へ直接リクエスト（サーバー転送なし、SSRF なし）。server モードのデバッグには認証 + CSRF + 制限が必要 |
 | 3 | Mock データ | フィールド単位の Mock サンプル。API 連携を一歩先取り |
 | 4 | 複数アプリ / 複数バージョン | App / Version のツリー管理。1 つのプラグインでプロジェクト全体のドキュメントをカバー |
 | 5 | パスワード認証 | グローバルパスワード + アプリ単位パスワード。HMAC トークン・定数時間比較 |
 | 6 | Markdown ドキュメント | goldmark による安全なレンダリング。生の HTML は自動的に除去 |
 | 7 | 複数フレームワーク対応 | net/http · Gin · Echo · Chi · Fiber · beego · Kratos · go-zero。一度組み込めば全フレームワークで利用可能 |
 | 8 | JSON / TypeScript エクスポート | インターフェース型をワンクリックでエクスポート。フロントエンドとの連携がよりスムーズに |
-| 9 | セキュリティ対策 | SSRF なし・CORS ホワイトリスト制限・XSS 対策・パストラバーサル対策 |
+| 9 | セキュリティ対策 | ブラウザモードは SSRF なし · server モードのデバッグは認証 + CSRF ヘッダー + リソース制限が必要（対象の許可リストはアダプターの責務）・CORS ホワイトリスト制限・XSS 対策・パストラバーサル対策 |
 | 10 | アノテーション自動パース | go/ast がコメントからドキュメントを生成。`@apidoc` マーカーだけで完了 |
 | 11 | HTTP キャッシュ | ETag + 304 で、ドキュメントレスポンスが即座に開く |
 | 12 | パラメータ自動補完 | reflect がハンドラーシグネチャからリクエストパラメータを推論 |
+| 13 | 任意プロトコルのデバッグ | `@protocol` 宣言 + `Debugger` 拡張。1 つのパネルでパラメータ入力・送信・レスポンス表示 |
+| 14 | ストリーミングセッション | `StreamDebugger` が長時間接続セッションを保持。open / send / SSE ライブ transcript |
+| 15 | デバッグ強化 | TargetPolicy・監査ログ・シークレットマスク・ファイル/証明書アップロード・コードスニペット・アダプターテストハーネス |
 
 ## アーキテクチャ概要
 
@@ -139,6 +142,37 @@ r.Run(":8080")
 ```
 
 Echo / Chi / Fiber はアダプターのコンストラクターを差し替えるだけです。`adapter.NewEcho(e)`、`adapter.NewChi(mux)`、`adapter.NewFiber(app)` の順で、残りのコードは完全に同じです。beego / Kratos / go-zero については下の「フレームワークアダプター」表を参照してください。
+
+### 任意プロトコルのデバッグ
+
+非 HTTP のインターフェースは `@method` + `@url` を再利用し、`@protocol` でプロトコルを指定します（URL スキームから推論することも可能）:
+
+```go
+// @apidoc
+// @protocol mqtt
+// @method PUBLISH
+// @url mqtt://broker:1883/sensors/temp
+// @title 温度を発行
+// @param qos int false "QoS" in=option default=1
+// @param payload json true "メッセージ本文" in=payload
+func PublishTemp() {}
+```
+
+プロトコルの実行は利用者が提供する `Debugger` が担います。通常はプロジェクトに既にあるクライアントを薄くラップするだけです:
+
+```go
+s := apidoc.New(apidoc.Config{
+    Debuggers: []apidoc.Debugger{
+        apidoc.DebuggerFunc("mqtt", apidoc.DebugSpec{
+            Mode: "server", Actions: []string{"PUBLISH"},
+        }, func(ctx context.Context, req apidoc.DebugRequest) (*apidoc.DebugResponse, error) {
+            return mqttClient.Publish(ctx, req)
+        }),
+    },
+})
+```
+
+`server` モードには認証が必要です。認証を無効にした場合は `DebugAllowUnauth: true` を明示してください。ブラウザモードの HTTP は直接実行のままで SSRF はありません。server モードの対象は `DebugPolicy` で保護し（アダプター自身の対象チェックも有効です）、`DebugAudit` を有効にしてください。ストリーミングプロトコルは `StreamDebugger` を実装するとライブ SSE transcript（open / send / events）として表示されます。URI 規約とアダプターの骨組みは [protocols.md](../../protocols.md)、互換性の注意は [CHANGELOG.md](../../../CHANGELOG.md) を参照してください。
 
 ### 設定項目
 

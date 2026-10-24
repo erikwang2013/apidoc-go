@@ -158,7 +158,7 @@ func TestMalformed(t *testing.T) {
 		name, line string
 	}{
 		{"param too few", "// @param id"},
-		{"bad in", "// @param id string in=sideways"},
+		{"empty in", "// @param id string in="},
 		{"unknown key", "// @param id string foo=1"},
 		{"bad sort", "// @sort x"},
 		{"sort wants value", "// @sort"},
@@ -278,5 +278,54 @@ func TestParseDirAndFile(t *testing.T) {
 	rs, err := parse.ParseFile(good)
 	if err != nil || len(rs) != 1 || rs[0].Method != "GET" {
 		t.Errorf("ParseFile: rs=%+v err=%v", rs, err)
+	}
+}
+
+func TestProtocolTagAndCustomIn(t *testing.T) {
+	res, err := parse.ParseSource("proto.go", []byte(src(
+		"package p",
+		"// @apidoc",
+		"// @protocol MQTT",
+		"// @method PUBLISH",
+		"// @url mqtt://broker:1883/sensors/temp",
+		"// @param qos int false \"QoS\" in=option default=1",
+		"// @param payload json true \"消息体\" in=payload",
+		"func Publish() {}",
+	)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	r := res[0]
+	if r.Doc.Protocol != "mqtt" {
+		t.Fatalf("protocol = %q", r.Doc.Protocol)
+	}
+	if r.Doc.Params[0].In != "option" || r.Doc.Params[1].In != "payload" {
+		t.Fatalf("custom in groups lost: %+v", r.Doc.Params)
+	}
+}
+
+func TestProtocolInferredFromURL(t *testing.T) {
+	res, err := parse.ParseSource("infer.go", []byte(src(
+		"package p",
+		"// @apidoc",
+		"// @method CALL",
+		"// @url grpc://localhost:50051/pkg.Svc/M",
+		"func Call() {}",
+	)))
+	if err != nil || len(res) != 1 {
+		t.Fatalf("parse: %v %d", err, len(res))
+	}
+	if res[0].Doc.Protocol != "grpc" {
+		t.Fatalf("inferred = %q", res[0].Doc.Protocol)
+	}
+	res, err = parse.ParseSource("http.go", []byte(src(
+		"package p",
+		"// @apidoc",
+		"// @method GET",
+		"// @url /api/x",
+		"func Get() {}",
+	)))
+	if err != nil || res[0].Doc.Protocol != "http" {
+		t.Fatalf("http infer: %v %+v", err, res)
 	}
 }

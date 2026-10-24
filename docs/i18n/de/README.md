@@ -13,17 +13,20 @@
 | # | Funktion | Beschreibung |
 |---|----------|--------------|
 | 1 | Automatische Dokumentationserstellung | Typisierte Doc-Deklaration zusammen mit der Routenregistrierung — einmal deklariert, entstehen Dokumentation und Route gemeinsam |
-| 2 | Online-Debugging | Echte Endpunkte direkt aus dem Browser aufrufen, keine serverseitige Weiterleitung, von Natur aus SSRF-frei |
+| 2 | Online-Debugging | Im Browser-Modus gehen Anfragen direkt an echte Endpunkte (keine serverseitige Weiterleitung, SSRF-frei); Debugging im Server-Modus erfordert Auth + CSRF + Limits |
 | 3 | Mock-Daten | Feldgenaue Mock-Beispiele, schneller bei der Schnittstellen-Integration |
 | 4 | Mehrere Apps / Versionen | Baumartige Verwaltung von App / Version — ein Plugin deckt die gesamte Projektdokumentation ab |
 | 5 | Passwort-Authentifizierung | Globales Passwort + app-spezifisches Passwort, HMAC-Token · zeitkonstanter Vergleich |
 | 6 | Markdown-Dokumentation | Sichere goldmark-Renderung, natives HTML wird automatisch entfernt |
 | 7 | Multi-Framework-Anpassung | net/http · Gin · Echo · Chi · Fiber · beego · Kratos · go-zero — einmal integriert, mit allen Frameworks kompatibel |
 | 8 | JSON-/TypeScript-Export | Schnittstellentypen mit einem Klick exportieren, reibungslosere Frontend-Backend-Integration |
-| 9 | Sicherheitsschutz | Kein SSRF · CORS-Whitelist-Einschränkung · XSS-Schutz · Schutz vor Pfad-Traversal |
+| 9 | Sicherheitsschutz | Browser-Modus ohne SSRF · Server-Modus-Debugging erfordert Auth + CSRF-Header + Ressourcenlimits (Ziel-Allowlist liegt beim Adapter) · CORS-Whitelist · XSS-Schutz · Schutz vor Pfad-Traversal |
 | 10 | Annotation-Auto-Parsing | go/ast erzeugt die Dokumentation aus Kommentaren; der Marker `@apidoc` genügt |
 | 11 | HTTP-Caching | ETag + 304, Doc-Antworten öffnen sofort |
 | 12 | Automatische Parametervervollständigung | reflect leitet die Request-Parameter aus der Handler-Signatur ab |
+| 13 | Debugging für jedes Protokoll | `@protocol`-Deklaration + `Debugger`-Erweiterung: ein Panel zum Eingeben, Senden und Anzeigen der Antwort |
+| 14 | Streaming-Sitzungen | `StreamDebugger` hält langlebige Sitzungen: open / send / Live-SSE-Transkript |
+| 15 | Debug-Härtung | TargetPolicy · Audit-Log · Secret-Maskierung · Datei-/Zertifikat-Upload · Code-Snippets · Adapter-Testharness |
 
 ## Architekturübersicht
 
@@ -139,6 +142,37 @@ r.Run(":8080")
 ```
 
 Bei Echo / Chi / Fiber muss lediglich der Adapter-Konstruktor ausgetauscht werden: `adapter.NewEcho(e)`, `adapter.NewChi(mux)`, `adapter.NewFiber(app)` — der übrige Code bleibt vollständig identisch. Für beego / Kratos / go-zero siehe die Tabelle „Framework-Adapter“ unten.
+
+### Debugging für jedes Protokoll
+
+Nicht-HTTP-Endpunkte nutzen weiterhin `@method` + `@url`; `@protocol` benennt das Protokoll (oder es wird aus dem URL-Schema abgeleitet):
+
+```go
+// @apidoc
+// @protocol mqtt
+// @method PUBLISH
+// @url mqtt://broker:1883/sensors/temp
+// @title Temperatur veröffentlichen
+// @param qos int false "QoS" in=option default=1
+// @param payload json true "Nachrichtentext" in=payload
+func PublishTemp() {}
+```
+
+Ein von Ihnen bereitgestellter `Debugger` führt das Protokoll aus — meist ein dünner Wrapper um einen bereits vorhandenen Client:
+
+```go
+s := apidoc.New(apidoc.Config{
+    Debuggers: []apidoc.Debugger{
+        apidoc.DebuggerFunc("mqtt", apidoc.DebugSpec{
+            Mode: "server", Actions: []string{"PUBLISH"},
+        }, func(ctx context.Context, req apidoc.DebugRequest) (*apidoc.DebugResponse, error) {
+            return mqttClient.Publish(ctx, req)
+        }),
+    },
+})
+```
+
+Der `server`-Modus erfordert Authentifizierung; ist Auth deaktiviert, muss `DebugAllowUnauth: true` explizit gesetzt werden. Browser-Modus-HTTP bleibt direkt und SSRF-frei. Schützen Sie Ziele im Server-Modus mit `DebugPolicy` (die eigene Zielprüfung des Adapters gilt weiterhin) und aktivieren Sie `DebugAudit`. Streaming-Protokolle implementieren `StreamDebugger` und erscheinen als Live-SSE-Transkript (open / send / events). URI-Konventionen und Adapter-Gerüste: [protocols.md](../../protocols.md); Kompatibilitätshinweise: [CHANGELOG.md](../../../CHANGELOG.md).
 
 ### Konfigurationsoptionen
 

@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"net/url"
+	"strings"
 	"sync"
 
 	"github.com/erikwang2013/apidoc-go/model"
@@ -52,12 +53,18 @@ func (s *Store) Register(method, u string, d model.Doc) {
 	if d.Controller == "" {
 		d.Controller = "default"
 	}
+	if d.Protocol == "" {
+		d.Protocol = model.ProtocolOf(u)
+	} else {
+		d.Protocol = strings.ToLower(strings.TrimSpace(d.Protocol))
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	id := ActionID(d.App, d.Version, method, u)
 	a := &model.Action{
 		ID: id, App: d.App, Version: d.Version, Controller: d.Controller,
-		Method: method, URL: u, Title: d.Title, Desc: d.Desc, Author: d.Author,
+		Method: method, URL: u, Protocol: d.Protocol,
+		Title: d.Title, Desc: d.Desc, Author: d.Author,
 		Params: d.Params, Responses: d.Responses, Markdown: d.Markdown,
 		Mock: d.Mock, Sort: d.Sort,
 	}
@@ -141,6 +148,9 @@ func (s *Store) UnmarshalJSON(b []byte) error {
 		for _, v := range app.Versions {
 			for _, c := range v.Controllers {
 				for _, a := range c.Actions {
+					if a.Protocol == "" {
+						a.Protocol = model.ProtocolOf(a.URL)
+					}
 					s.byID[a.ID] = a
 				}
 			}
