@@ -36,6 +36,7 @@ type Action struct {
 	Controller string     `json:"controller"`
 	Method     string     `json:"method"`
 	URL        string     `json:"url"`
+	Protocol   string     `json:"protocol,omitempty"`
 	Title      string     `json:"title"`
 	Desc       string     `json:"desc"`
 	Author     string     `json:"author"`
@@ -72,6 +73,7 @@ type Response struct {
 type Doc struct {
 	App, Version, Controller string
 	Title, Desc, Author      string
+	Protocol                 string
 	Params                   []Param
 	Responses                []Response
 	Markdown                 string

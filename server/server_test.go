@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/erikwang2013/apidoc-go/auth"
+	"github.com/erikwang2013/apidoc-go/debug"
 	"github.com/erikwang2013/apidoc-go/model"
 	"github.com/erikwang2013/apidoc-go/store"
 )
@@ -247,5 +248,99 @@ func TestPetIconServedAndReferencedByUI(t *testing.T) {
 	ui := req(t, h, http.MethodGet, "/", "")
 	if !strings.Contains(ui.Body.String(), "apidoc-pet.svg") {
 		t.Fatal("UI HTML does not reference the pet icon")
+	}
+}
+
+func TestDetailProtocolAndDebugSpec(t *testing.T) {
+	s := store.New("p")
+	s.Register("PUBLISH", "mqtt://broker/topic", model.Doc{
+		App: "a", Version: "v1", Protocol: "mqtt", Title: "publish",
+	})
+	d := debug.Func("mqtt", debug.Spec{Mode: debug.ModeServer, Actions: []string{"PUBLISH"}}, nil)
+	h := Handler(Opts{Prefix: "/apidoc", Store: s,
+		Debuggers: map[string]debug.Debugger{"mqtt": d},
+	})
+	id := store.ActionID("a", "v1", "PUBLISH", "mqtt://broker/topic")
+	rec := req(t, h, http.MethodGet, "/api/detail?id="+id, "")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("detail status %d: %s", rec.Code, rec.Body.String())
+	}
+	var b struct {
+		Data struct {
+			Protocol  string      `json:"protocol"`
+			DebugSpec *debug.Spec `json:"debug_spec"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &b); err != nil {
+		t.Fatal(err)
+	}
+	if b.Data.Protocol != "mqtt" || b.Data.DebugSpec == nil ||
+		b.Data.DebugSpec.Mode != debug.ModeServer {
+		t.Fatalf("detail protocol/spec wrong: %+v", b.Data)
+	}
+
+	// HTTP has a built-in browser spec even with no registered debugger.
+	h2 := Handler(Opts{Prefix: "/apidoc", Store: newTestStore()})
+	rec = req(t, h2, http.MethodGet, "/api/detail?id="+
+		store.ActionID("users", "v1", "GET", "/users"), "")
+	var httpDetail struct {
+		Data struct {
+			Protocol  string      `json:"protocol"`
+			DebugSpec *debug.Spec `json:"debug_spec"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &httpDetail); err != nil {
+		t.Fatal(err)
+	}
+	if httpDetail.Data.Protocol != "http" || httpDetail.Data.DebugSpec == nil ||
+		httpDetail.Data.DebugSpec.Mode != debug.ModeBrowser {
+		t.Fatalf("http detail wrong: %+v", httpDetail.Data)
+	}
+
+	// A protocol with no debugger gets a null spec.
+	s.Register("SEND", "tcp://127.0.0.1:9000", model.Doc{
+		App: "a", Version: "v1", Protocol: "tcp", Title: "send",
+	})
+	h3 := Handler(Opts{Prefix: "/apidoc", Store: s})
+	rec = req(t, h3, http.MethodGet, "/api/detail?id="+
+		store.ActionID("a", "v1", "SEND", "tcp://127.0.0.1:9000"), "")
+	var tcpDetail struct {
+		Data struct {
+			DebugSpec *debug.Spec `json:"debug_spec"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &tcpDetail); err != nil {
+		t.Fatal(err)
+	}
+	if tcpDetail.Data.DebugSpec != nil {
+		t.Fatalf("unexpected debug spec: %+v", tcpDetail.Data.DebugSpec)
+	}
+}
+
+func TestDebugJSServedAndSafe(t *testing.T) {
+	h := Handler(Opts{Prefix: "/apidoc", Store: newTestStore()})
+	rec := req(t, h, http.MethodGet, "/debug.js", "")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("debug.js status %d", rec.Code)
+	}
+	if ct := rec.Header().Get("Content-Type"); !strings.HasPrefix(ct, "text/javascript") {
+		t.Fatalf("debug.js content-type %q", ct)
+	}
+	if !strings.Contains(rec.Body.String(), "sendServerDebug") {
+		t.Fatal("debug.js missing sendServerDebug")
+	}
+	if strings.Contains(rec.Body.String(), "innerHTML") {
+		t.Fatal("debug.js must render adapter data with textContent, not innerHTML")
+	}
+	if strings.Contains(rec.Body.String(), "dataset.in = p.in || 'query'") {
+		t.Fatal("debug.js must send the registered param in verbatim")
+	}
+}
+
+func TestUIPrefixSubstitution(t *testing.T) {
+	h := Handler(Opts{Prefix: "/x", Store: newTestStore()})
+	rec := req(t, h, http.MethodGet, "/", "")
+	if !strings.Contains(rec.Body.String(), `src="/x/debug.js"`) {
+		t.Fatalf("UI does not reference /x/debug.js:\n%s", rec.Body.String())
 	}
 }

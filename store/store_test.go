@@ -71,3 +71,39 @@ func TestDefaults(t *testing.T) {
 		t.Fatalf("defaults not applied: ok=%v action=%+v", ok, a)
 	}
 }
+
+func TestRegisterProtocolDefaultAndBackfill(t *testing.T) {
+	s := New("p")
+	s.Register("PUBLISH", "mqtt://broker/topic", model.Doc{App: "a", Version: "v1"})
+	a, ok := s.Action(ActionID("a", "v1", "PUBLISH", "mqtt://broker/topic"))
+	if !ok || a.Protocol != "mqtt" {
+		t.Fatalf("protocol not inferred: ok=%v action=%+v", ok, a)
+	}
+	s.Register("CALL", "grpc://host/svc/m", model.Doc{App: "a", Version: "v1", Protocol: "custom"})
+	b, _ := s.Action(ActionID("a", "v1", "CALL", "grpc://host/svc/m"))
+	if b.Protocol != "custom" {
+		t.Fatalf("explicit protocol lost: %+v", b)
+	}
+
+	// Old serialized data has no protocol field: loading must backfill.
+	p := &model.Project{Name: "p", Apps: []*model.App{{
+		Key: "a", Versions: []*model.Version{{Name: "v1", Controllers: []*model.Controller{{
+			Name: "c", Actions: []*model.Action{{
+				ID: "legacy", App: "a", Version: "v1", Controller: "c",
+				Method: "GET", URL: "/legacy",
+			}},
+		}}}},
+	}}}
+	bts, err := json.Marshal(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var loaded Store
+	if err := json.Unmarshal(bts, &loaded); err != nil {
+		t.Fatal(err)
+	}
+	c, ok := loaded.Action("legacy")
+	if !ok || c.Protocol != "http" {
+		t.Fatalf("backfill failed: ok=%v action=%+v", ok, c)
+	}
+}

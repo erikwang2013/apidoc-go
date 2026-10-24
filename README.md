@@ -26,6 +26,7 @@
 | 10 | 注释自动解析 | go/ast 从注释自动生成文档，`@apidoc` 标记即注册 |
 | 11 | 接口缓存 | ETag + 304，文档响应秒开 |
 | 12 | 参数自动补全 | reflect 从 handler 签名自动推断请求参数 |
+| 13 | 任意协议调试 | `@protocol` 声明 + `Debugger` 扩展，统一面板填参、发送、看响应 |
 
 ## 架构总览
 
@@ -122,6 +123,40 @@ func main() {
 	// 浏览器访问 http://localhost:8080/apidoc
 }
 ```
+
+### 任意协议调试
+
+非 HTTP 接口复用 `@method` + `@url`，用 `@protocol` 指定协议（也可从
+URL scheme 推断）：
+
+```go
+// @apidoc
+// @protocol mqtt
+// @method PUBLISH
+// @url mqtt://broker:1883/sensors/temp
+// @title 发布温度
+// @param qos int false "QoS" in=option default=1
+// @param payload json true "消息体" in=payload
+func PublishTemp() {}
+```
+
+协议本身由使用者提供的 `Debugger` 执行，通常只是包装项目里已有的客户端：
+
+```go
+s := apidoc.New(apidoc.Config{
+    Debuggers: []apidoc.Debugger{
+        apidoc.DebuggerFunc("mqtt", apidoc.DebugSpec{
+            Mode: "server", Actions: []string{"PUBLISH"},
+        }, func(ctx context.Context, req apidoc.DebugRequest) (*apidoc.DebugResponse, error) {
+            return mqttClient.Publish(ctx, req)
+        }),
+    },
+})
+```
+
+`server` 模式需要鉴权；关闭全局鉴权时必须显式设置
+`DebugAllowUnauth: true`。目标白名单由适配器负责。完整可运行示例见
+`example/debugger/tcp.go`（net/http demo，`:8081`，TCP echo 在 `:19000`）。
 
 ### 快速开始（Gin）
 
