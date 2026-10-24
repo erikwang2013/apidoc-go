@@ -74,13 +74,15 @@ type Field struct {
 
 // Spec tells the UI how to render the debug panel for one protocol.
 type Spec struct {
-	Mode                string   `json:"mode"`
-	Actions             []string `json:"actions,omitempty"`
-	Encodings           []string `json:"encodings,omitempty"`
-	ConnectFields       []Field  `json:"connect_fields,omitempty"`
-	BodyIn              string   `json:"body_in,omitempty"`       // default "payload"
-	ResponseView        string   `json:"response_view,omitempty"` // default "auto"
-	AllowTargetOverride bool     `json:"allow_target_override,omitempty"`
+	Mode                string            `json:"mode"`
+	Actions             []string          `json:"actions,omitempty"`
+	Encodings           []string          `json:"encodings,omitempty"`
+	ConnectFields       []Field           `json:"connect_fields,omitempty"`
+	BodyIn              string            `json:"body_in,omitempty"`       // default "payload"
+	ResponseView        string            `json:"response_view,omitempty"` // default "auto"
+	AllowTargetOverride bool              `json:"allow_target_override,omitempty"`
+	Streaming           bool              `json:"streaming,omitempty"`
+	Snippets            map[string]string `json:"snippets,omitempty"` // {{method}} {{url}} {{body}}
 }
 
 // Debugger connects one protocol. Implementations usually wrap a

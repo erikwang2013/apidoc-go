@@ -7,13 +7,15 @@ import (
 )
 
 type (
-	Debugger      = debug.Debugger
-	DebugSpec     = debug.Spec
-	DebugField    = debug.Field
-	DebugValue    = debug.Value
-	DebugRequest  = debug.Request
-	DebugResponse = debug.Response
-	DebugEvent    = debug.Event
+	Debugger       = debug.Debugger
+	DebugSpec      = debug.Spec
+	DebugField     = debug.Field
+	DebugValue     = debug.Value
+	DebugRequest   = debug.Request
+	DebugResponse  = debug.Response
+	DebugEvent     = debug.Event
+	StreamDebugger = debug.StreamDebugger
+	Session        = debug.Session
 )
 
 // DebuggerFunc adapts a function to a Debugger.
