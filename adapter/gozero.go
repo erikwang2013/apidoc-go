@@ -27,12 +27,12 @@ func (a *GoZero) Register(method, path string, h any) (err error) {
 
 // Mount implements Framework. go-zero's router has no catch-all — only
 // single-segment :params — so the doc server's route surface is
-// registered explicitly, under every method it answers: GET for the UI
-// and JSON API, POST for the login endpoints, OPTIONS so CORS preflights
-// reach the doc server's middleware. The router path.Cleans the
-// registered route and the request path alike, so the bare {prefix}
-// entry serves {prefix}/ too; adding a literal {prefix}/ route would be
-// the same cleaned route, which go-zero rejects as a duplicate at Start.
+// registered explicitly, under every method it answers: GET for the JSON
+// API, POST for the login endpoints, OPTIONS so CORS preflights reach
+// the doc server's middleware. The router path.Cleans the registered
+// route and the request path alike, so the bare {prefix} entry serves
+// {prefix}/ too; adding a literal {prefix}/ route would be the same
+// cleaned route, which go-zero rejects as a duplicate at Start.
 func (a *GoZero) Mount(prefix string, h http.Handler) {
 	sh := http.HandlerFunc(http.StripPrefix(prefix, h).ServeHTTP)
 	for _, path := range []string{
@@ -42,13 +42,6 @@ func (a *GoZero) Mount(prefix string, h http.Handler) {
 		prefix + "/api/export",
 		prefix + "/api/login",
 		prefix + "/api/app-login",
-		prefix + "/api/debug/exec",
-		prefix + "/api/debug/open",
-		prefix + "/api/debug/send",
-		prefix + "/api/debug/close",
-		prefix + "/api/debug/events",
-		prefix + "/debug.js",
-		prefix + "/apidoc-pet.svg",
 	} {
 		for _, method := range []string{http.MethodGet, http.MethodPost, http.MethodOptions} {
 			a.srv.AddRoute(rest.Route{Method: method, Path: path, Handler: sh})

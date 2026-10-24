@@ -161,7 +161,7 @@ func parseTags(fset *token.FileSet, f *ast.File, fn *ast.FuncDecl, r *Result) er
 			if len(toks) < 1 {
 				err = fmt.Errorf("@protocol wants a name")
 			} else {
-				r.Doc.Protocol = strings.ToLower(toks[0])
+				r.Doc.Protocol = model.NormalizeProtocol(strings.Join(toks, " "))
 			}
 		case "app":
 			r.Doc.App = strings.Join(toks, " ")

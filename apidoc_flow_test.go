@@ -58,10 +58,6 @@ func TestServerRegisterMountFlow(t *testing.T) {
 		t.Fatalf("post-mount route failed: %d %q", rec.Code, rec.Body.String())
 	}
 
-	// UI at the exact prefix
-	if rec := do("GET", "/apidoc", ""); rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), "<!doctype html") {
-		t.Fatalf("UI at prefix failed: %d", rec.Code)
-	}
 	// API gated by auth
 	if rec := do("GET", "/apidoc/api/menus", ""); rec.Code != http.StatusUnauthorized {
 		t.Fatalf("menus without login: want 401 got %d", rec.Code)

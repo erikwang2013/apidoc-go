@@ -80,8 +80,6 @@ func TestGoZeroRegisterAndMount(t *testing.T) {
 	for _, tc := range []struct{ method, path, want string }{
 		{http.MethodPost, "/apidoc/api/login", "UI:/api/login"},
 		{http.MethodOptions, "/apidoc/api/menus", "UI:/api/menus"},
-		{http.MethodGet, "/apidoc/debug.js", "UI:/debug.js"},
-		{http.MethodPost, "/apidoc/api/debug/exec", "UI:/api/debug/exec"},
 	} {
 		if code, body := do(tc.method, tc.path); code != http.StatusOK || body != tc.want {
 			t.Fatalf("mount %s %s: want 200 %q, got %d %q", tc.method, tc.path, tc.want, code, body)

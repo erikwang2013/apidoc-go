@@ -329,3 +329,46 @@ func TestProtocolInferredFromURL(t *testing.T) {
 		t.Fatalf("http infer: %v %+v", err, res)
 	}
 }
+
+func TestProtocolAliasesAndMultiword(t *testing.T) {
+	res, err := parse.ParseSource("aliases.go", []byte(src(
+		"package p",
+		"// @apidoc",
+		"// @protocol ISO 8583",
+		"// @method SEND",
+		"// @url iso8583://host:9000/0100",
+		"func A() {}",
+		"// @apidoc",
+		"// @protocol OPC UA",
+		"// @method READ",
+		"// @url opc.tcp://host:4840",
+		"func B() {}",
+		"// @apidoc",
+		"// @protocol WebRTC DataChannel",
+		"// @method SEND",
+		"// @url webrtc://host",
+		"func C() {}",
+		"// @apidoc",
+		"// @protocol REST",
+		"// @method GET",
+		"// @url https://host/x",
+		"func D() {}",
+		"// @apidoc",
+		"// @protocol JSON-RPC",
+		"// @method CALL",
+		"// @url json-rpc://host",
+		"func E() {}",
+	)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []string{"iso8583", "opcua", "webrtc", "http", "jsonrpc"}
+	if len(res) != len(want) {
+		t.Fatalf("got %d results, want %d", len(res), len(want))
+	}
+	for i := range want {
+		if res[i].Doc.Protocol != want[i] {
+			t.Errorf("result %d protocol = %q, want %q", i, res[i].Doc.Protocol, want[i])
+		}
+	}
+}

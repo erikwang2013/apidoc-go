@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/erikwang2013/apidoc-go/auth"
-	"github.com/erikwang2013/apidoc-go/debug"
 	"github.com/erikwang2013/apidoc-go/model"
 	"github.com/erikwang2013/apidoc-go/store"
 )
@@ -144,10 +143,6 @@ func TestAuthRequiredAndLoginFlow(t *testing.T) {
 	if rec := req(t, h, http.MethodGet, "/api/detail?id=x", ""); rec.Code != http.StatusUnauthorized {
 		t.Fatalf("detail without cookie: want 401 got %d", rec.Code)
 	}
-	// UI stays reachable so the login overlay can render
-	if rec := req(t, h, http.MethodGet, "/", ""); rec.Code != http.StatusOK {
-		t.Fatalf("UI with auth enabled: want 200 got %d", rec.Code)
-	}
 	if rec := req(t, h, http.MethodPost, "/api/login", `{"password":"wrong"}`); rec.Code != http.StatusUnauthorized {
 		t.Fatalf("wrong password: want 401 got %d", rec.Code)
 	}
@@ -233,33 +228,12 @@ func TestCORSAllowedOriginsOnly(t *testing.T) {
 	}
 }
 
-func TestPetIconServedAndReferencedByUI(t *testing.T) {
-	h := Handler(Opts{Prefix: "/apidoc", Store: newTestStore()})
-	rec := req(t, h, http.MethodGet, "/apidoc-pet.svg", "")
-	if rec.Code != http.StatusOK {
-		t.Fatalf("pet status %d", rec.Code)
-	}
-	if ct := rec.Header().Get("Content-Type"); !strings.HasPrefix(ct, "image/svg+xml") {
-		t.Fatalf("pet content-type %q", ct)
-	}
-	if !strings.Contains(rec.Body.String(), "<svg") {
-		t.Fatal("pet body is not an SVG")
-	}
-	ui := req(t, h, http.MethodGet, "/", "")
-	if !strings.Contains(ui.Body.String(), "apidoc-pet.svg") {
-		t.Fatal("UI HTML does not reference the pet icon")
-	}
-}
-
-func TestDetailProtocolAndDebugSpec(t *testing.T) {
+func TestDetailProtocol(t *testing.T) {
 	s := store.New("p")
 	s.Register("PUBLISH", "mqtt://broker/topic", model.Doc{
 		App: "a", Version: "v1", Protocol: "mqtt", Title: "publish",
 	})
-	d := debug.Func("mqtt", debug.Spec{Mode: debug.ModeServer, Actions: []string{"PUBLISH"}}, nil)
-	h := Handler(Opts{Prefix: "/apidoc", Store: s,
-		Debuggers: map[string]debug.Debugger{"mqtt": d},
-	})
+	h := Handler(Opts{Prefix: "/apidoc", Store: s})
 	id := store.ActionID("a", "v1", "PUBLISH", "mqtt://broker/topic")
 	rec := req(t, h, http.MethodGet, "/api/detail?id="+id, "")
 	if rec.Code != http.StatusOK {
@@ -267,80 +241,50 @@ func TestDetailProtocolAndDebugSpec(t *testing.T) {
 	}
 	var b struct {
 		Data struct {
-			Protocol  string      `json:"protocol"`
-			DebugSpec *debug.Spec `json:"debug_spec"`
+			Protocol     string              `json:"protocol"`
+			ProtocolInfo *model.ProtocolInfo `json:"protocol_info"`
 		} `json:"data"`
 	}
 	if err := json.Unmarshal(rec.Body.Bytes(), &b); err != nil {
 		t.Fatal(err)
 	}
-	if b.Data.Protocol != "mqtt" || b.Data.DebugSpec == nil ||
-		b.Data.DebugSpec.Mode != debug.ModeServer {
-		t.Fatalf("detail protocol/spec wrong: %+v", b.Data)
+	if b.Data.Protocol != "mqtt" || b.Data.ProtocolInfo == nil || b.Data.ProtocolInfo.Name != "MQTT" {
+		t.Fatalf("protocol info wrong: %+v", b.Data)
 	}
 
-	// HTTP has a built-in browser spec even with no registered debugger.
 	h2 := Handler(Opts{Prefix: "/apidoc", Store: newTestStore()})
 	rec = req(t, h2, http.MethodGet, "/api/detail?id="+
 		store.ActionID("users", "v1", "GET", "/users"), "")
-	var httpDetail struct {
-		Data struct {
-			Protocol  string      `json:"protocol"`
-			DebugSpec *debug.Spec `json:"debug_spec"`
-		} `json:"data"`
-	}
-	if err := json.Unmarshal(rec.Body.Bytes(), &httpDetail); err != nil {
+	if err := json.Unmarshal(rec.Body.Bytes(), &b); err != nil {
 		t.Fatal(err)
 	}
-	if httpDetail.Data.Protocol != "http" || httpDetail.Data.DebugSpec == nil ||
-		httpDetail.Data.DebugSpec.Mode != debug.ModeBrowser {
-		t.Fatalf("http detail wrong: %+v", httpDetail.Data)
-	}
-
-	// A protocol with no debugger gets a null spec.
-	s.Register("SEND", "tcp://127.0.0.1:9000", model.Doc{
-		App: "a", Version: "v1", Protocol: "tcp", Title: "send",
-	})
-	h3 := Handler(Opts{Prefix: "/apidoc", Store: s})
-	rec = req(t, h3, http.MethodGet, "/api/detail?id="+
-		store.ActionID("a", "v1", "SEND", "tcp://127.0.0.1:9000"), "")
-	var tcpDetail struct {
-		Data struct {
-			DebugSpec *debug.Spec `json:"debug_spec"`
-		} `json:"data"`
-	}
-	if err := json.Unmarshal(rec.Body.Bytes(), &tcpDetail); err != nil {
-		t.Fatal(err)
-	}
-	if tcpDetail.Data.DebugSpec != nil {
-		t.Fatalf("unexpected debug spec: %+v", tcpDetail.Data.DebugSpec)
+	if b.Data.Protocol != "http" || b.Data.ProtocolInfo == nil || b.Data.ProtocolInfo.Name != "HTTP/REST" {
+		t.Fatalf("http protocol info wrong: %+v", b.Data)
 	}
 }
 
-func TestDebugJSServedAndSafe(t *testing.T) {
+func TestProtocolsEndpoint(t *testing.T) {
 	h := Handler(Opts{Prefix: "/apidoc", Store: newTestStore()})
-	rec := req(t, h, http.MethodGet, "/debug.js", "")
+	rec := req(t, h, http.MethodGet, "/api/protocols", "")
 	if rec.Code != http.StatusOK {
-		t.Fatalf("debug.js status %d", rec.Code)
+		t.Fatalf("protocols status %d: %s", rec.Code, rec.Body.String())
 	}
-	if ct := rec.Header().Get("Content-Type"); !strings.HasPrefix(ct, "text/javascript") {
-		t.Fatalf("debug.js content-type %q", ct)
+	var b struct {
+		Data []model.ProtocolInfo `json:"data"`
 	}
-	if !strings.Contains(rec.Body.String(), "sendServerDebug") {
-		t.Fatal("debug.js missing sendServerDebug")
+	if err := json.Unmarshal(rec.Body.Bytes(), &b); err != nil {
+		t.Fatal(err)
 	}
-	if strings.Contains(rec.Body.String(), "innerHTML") {
-		t.Fatal("debug.js must render adapter data with textContent, not innerHTML")
+	found := map[string]bool{}
+	for _, p := range b.Data {
+		found[p.Key] = true
 	}
-	if strings.Contains(rec.Body.String(), "dataset.in = p.in || 'query'") {
-		t.Fatal("debug.js must send the registered param in verbatim")
-	}
-}
-
-func TestUIPrefixSubstitution(t *testing.T) {
-	h := Handler(Opts{Prefix: "/x", Store: newTestStore()})
-	rec := req(t, h, http.MethodGet, "/", "")
-	if !strings.Contains(rec.Body.String(), `src="/x/debug.js"`) {
-		t.Fatalf("UI does not reference /x/debug.js:\n%s", rec.Body.String())
+	for _, key := range []string{
+		"http", "http2", "http3", "ws", "grpc", "mqtt", "iso8583",
+		"opcua", "modbus", "iec104", "bacnet", "webrtc", "socketio",
+	} {
+		if !found[key] {
+			t.Errorf("protocol registry missing %q", key)
+		}
 	}
 }

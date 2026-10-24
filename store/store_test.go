@@ -93,6 +93,11 @@ func TestRegisterProtocolDefaultAndBackfill(t *testing.T) {
 	if b.Protocol != "custom" {
 		t.Fatalf("explicit protocol lost: %+v", b)
 	}
+	s.Register("SEND", "webrtc://host/room", model.Doc{App: "a", Version: "v1", Protocol: "WebRTC DataChannel"})
+	w, _ := s.Action(ActionID("a", "v1", "SEND", "webrtc://host/room"))
+	if w.Protocol != "webrtc" {
+		t.Fatalf("protocol alias not normalized: %+v", w)
+	}
 
 	// Old serialized data has no protocol field: loading must backfill.
 	p := &model.Project{Name: "p", Apps: []*model.App{{

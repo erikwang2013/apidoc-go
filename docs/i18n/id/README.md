@@ -6,27 +6,25 @@
 
 ## Pendahuluan
 
-**apidoc-go** adalah pustaka plugin dokumentasi API umum untuk Go: dokumentasi antarmuka dideklarasikan bersama rute sebagai **struct bertipe (typed struct)** saat rute didaftarkan, sehingga dokumentasi lahir bersama rute; Web UI tertanam menyediakan penelusuran dan pengujian daring, serta dilengkapi autentikasi kata sandi, manajemen multi-aplikasi/multi-versi, data Mock, dan kemampuan ekspor JSON / TypeScript, serta parsing anotasi otomatis, cache HTTP, dan pelengkapan parameter otomatis. Sekali integrasi, berlaku untuk semua kerangka kerja, tanpa perlu mengubah proyek yang sudah ada.
+**apidoc-go** adalah pustaka plugin dokumentasi API umum untuk Go: dokumentasi antarmuka dideklarasikan bersama rute sebagai **struct bertipe (typed struct)** saat rute didaftarkan, sehingga dokumentasi lahir bersama rute; dokumentasi diekspos sebagai JSON API agar UI eksternal merendernya dan mengirim permintaan uji, serta dilengkapi autentikasi kata sandi, manajemen multi-aplikasi/multi-versi, data Mock, dan kemampuan ekspor JSON / TypeScript, serta parsing anotasi otomatis, cache HTTP, dan pelengkapan parameter otomatis. Sekali integrasi, berlaku untuk semua kerangka kerja, tanpa perlu mengubah proyek yang sudah ada.
 
 ## Fitur Proyek
 
 | # | Fitur | Deskripsi |
 |---|------|------|
 | 1 | Pembuatan dokumentasi otomatis | Deklarasi Doc bertipe, didaftarkan bersama rute; satu deklarasi, dokumentasi lahir bersama rute |
-| 2 | Pengujian daring | Mode peramban mengirim permintaan langsung ke endpoint nyata (tanpa penerusan server, tanpa SSRF); debugging mode server memerlukan autentikasi + CSRF + batas |
+| 2 | API dokumentasi | `/api/menus`, `/api/detail`, `/api/export`, untuk UI eksternal yang merender dokumentasi dan mengirim permintaan uji |
 | 3 | Data Mock | Contoh Mock tingkat bidang, mempercepat integrasi antarmuka |
 | 4 | Multi-aplikasi / multi-versi | Manajemen pohon App / Version, satu plugin mencakup dokumentasi seluruh proyek |
 | 5 | Autentikasi kata sandi | Kata sandi global + kata sandi tingkat aplikasi, HMAC Token · perbandingan waktu konstan |
 | 6 | Dokumentasi Markdown | Rendering aman dengan goldmark, HTML asli otomatis dihilangkan |
 | 7 | Adaptasi multi-kerangka | net/http · Gin · Echo · Chi · Fiber · beego · Kratos · go-zero, sekali integrasi berlaku untuk semua kerangka |
 | 8 | Ekspor JSON / TypeScript | Ekspor tipe antarmuka sekali klik, integrasi frontend-backend lebih lancar |
-| 9 | Perlindungan keamanan | Mode peramban tanpa SSRF · debugging mode server memerlukan autentikasi + header CSRF + batas sumber daya (daftar putih target menjadi tanggung jawab adapter) · CORS dibatasi daftar putih · cegah XSS · cegah path traversal |
+| 9 | Perlindungan keamanan | Autentikasi kata sandi · CORS dibatasi daftar putih · cegah XSS · cegah path traversal |
 | 10 | Parsing anotasi otomatis | go/ast menghasilkan dokumentasi dari komentar; penanda `@apidoc` sudah cukup |
 | 11 | Cache HTTP | ETag + 304, respons dokumentasi terbuka seketika |
 | 12 | Pelengkapan parameter otomatis | reflect menyimpulkan parameter permintaan dari tanda tangan handler |
-| 13 | Debugging protokol apa pun | Deklarasi `@protocol` + ekstensi `Debugger`: satu panel untuk mengisi, mengirim, dan melihat respons |
-| 14 | Sesi streaming | `StreamDebugger` mempertahankan sesi berumur panjang: open / send / transkrip SSE langsung |
-| 15 | Pengerasan debugging | TargetPolicy · log audit · penyamaran rahasia · unggah file/sertifikat · cuplikan kode · harness uji adapter |
+| 13 | Anotasi protokol apa pun | `@protocol` menandai protokol; detail mengembalikan protocol/method/url/params/responses/mock; UI eksternal merender panel dan mengirim permintaan uji |
 
 ## Ikhtisar Arsitektur
 
@@ -48,10 +46,8 @@ apidoc-go/
 │   └── store.go         #   Deduplikasi berdasarkan (app, version, method, url), yang terakhir menimpa
 ├── auth/                # Autentikasi
 │   └── auth.go          #   Verifikasi kata sandi · Penerbitan dan verifikasi HMAC Token
-├── server/              # JSON API + Web UI tertanam
-│   ├── server.go
-│   └── static/
-│       └── index.html
+├── server/              # JSON API
+│   └── server.go
 ├── adapter/             # Lapisan adapter kerangka (antarmuka bertipe)
 │   ├── adapter.go
 │   ├── nethttp.go       #   net/http  ServeMux
@@ -120,9 +116,26 @@ func main() {
 
 	s.Mount(adapter.NewNetHTTP(mux))
 	http.ListenAndServe(":8080", mux)
-	// Buka http://localhost:8080/apidoc di peramban
+	// UI eksternal membaca http://localhost:8080/apidoc/api/menus (dan /api/detail, /api/export)
 }
 ```
+
+### Anotasi Protokol Apa Pun
+
+Antarmuka non-HTTP menggunakan kembali `@method` + `@url` dan menentukan protokol dengan `@protocol` (juga dapat disimpulkan dari skema URL):
+
+```go
+// @apidoc
+// @protocol mqtt
+// @method PUBLISH
+// @url mqtt://broker:1883/sensors/temp
+// @title Publikasikan suhu
+// @param qos int false "QoS" in=option default=1
+// @param payload json true "Bodi pesan" in=payload
+func PublishTemp() {}
+```
+
+Protokolnya sendiri tidak masuk ke pustaka: `/api/detail` mengembalikan `protocol`, `method`, `url`, `params`, `responses`, dan `mock`; UI eksternal merender panel debug dan mengirim permintaan uji sendiri. Pustaka tidak menjalankan layanan protokol apa pun dan tidak menyediakan endpoint eksekusi `/api/debug/*`.
 
 ### Memulai Cepat (Gin)
 
@@ -143,37 +156,6 @@ r.Run(":8080")
 
 Untuk Echo / Chi / Fiber cukup ganti konstruktor adapter: `adapter.NewEcho(e)`, `adapter.NewChi(mux)`, `adapter.NewFiber(app)`, kode lainnya sepenuhnya sama. Untuk beego / Kratos / go-zero, lihat tabel Adapter Kerangka di bawah.
 
-### Debugging protokol apa pun
-
-Endpoint non-HTTP memakai kembali `@method` + `@url`; `@protocol` menyebutkan protokolnya (dapat juga disimpulkan dari skema URL):
-
-```go
-// @apidoc
-// @protocol mqtt
-// @method PUBLISH
-// @url mqtt://broker:1883/sensors/temp
-// @title Publikasikan suhu
-// @param qos int false "QoS" in=option default=1
-// @param payload json true "Isi pesan" in=payload
-func PublishTemp() {}
-```
-
-Protokol dijalankan oleh `Debugger` yang Anda sediakan — biasanya pembungkus tipis di atas klien yang sudah dimiliki proyek:
-
-```go
-s := apidoc.New(apidoc.Config{
-    Debuggers: []apidoc.Debugger{
-        apidoc.DebuggerFunc("mqtt", apidoc.DebugSpec{
-            Mode: "server", Actions: []string{"PUBLISH"},
-        }, func(ctx context.Context, req apidoc.DebugRequest) (*apidoc.DebugResponse, error) {
-            return mqttClient.Publish(ctx, req)
-        }),
-    },
-})
-```
-
-Mode `server` memerlukan autentikasi; jika autentikasi dimatikan, set `DebugAllowUnauth: true` secara eksplisit. Mode peramban HTTP tetap langsung dan tanpa SSRF. Lindungi target mode server dengan `DebugPolicy` (pemeriksaan target milik adapter tetap berlaku) dan aktifkan `DebugAudit`. Protokol streaming mengimplementasikan `StreamDebugger` dan tampil sebagai transkrip SSE langsung (open / send / events). Konvensi URI dan kerangka adapter: [protocols.md](../../protocols.md); catatan kompatibilitas: [CHANGELOG.md](../../../CHANGELOG.md).
-
 ### Opsi Konfigurasi
 
 | Opsi | Nilai default | Deskripsi |
@@ -184,7 +166,7 @@ Mode `server` memerlukan autentikasi; jika autentikasi dimatikan, set `DebugAllo
 | `GlobalParams` | — | Parameter global, digabungkan ke setiap Action |
 | `Auth` | — | Konfigurasi autentikasi: `Enable` / `Password` / `Secret` / `Expire` / `Secure` |
 | `Apps` | — | Konfigurasi aplikasi: `Key` / `Title` / `Password` (kata sandi independen per aplikasi) |
-| `DebugOrigins` | — | Sumber yang diizinkan untuk pengujian lintas domain (default: tidak ada) |
+| `DebugOrigins` | — | Sumber yang diizinkan membaca API dokumentasi lintas domain (UI eksternal, default: tidak ada) |
 
 ### Adapter Kerangka
 
@@ -242,7 +224,7 @@ Halaman detail menampilkan contoh Mock secara otomatis: sesuaikan dengan `Doc.Pa
 
 ### Proyek Contoh
 
-`example/` menyediakan 8 server kerangka (net/http :8081, Gin :8082, Echo :8083, Chi :8084, Fiber :8085, beego :8086, Kratos :8087, go-zero :8088). Jalankan semuanya dengan `go run ./example`.
+`example/` menyediakan 8 server kerangka (net/http :8081, Gin :8082, Echo :8083, Chi :8084, Fiber :8085, beego :8086, Kratos :8087, go-zero :8088). Jalankan semuanya dengan `go run ./example`; API dokumentasi tersedia di `/apidoc/api/...` pada setiap port dan dikonsumsi oleh UI eksternal.
 
 ## Dokumentasi Multibahasa
 

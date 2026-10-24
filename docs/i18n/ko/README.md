@@ -6,27 +6,25 @@
 
 ## 프로젝트 소개
 
-**apidoc-go**는 Go용 범용 API 문서 플러그인 라이브러리입니다. 인터페이스 문서는 **타입화된 구조체**로 라우트 등록 시 함께 선언되어, 문서와 라우트가 동시에 생성됩니다. 내장 Web UI는 온라인 열람과 온라인 디버깅을 제공하며, 비밀번호 인증, 다중 앱/다중 버전 관리, Mock 데이터, JSON / TypeScript 내보내기, 어노테이션 자동 파싱, HTTP 캐싱, 파라미터 자동 완성 기능을 내장하고 있습니다. 한 번 연동하면 모든 프레임워크에서 사용할 수 있으며, 기존 프로젝트를 개조할 필요가 없습니다.
+**apidoc-go**는 Go용 범용 API 문서 플러그인 라이브러리입니다. 인터페이스 문서는 **타입화된 구조체**로 라우트 등록 시 함께 선언되어, 문서와 라우트가 동시에 생성됩니다. 문서는 JSON API로 노출되어 외부 UI가 렌더링하고 테스트 요청을 보낼 수 있으며, 비밀번호 인증, 다중 앱/다중 버전 관리, Mock 데이터, JSON / TypeScript 내보내기, 어노테이션 자동 파싱, HTTP 캐싱, 파라미터 자동 완성 기능을 내장하고 있습니다. 한 번 연동하면 모든 프레임워크에서 사용할 수 있으며, 기존 프로젝트를 개조할 필요가 없습니다.
 
 ## 프로젝트 기능
 
 | # | 기능 | 설명 |
 |---|------|------|
 | 1 | 문서 자동 생성 | 타입화된 Doc 선언을 라우트와 함께 등록, 한 번의 선언으로 문서와 라우트 동시 생성 |
-| 2 | 온라인 디버깅 | 브라우저 모드에서 실제 인터페이스로 직접 요청(서버 전달 없음, SSRF 없음); server 모드 디버깅은 인증 + CSRF + 제한 필요 |
+| 2 | 문서 API | `/api/menus`, `/api/detail`, `/api/export`, 외부 UI가 문서를 렌더링하고 테스트 요청을 보낼 수 있도록 제공 |
 | 3 | Mock 데이터 | 필드 수준 Mock 예시, 인터페이스 연동이 한 발 앞서 |
 | 4 | 다중 앱 / 다중 버전 | App / Version 트리 관리, 플러그인 하나로 전체 프로젝트 문서 |
 | 5 | 비밀번호 인증 | 전역 비밀번호 + 앱 수준 비밀번호, HMAC 토큰 · 항시 비교 |
 | 6 | Markdown 문서 | goldmark 안전 렌더링, 네이티브 HTML 자동 제거 |
 | 7 | 다중 프레임워크 지원 | net/http · Gin · Echo · Chi · Fiber · beego · Kratos · go-zero, 한 번 연동으로 전 프레임워크 공용 |
 | 8 | JSON / TypeScript 내보내기 | 인터페이스 타입 원클릭 내보내기, 프런트·백엔드 연동이 더 원활 |
-| 9 | 보안 | 브라우저 모드는 SSRF 없음 · server 모드 디버깅은 인증 + CSRF 헤더 + 리소스 제한 필요(대상 허용 목록은 어댑터 책임) · CORS 화이트리스트 제한 · XSS 방지 · 경로 탐색 방지 |
+| 9 | 보안 | 비밀번호 인증 · CORS 화이트리스트 제한 · XSS 방지 · 경로 탐색 방지 |
 | 10 | 어노테이션 자동 파싱 | go/ast가 주석에서 문서를 생성, `@apidoc` 마커만 있으면 됨 |
 | 11 | HTTP 캐싱 | ETag + 304, 문서 응답이 즉시 열림 |
 | 12 | 파라미터 자동 완성 | reflect가 핸들러 시그니처에서 요청 파라미터를 추론 |
-| 13 | 모든 프로토콜 디버깅 | `@protocol` 선언 + `Debugger` 확장: 하나의 패널에서 파라미터 입력·전송·응답 확인 |
-| 14 | 스트리밍 세션 | `StreamDebugger` 장기 연결 세션: open / send / SSE 실시간 transcript |
-| 15 | 디버깅 강화 | TargetPolicy · 감사 로그 · 시크릿 마스킹 · 파일/인증서 업로드 · 코드 스니펫 · 어댑터 테스트 하네스 |
+| 13 | 임의 프로토콜 어노테이션 | `@protocol`로 프로토콜 지정; detail이 protocol/method/url/params/responses/mock 반환, 외부 UI가 패널 렌더링과 테스트 요청 담당 |
 
 ## 아키텍처 개요
 
@@ -48,10 +46,8 @@ apidoc-go/
 │   └── store.go         #   (app, version, method, url) 중복 제거, 나중에 등록된 것이 덮어씀
 ├── auth/                # 인증
 │   └── auth.go          #   비밀번호 검증 · HMAC 토큰 발급 및 검증
-├── server/              # JSON API + 내장 Web UI
-│   ├── server.go
-│   └── static/
-│       └── index.html
+├── server/              # JSON API
+│   └── server.go
 ├── adapter/             # 프레임워크 어댑터 계층 (타입화 인터페이스)
 │   ├── adapter.go
 │   ├── nethttp.go       #   net/http  ServeMux
@@ -120,9 +116,26 @@ func main() {
 
 	s.Mount(adapter.NewNetHTTP(mux))
 	http.ListenAndServe(":8080", mux)
-	// 브라우저에서 http://localhost:8080/apidoc 접속
+	// 외부 UI가 http://localhost:8080/apidoc/api/menus (및 /api/detail, /api/export)를 읽습니다
 }
 ```
+
+### 임의 프로토콜 어노테이션
+
+비 HTTP 인터페이스는 `@method` + `@url`을 재사용하고 `@protocol`로 프로토콜을 지정합니다(URL scheme에서 추론할 수도 있음):
+
+```go
+// @apidoc
+// @protocol mqtt
+// @method PUBLISH
+// @url mqtt://broker:1883/sensors/temp
+// @title 온도 발행
+// @param qos int false "QoS" in=option default=1
+// @param payload json true "메시지 본문" in=payload
+func PublishTemp() {}
+```
+
+프로토콜 자체는 라이브러리에 들어오지 않습니다: `/api/detail`이 `protocol`, `method`, `url`, `params`, `responses`, `mock`을 반환하고, 외부 UI가 디버그 패널을 렌더링하며 테스트 요청을 직접 보냅니다. 라이브러리는 어떤 프로토콜 서비스도 시작하지 않으며 `/api/debug/*` 실행 엔드포인트도 제공하지 않습니다.
 
 ### 빠른 시작 (Gin)
 
@@ -143,37 +156,6 @@ r.Run(":8080")
 
 Echo / Chi / Fiber는 어댑터 생성자만 교체하면 됩니다: `adapter.NewEcho(e)`、`adapter.NewChi(mux)`、`adapter.NewFiber(app)`, 나머지 코드는 완전히 동일합니다. beego / Kratos / go-zero는 아래 프레임워크 어댑터 표를 참고하세요.
 
-### 모든 프로토콜 디버깅
-
-비 HTTP 인터페이스는 `@method` + `@url`을 재사용하고, `@protocol`로 프로토콜을 지정합니다(URL scheme에서 추론할 수도 있음):
-
-```go
-// @apidoc
-// @protocol mqtt
-// @method PUBLISH
-// @url mqtt://broker:1883/sensors/temp
-// @title 온도 발행
-// @param qos int false "QoS" in=option default=1
-// @param payload json true "메시지 본문" in=payload
-func PublishTemp() {}
-```
-
-프로토콜 실행은 사용자가 제공하는 `Debugger`가 담당하며, 보통 프로젝트에 이미 있는 클라이언트를 감싸는 형태입니다:
-
-```go
-s := apidoc.New(apidoc.Config{
-    Debuggers: []apidoc.Debugger{
-        apidoc.DebuggerFunc("mqtt", apidoc.DebugSpec{
-            Mode: "server", Actions: []string{"PUBLISH"},
-        }, func(ctx context.Context, req apidoc.DebugRequest) (*apidoc.DebugResponse, error) {
-            return mqttClient.Publish(ctx, req)
-        }),
-    },
-})
-```
-
-`server` 모드는 인증이 필요합니다. 인증을 끈 경우 `DebugAllowUnauth: true`를 명시해야 합니다. 브라우저 모드 HTTP는 직접 요청이라 SSRF가 없습니다. server 모드 대상은 `DebugPolicy`로 보호하고(어댑터 자체 대상 검사도 유지) `DebugAudit`을 켜세요. 스트리밍 프로토콜은 `StreamDebugger`를 구현하면 실시간 SSE transcript(open / send / events)로 표시됩니다. URI 규칙과 어댑터 골격은 [protocols.md](../../protocols.md), 호환성 변경은 [CHANGELOG.md](../../../CHANGELOG.md)를 참고하세요.
-
 ### 설정 항목
 
 | 설정 항목 | 기본값 | 설명 |
@@ -184,7 +166,7 @@ s := apidoc.New(apidoc.Config{
 | `GlobalParams` | — | 전역 파라미터, 모든 Action에 병합 |
 | `Auth` | — | 인증 설정: `Enable` / `Password` / `Secret` / `Expire` / `Secure` |
 | `Apps` | — | 앱 설정: `Key` / `Title` / `Password` (앱 수준 독립 비밀번호) |
-| `DebugOrigins` | — | 교차 도메인 디버깅 허용 출처 (기본값 없음) |
+| `DebugOrigins` | — | 문서 API를 교차 도메인으로 읽도록 허용할 출처 (외부 UI, 기본값 없음) |
 
 ### 프레임워크 어댑터
 
@@ -242,7 +224,7 @@ for _, r := range results {
 
 ### 샘플 프로젝트
 
-`example/`에는 8개의 프레임워크 서버(net/http :8081, Gin :8082, Echo :8083, Chi :8084, Fiber :8085, beego :8086, Kratos :8087, go-zero :8088)가 포함되어 있습니다. `go run ./example`로 모두 실행할 수 있습니다.
+`example/`에는 8개의 프레임워크 서버(net/http :8081, Gin :8082, Echo :8083, Chi :8084, Fiber :8085, beego :8086, Kratos :8087, go-zero :8088)가 포함되어 있습니다. `go run ./example`로 모두 실행할 수 있으며, 문서 API는 각 포트의 `/apidoc/api/...`에 있고 외부 UI가 소비합니다.
 
 ## 다국어 문서
 

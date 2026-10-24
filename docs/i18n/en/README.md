@@ -6,27 +6,25 @@
 
 ## Introduction
 
-**apidoc-go** is a universal Go API documentation plugin library: interface documentation is declared as **typed structs** alongside route registration, so documentation is born together with the route. The embedded Web UI provides online browsing and online debugging, with built-in password authentication, multi-app / multi-version management, Mock data, and JSON / TypeScript export, annotation auto-parsing, HTTP caching, and automatic param completion. Integrate once, and it works with every framework — no need to modify your existing project.
+**apidoc-go** is a universal Go API documentation plugin library: interface documentation is declared as **typed structs** alongside route registration, so documentation is born together with the route. Documentation is exposed as a JSON API for an external UI to render and make test requests, with built-in password authentication, multi-app / multi-version management, Mock data, and JSON / TypeScript export, annotation auto-parsing, HTTP caching, and automatic param completion. Integrate once, and it works with every framework — no need to modify your existing project.
 
 ## Features
 
 | # | Feature | Description |
 |---|---------|-------------|
 | 1 | Automatic documentation generation | Typed Doc declaration alongside route registration; declare once, and documentation is born together with the route |
-| 2 | Online debugging | Browser mode calls real endpoints directly (no server-side forwarding, SSRF-free); server-mode debugging requires auth + CSRF + limits |
+| 2 | Documentation API | `/api/menus`, `/api/detail`, `/api/export`, for an external UI to render documentation and make test requests |
 | 3 | Mock data | Field-level Mock examples, get ahead in interface integration |
 | 4 | Multi-app / multi-version | App / Version tree management, one plugin covers documentation for the whole project |
 | 5 | Password authentication | Global password + app-level password, HMAC Token · constant-time comparison |
 | 6 | Markdown documentation | Safe rendering with goldmark, native HTML automatically stripped |
 | 7 | Multi-framework adaptation | net/http · Gin · Echo · Chi · Fiber · beego · Kratos · go-zero, integrate once and it works with every framework |
 | 8 | JSON / TypeScript export | One-click export of interface types, smoother frontend-backend integration |
-| 9 | Security protection | Browser mode has no SSRF; server-mode debugging requires auth + CSRF header + resource limits (target allowlist is the adapter's responsibility) · CORS whitelist · XSS protection · path traversal protection |
+| 9 | Security protection | Password authentication · CORS whitelist restriction · XSS protection · path traversal protection |
 | 10 | Annotation auto-parsing | go/ast generates docs from comments; the `@apidoc` marker is all it takes |
 | 11 | HTTP caching | ETag + 304, doc responses open instantly |
 | 12 | Automatic param completion | reflect infers request params from the handler signature |
-| 13 | Any-protocol debugging | `@protocol` declaration + `Debugger` extension: one panel to fill params, send, and view responses |
-| 14 | Streaming sessions | `StreamDebugger` keeps long-lived sessions: open / send / live SSE transcript |
-| 15 | Debug hardening | TargetPolicy · audit log · secret redaction · file/cert upload · code snippets · adapter test harness |
+| 13 | Any-protocol annotations | `@protocol` marks the protocol; detail returns protocol/method/url/params/responses/mock; the external UI renders the panel and makes the test request |
 
 ## Architecture Overview
 
@@ -48,10 +46,8 @@ apidoc-go/
 │   └── store.go         #   (app, version, method, url) deduplication, later ones overwrite
 ├── auth/                # Authentication
 │   └── auth.go          #   Password verification · HMAC Token issuance and validation
-├── server/              # JSON API + embedded Web UI
-│   ├── server.go
-│   └── static/
-│       └── index.html
+├── server/              # JSON API
+│   └── server.go
 ├── adapter/             # Framework adapter layer (typed interfaces)
 │   ├── adapter.go
 │   ├── nethttp.go       #   net/http  ServeMux
@@ -120,9 +116,26 @@ func main() {
 
 	s.Mount(adapter.NewNetHTTP(mux))
 	http.ListenAndServe(":8080", mux)
-	// Visit http://localhost:8080/apidoc in your browser
+	// The external UI reads http://localhost:8080/apidoc/api/menus (and /api/detail, /api/export)
 }
 ```
+
+### Any-protocol Annotations
+
+Non-HTTP interfaces reuse `@method` + `@url`, and specify the protocol with `@protocol` (it can also be inferred from the URL scheme):
+
+```go
+// @apidoc
+// @protocol mqtt
+// @method PUBLISH
+// @url mqtt://broker:1883/sensors/temp
+// @title Publish temperature
+// @param qos int false "QoS" in=option default=1
+// @param payload json true "Message body" in=payload
+func PublishTemp() {}
+```
+
+The protocol itself never enters the library: `/api/detail` returns `protocol`, `method`, `url`, `params`, `responses` and `mock`; the external UI renders the debug panel and makes the test request itself. The library starts no protocol service and exposes no `/api/debug/*` execution endpoint.
 
 ### Quick Start (Gin)
 
@@ -143,37 +156,6 @@ r.Run(":8080")
 
 For Echo / Chi / Fiber, just replace the adapter constructor: `adapter.NewEcho(e)`, `adapter.NewChi(mux)`, `adapter.NewFiber(app)` — the rest of the code stays exactly the same. For beego / Kratos / go-zero, see the Framework Adapters table below.
 
-### Any-Protocol Debugging
-
-Non-HTTP endpoints reuse `@method` + `@url`; `@protocol` names the protocol (or it is inferred from the URL scheme):
-
-```go
-// @apidoc
-// @protocol mqtt
-// @method PUBLISH
-// @url mqtt://broker:1883/sensors/temp
-// @title Publish temperature
-// @param qos int false "QoS" in=option default=1
-// @param payload json true "Message body" in=payload
-func PublishTemp() {}
-```
-
-A `Debugger` you provide executes the protocol — usually a thin wrapper over a client the project already owns:
-
-```go
-s := apidoc.New(apidoc.Config{
-    Debuggers: []apidoc.Debugger{
-        apidoc.DebuggerFunc("mqtt", apidoc.DebugSpec{
-            Mode: "server", Actions: []string{"PUBLISH"},
-        }, func(ctx context.Context, req apidoc.DebugRequest) (*apidoc.DebugResponse, error) {
-            return mqttClient.Publish(ctx, req)
-        }),
-    },
-})
-```
-
-`server` mode requires auth; when auth is off, set `DebugAllowUnauth: true` explicitly. Browser-mode HTTP stays direct and SSRF-free. Protect server-mode targets with `DebugPolicy` (the adapter's own target check still applies) and enable `DebugAudit`. Streaming protocols implement `StreamDebugger` and render a live SSE transcript (open / send / events). See [protocols.md](../../protocols.md) for URI conventions and adapter skeletons, and [CHANGELOG.md](../../../CHANGELOG.md) for compatibility notes.
-
 ### Configuration
 
 | Config | Default | Description |
@@ -184,7 +166,7 @@ s := apidoc.New(apidoc.Config{
 | `GlobalParams` | — | Global parameters, merged into every Action |
 | `Auth` | — | Auth config: `Enable` / `Password` / `Secret` / `Expire` / `Secure` |
 | `Apps` | — | App config: `Key` / `Title` / `Password` (independent app-level password) |
-| `DebugOrigins` | — | Allowed cross-origin debugging sources (none by default) |
+| `DebugOrigins` | — | Origins allowed to read the documentation API cross-origin (external UI, none by default) |
 
 ### Framework Adapters
 
@@ -242,7 +224,7 @@ The detail page shows a Mock example automatically: customize with `Doc.Params[]
 
 ### Example Project
 
-`example/` ships 8 framework servers (net/http :8081, Gin :8082, Echo :8083, Chi :8084, Fiber :8085, beego :8086, Kratos :8087, go-zero :8088). Start them all with `go run ./example`.
+`example/` ships 8 framework servers (net/http :8081, Gin :8082, Echo :8083, Chi :8084, Fiber :8085, beego :8086, Kratos :8087, go-zero :8088). Start them all with `go run ./example`; the doc API is served at `/apidoc/api/...` on each port and consumed by the external UI.
 
 ## Multilingual Documentation
 

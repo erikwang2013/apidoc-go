@@ -1,14 +1,12 @@
-// Package server serves the doc JSON API and the embedded UI as a
-// plain http.Handler, framework-agnostically.
+// Package server serves the doc JSON API as a plain http.Handler,
+// framework-agnostically.
 package server
 
 import (
 	"bytes"
 	"crypto/sha256"
-	"embed"
 	"encoding/hex"
 	"encoding/json"
-	"html"
 	"net/http"
 	"slices"
 	"sort"
@@ -16,37 +14,12 @@ import (
 	"time"
 
 	"github.com/erikwang2013/apidoc-go/auth"
-	"github.com/erikwang2013/apidoc-go/debug"
 	"github.com/erikwang2013/apidoc-go/export"
 	"github.com/erikwang2013/apidoc-go/mock"
 	"github.com/erikwang2013/apidoc-go/model"
 	"github.com/erikwang2013/apidoc-go/store"
 	"github.com/yuin/goldmark"
 )
-
-//go:embed static
-var uiFS embed.FS
-
-// indexHTML / petSVG are the embedded UI assets. (Read through embed.FS
-// rather than a plain []byte embed: some hardened toolchains reject
-// string/[]byte go:embed directives.)
-var (
-	indexHTML = readUI("static/index.html")
-	petSVG    = readUI("static/apidoc-pet.svg")
-	// Split across two source files to keep each readable; served as one
-	// script so the panel needs no extra request or module loader.
-	debugJSPayload = bytes.Join([][]byte{
-		readUI("static/debug.js"), readUI("static/debug-format.js"),
-	}, []byte("\n"))
-)
-
-func readUI(name string) []byte {
-	b, err := uiFS.ReadFile(name)
-	if err != nil {
-		panic("apidoc: embedded UI missing: " + name)
-	}
-	return b
-}
 
 const (
 	cookieName  = "apidoc_token"
@@ -55,66 +28,34 @@ const (
 
 // Opts wires the server to a store and configuration.
 type Opts struct {
-	Prefix             string
-	Store              *store.Store
-	Auth               auth.Config
-	AppPWs             map[string]string // app key -> per-app password (overrides global)
-	DebugOrigins       []string          // origins allowed CORS access; empty = none
-	GlobalParams       []model.Param     // merged into every action's params
-	Debuggers          map[string]debug.Debugger
-	DebugAllowUnauth   bool
-	DebugTimeout       time.Duration
-	DebugMaxConcurrent int
-	DebugPolicy        *debug.Policy
-	DebugAudit         func(debug.AuditEvent)
+	Prefix       string
+	Store        *store.Store
+	Auth         auth.Config
+	AppPWs       map[string]string // app key -> per-app password (overrides global)
+	DebugOrigins []string          // origins allowed CORS access; empty = none
+	GlobalParams []model.Param     // merged into every action's params
 }
 
-// Handler builds the doc server handler: auth middleware, CORS, JSON API
-// at /api, embedded UI at /. Adapters mount it under their prefix and
-// strip that prefix, so all routes here are mount-relative.
+// Handler builds the doc JSON API handler: auth middleware, CORS and the
+// /api routes. Adapters mount it under their prefix and strip that
+// prefix, so all routes here are mount-relative.
 func Handler(o Opts) http.Handler {
 	if o.Auth.Expire <= 0 {
 		o.Auth.Expire = 24 * time.Hour
 	}
-	max := o.DebugMaxConcurrent
-	if max <= 0 {
-		max = 8
-	}
-	page := bytes.ReplaceAll(indexHTML, []byte("{{PREFIX}}"), []byte(html.EscapeString(o.Prefix)))
 	mux := http.NewServeMux()
-	h := &apiHandler{o: o, page: page, sem: make(chan struct{}, max),
-		sessions: newSessionManager(maxDebugSessions, sessionIdle, sessionTTL)}
+	h := &apiHandler{o: o}
 	mux.HandleFunc("GET /api/menus", h.menus)
+	mux.HandleFunc("GET /api/protocols", h.protocols)
 	mux.HandleFunc("GET /api/detail", h.detail)
 	mux.HandleFunc("GET /api/export", h.export)
 	mux.HandleFunc("POST /api/login", h.login)
 	mux.HandleFunc("POST /api/app-login", h.appLogin)
-	mux.HandleFunc("POST /api/debug/exec", h.debugExec)
-	mux.HandleFunc("POST /api/debug/open", h.debugOpen)
-	mux.HandleFunc("POST /api/debug/send", h.debugSend)
-	mux.HandleFunc("GET /api/debug/events", h.debugEvents)
-	mux.HandleFunc("POST /api/debug/close", h.debugClose)
-	mux.HandleFunc("GET /{$}", h.ui)
-	mux.HandleFunc("GET /debug.js", h.debugJS)
-	mux.HandleFunc("GET /apidoc-pet.svg", h.pet)
 	// CORS outermost so even 401s carry the headers the browser needs.
-	inner := withCORS(o, withAuth(o, mux))
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Adapters strip the mount prefix; the exact {prefix} request
-		// then arrives with an empty path, which means the UI.
-		if r.URL.Path == "" {
-			r.URL.Path = "/"
-		}
-		inner.ServeHTTP(w, r)
-	})
+	return withCORS(o, withAuth(o, mux))
 }
 
-type apiHandler struct {
-	o        Opts
-	page     []byte
-	sem      chan struct{}
-	sessions *sessionManager
-}
+type apiHandler struct{ o Opts }
 
 // login issues the global session cookie.
 func (h *apiHandler) login(w http.ResponseWriter, r *http.Request) {
@@ -193,6 +134,11 @@ func (h *apiHandler) menus(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, r, http.StatusOK, map[string]any{"code": 0, "msg": "ok", "data": out})
 }
 
+// protocols returns the annotation protocol registry for the external UI.
+func (h *apiHandler) protocols(w http.ResponseWriter, r *http.Request) {
+	writeJSON(w, r, http.StatusOK, map[string]any{"code": 0, "msg": "ok", "data": model.Protocols()})
+}
+
 // detail returns one full action. Actions of password-protected apps
 // require a valid scoped app token (X-Apidoc-App-Token header).
 func (h *apiHandler) detail(w http.ResponseWriter, r *http.Request) {
@@ -204,6 +150,10 @@ func (h *apiHandler) detail(w http.ResponseWriter, r *http.Request) {
 	protocol := a.Protocol
 	if protocol == "" {
 		protocol = model.ProtocolOf(a.URL)
+	}
+	var info *model.ProtocolInfo
+	if pi, ok := model.ProtocolInfoOf(protocol); ok {
+		info = &pi
 	}
 	_, protected := h.o.AppPWs[a.App]
 	if protected {
@@ -219,11 +169,11 @@ func (h *apiHandler) detail(w http.ResponseWriter, r *http.Request) {
 	_ = goldmark.Convert([]byte(a.Markdown), &md)
 	writeJSON(w, r, http.StatusOK, map[string]any{"code": 0, "msg": "ok", "data": map[string]any{
 		"id": a.ID, "app": a.App, "version": a.Version, "controller": a.Controller,
-		"method": a.Method, "url": a.URL, "protocol": protocol,
+		"method": a.Method, "url": a.URL, "protocol": protocol, "protocol_info": info,
 		"title": a.Title, "desc": a.Desc,
 		"author": a.Author, "params": mergeParams(h.o.GlobalParams, a.Params),
 		"responses": a.Responses, "markdown_html": md.String(), "mock": actionMock(a),
-		"protected": protected, "debug_spec": h.specFor(protocol),
+		"protected": protected,
 	}})
 }
 
@@ -263,26 +213,6 @@ func actionMock(a *model.Action) string {
 		return a.Mock
 	}
 	return mock.Action(a)
-}
-
-// ui serves the embedded single-file UI.
-func (h *apiHandler) ui(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	_, _ = w.Write(h.page)
-}
-
-// debugJS serves the protocol-agnostic debug panel script.
-func (h *apiHandler) debugJS(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "text/javascript; charset=utf-8")
-	w.Header().Set("Cache-Control", "public, max-age=300")
-	_, _ = w.Write(debugJSPayload)
-}
-
-// pet serves the project mascot: the UI favicon and sidebar logo.
-func (h *apiHandler) pet(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "image/svg+xml; charset=utf-8")
-	w.Header().Set("Cache-Control", "public, max-age=86400")
-	_, _ = w.Write(petSVG)
 }
 
 // mergeParams returns global params with per-action params overriding by
@@ -374,7 +304,7 @@ func withCORS(o Opts, next http.Handler) http.Handler {
 			w.Header().Set("Access-Control-Allow-Credentials", "true")
 			if r.Method == http.MethodOptions {
 				w.Header().Set("Access-Control-Allow-Methods", "GET,POST,PUT,PATCH,DELETE,OPTIONS")
-				w.Header().Set("Access-Control-Allow-Headers", "Content-Type, X-Apidoc-App-Token, X-Apidoc-Debug")
+				w.Header().Set("Access-Control-Allow-Headers", "Content-Type, X-Apidoc-App-Token")
 				w.WriteHeader(http.StatusNoContent)
 				return
 			}

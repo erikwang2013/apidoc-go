@@ -16,22 +16,8 @@ func ProtocolOf(rawURL string) string {
 		return "http"
 	}
 	s := strings.ToLower(u.Scheme)
-	switch s {
-	case "http", "https":
-		return "http"
-	case "ws", "wss":
-		return "ws"
-	case "grpc", "grpcs":
-		return "grpc"
-	case "mqtt", "mqtts":
-		return "mqtt"
-	case "amqp", "amqps":
-		return "amqp"
-	case "stomp", "stomps":
-		return "stomp"
-	case "coap", "coaps":
-		return "coap"
-	default:
-		return s
+	if p, ok := protocolScheme[s]; ok {
+		return p
 	}
+	return s
 }

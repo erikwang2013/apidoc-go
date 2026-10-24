@@ -1,19 +1,17 @@
 // Package apidoc is a universal Go API-documentation plugin library:
 // docs are declared as typed structs riding along with route
-// registration, served as a JSON API plus a small web UI, with
-// adapters for net/http, gin, echo, chi and fiber.
+// registration and served as a JSON API, with adapters for net/http,
+// gin, echo, chi and fiber. Rendering and test requests are handled by
+// an external UI consuming the API.
 package apidoc
 
 import (
 	"fmt"
 	"net/http"
-	"strings"
 	"sync"
-	"time"
 
 	"github.com/erikwang2013/apidoc-go/adapter"
 	"github.com/erikwang2013/apidoc-go/auth"
-	"github.com/erikwang2013/apidoc-go/debug"
 	"github.com/erikwang2013/apidoc-go/model"
 	"github.com/erikwang2013/apidoc-go/server"
 	"github.com/erikwang2013/apidoc-go/store"
@@ -28,13 +26,6 @@ type Config struct {
 	Auth         AuthConfig
 	Apps         []AppConfig
 	DebugOrigins []string // origins allowed CORS access (default none)
-
-	Debuggers          []Debugger
-	DebugAllowUnauth   bool
-	DebugTimeout       time.Duration
-	DebugMaxConcurrent int
-	DebugPolicy        *debug.Policy
-	DebugAudit         func(debug.AuditEvent)
 }
 
 // AuthConfig is the auth configuration.
@@ -56,7 +47,6 @@ type Server struct {
 	ad        adapter.Framework
 	pending   []Route         // registrations made before Mount, replayed on Mount
 	forwarded map[string]bool // "METHOD url" already handed to the framework
-	debuggers map[string]Debugger
 	appPw     map[string]string
 	once      sync.Once
 	handler   http.Handler
@@ -70,21 +60,7 @@ func New(cfg Config) *Server {
 	if cfg.Title == "" {
 		cfg.Title = "API Docs"
 	}
-	dbg := make(map[string]Debugger, len(cfg.Debuggers))
-	for _, d := range cfg.Debuggers {
-		if d == nil {
-			panic("apidoc: nil debugger")
-		}
-		key := strings.ToLower(strings.TrimSpace(d.Protocol()))
-		if key == "" {
-			panic("apidoc: debugger protocol is empty")
-		}
-		if _, ok := dbg[key]; ok {
-			panic("apidoc: duplicate debugger for protocol " + key)
-		}
-		dbg[key] = d
-	}
-	s := &Server{cfg: cfg, st: store.New(cfg.Title), debuggers: dbg, appPw: map[string]string{}, forwarded: map[string]bool{}}
+	s := &Server{cfg: cfg, st: store.New(cfg.Title), appPw: map[string]string{}, forwarded: map[string]bool{}}
 	for _, a := range cfg.Apps {
 		s.st.SetAppMeta(a.Key, a.Title)
 		if a.Password != "" {
@@ -102,7 +78,7 @@ func (s *Server) Register(r Route) error {
 	if r.Method == "" || r.URL == "" {
 		return fmt.Errorf("apidoc: method and url are required")
 	}
-	r.Doc.Protocol = strings.ToLower(strings.TrimSpace(r.Doc.Protocol))
+	r.Doc.Protocol = model.NormalizeProtocol(r.Doc.Protocol)
 	if r.Doc.Protocol == "" {
 		r.Doc.Protocol = model.ProtocolOf(r.URL)
 	}
@@ -155,22 +131,16 @@ func (s *Server) Mount(a adapter.Framework) error {
 	return nil
 }
 
-// Handler returns the doc server's http.Handler (JSON API + embedded UI).
+// Handler returns the doc server's JSON API handler.
 func (s *Server) Handler() http.Handler {
 	s.once.Do(func() {
 		s.handler = server.Handler(server.Opts{
-			Prefix:             s.cfg.Prefix,
-			Store:              s.st,
-			Auth:               s.cfg.Auth,
-			AppPWs:             s.appPw,
-			DebugOrigins:       s.cfg.DebugOrigins,
-			GlobalParams:       s.cfg.GlobalParams,
-			Debuggers:          s.debuggers,
-			DebugAllowUnauth:   s.cfg.DebugAllowUnauth,
-			DebugTimeout:       s.cfg.DebugTimeout,
-			DebugMaxConcurrent: s.cfg.DebugMaxConcurrent,
-			DebugPolicy:        s.cfg.DebugPolicy,
-			DebugAudit:         s.cfg.DebugAudit,
+			Prefix:       s.cfg.Prefix,
+			Store:        s.st,
+			Auth:         s.cfg.Auth,
+			AppPWs:       s.appPw,
+			DebugOrigins: s.cfg.DebugOrigins,
+			GlobalParams: s.cfg.GlobalParams,
 		})
 	})
 	return s.handler

@@ -6,27 +6,25 @@
 
 ## Sobre o projeto
 
-**apidoc-go** é uma biblioteca de plugin universal de documentação de API para Go: a documentação das interfaces é declarada como **structs tipados** junto com o registro das rotas, de modo que a documentação nasce ao mesmo tempo que a rota. A Web UI integrada oferece navegação e depuração on-line, com autenticação por senha, gestão de múltiplos aplicativos/versões, dados Mock e exportação para JSON / TypeScript, além de parsing automático de anotações, cache HTTP e preenchimento automático de parâmetros. Integre uma única vez e funcionará com todos os frameworks, sem precisar modificar seu projeto existente.
+**apidoc-go** é uma biblioteca de plugin universal de documentação de API para Go: a documentação das interfaces é declarada como **structs tipados** junto com o registro das rotas, de modo que a documentação nasce ao mesmo tempo que a rota. A documentação é exposta como API JSON para uma interface externa renderizá-la e enviar as requisições de teste, com autenticação por senha, gestão de múltiplos aplicativos/versões, dados Mock e exportação para JSON / TypeScript, além de parsing automático de anotações, cache HTTP e preenchimento automático de parâmetros. Integre uma única vez e funcionará com todos os frameworks, sem precisar modificar seu projeto existente.
 
 ## Funcionalidades
 
 | # | Função | Descrição |
 |---|--------|-----------|
 | 1 | Geração automática de documentação | Declaração tipada de Doc junto com o registro da rota; declare uma única vez e a documentação nasce junto com a rota |
-| 2 | Depuração on-line | No modo navegador as requisições vão diretamente aos endpoints reais (sem encaminhamento no servidor, sem SSRF); a depuração no modo server exige autenticação + CSRF + limites |
+| 2 | API de documentação | `/api/menus`, `/api/detail`, `/api/export`, para uma interface externa renderizar a documentação e enviar as requisições de teste |
 | 3 | Dados Mock | Exemplos Mock por campo, adiante-se na integração de interfaces |
 | 4 | Múltiplos aplicativos / versões | Gestão hierárquica de App / Version, um único plugin cobre a documentação de todo o projeto |
 | 5 | Autenticação por senha | Senha global + senha por aplicativo, HMAC Token · comparação em tempo constante |
 | 6 | Documentos Markdown | Renderização segura com goldmark, o HTML nativo é removido automaticamente |
 | 7 | Suporte a vários frameworks | net/http · Gin · Echo · Chi · Fiber · beego · Kratos · go-zero, integre uma única vez e funcionará com todos os frameworks |
 | 8 | Exportação JSON / TypeScript | Exporte os tipos das interfaces com um clique, integração frontend-backend mais fluida |
-| 9 | Proteção de segurança | Modo navegador sem SSRF · a depuração no modo server exige autenticação + cabeçalho CSRF + limites de recursos (a lista de permissões de destinos é responsabilidade do adaptador) · CORS restrito por lista de permissões · proteção anti-XSS · proteção contra path traversal |
+| 9 | Proteção de segurança | Autenticação por senha · CORS restrito por lista de permissões · proteção anti-XSS · proteção contra path traversal |
 | 10 | Parsing automático de anotações | go/ast gera a documentação a partir de comentários; basta o marcador `@apidoc` |
 | 11 | Cache HTTP | ETag + 304, as respostas da documentação abrem instantaneamente |
 | 12 | Preenchimento automático de parâmetros | reflect infere os parâmetros da solicitação a partir da assinatura do handler |
-| 13 | Depuração de qualquer protocolo | Declaração `@protocol` + extensão `Debugger`: um painel para preencher, enviar e ver a resposta |
-| 14 | Sessões de streaming | `StreamDebugger` mantém sessões de longa duração: open / send / transcrição SSE ao vivo |
-| 15 | Endurecimento da depuração | TargetPolicy · log de auditoria · mascaramento de segredos · upload de arquivos/certificados · snippets de código · harness de testes de adaptadores |
+| 13 | Anotações para qualquer protocolo | `@protocol` indica o protocolo; detail retorna protocol/method/url/params/responses/mock; a interface externa renderiza o painel e envia a requisição de teste |
 
 ## Visão geral da arquitetura
 
@@ -48,10 +46,8 @@ apidoc-go/
 │   └── store.go         #   Deduplicação por (app, version, method, url); a última sobrescreve
 ├── auth/                # Autenticação
 │   └── auth.go          #   Validação de senha · emissão e verificação de HMAC Token
-├── server/              # API JSON + Web UI integrada
-│   ├── server.go
-│   └── static/
-│       └── index.html
+├── server/              # API JSON
+│   └── server.go
 ├── adapter/             # Camada de adaptação de frameworks (interface tipada)
 │   ├── adapter.go
 │   ├── nethttp.go       #   net/http  ServeMux
@@ -120,9 +116,26 @@ func main() {
 
 	s.Mount(adapter.NewNetHTTP(mux))
 	http.ListenAndServe(":8080", mux)
-	// Visite http://localhost:8080/apidoc no navegador
+	// A interface externa lê http://localhost:8080/apidoc/api/menus (e /api/detail, /api/export)
 }
 ```
+
+### Anotações para qualquer protocolo
+
+As interfaces não HTTP reutilizam `@method` + `@url` e indicam o protocolo com `@protocol` (também pode ser inferido do esquema da URL):
+
+```go
+// @apidoc
+// @protocol mqtt
+// @method PUBLISH
+// @url mqtt://broker:1883/sensors/temp
+// @title Publicar temperatura
+// @param qos int false "QoS" in=option default=1
+// @param payload json true "Corpo da mensagem" in=payload
+func PublishTemp() {}
+```
+
+O protocolo em si não faz parte da biblioteca: `/api/detail` retorna `protocol`, `method`, `url`, `params`, `responses` e `mock`; a interface externa renderiza o painel de depuração e envia ela mesma a requisição de teste. A biblioteca não inicia nenhum serviço de protocolo nem expõe endpoints de execução `/api/debug/*`.
 
 ### Início rápido (Gin)
 
@@ -143,37 +156,6 @@ r.Run(":8080")
 
 Para Echo / Chi / Fiber basta trocar o construtor do adaptador: `adapter.NewEcho(e)`, `adapter.NewChi(mux)`, `adapter.NewFiber(app)`; o restante do código é idêntico. Para beego / Kratos / go-zero, consulte a tabela «Adaptadores de frameworks» abaixo.
 
-### Depuração de qualquer protocolo
-
-Endpoints não HTTP reutilizam `@method` + `@url`; `@protocol` nomeia o protocolo (também pode ser inferido do esquema da URL):
-
-```go
-// @apidoc
-// @protocol mqtt
-// @method PUBLISH
-// @url mqtt://broker:1883/sensors/temp
-// @title Publicar temperatura
-// @param qos int false "QoS" in=option default=1
-// @param payload json true "Corpo da mensagem" in=payload
-func PublishTemp() {}
-```
-
-O protocolo é executado por um `Debugger` fornecido por você — geralmente um invólucro fino sobre um cliente que o projeto já possui:
-
-```go
-s := apidoc.New(apidoc.Config{
-    Debuggers: []apidoc.Debugger{
-        apidoc.DebuggerFunc("mqtt", apidoc.DebugSpec{
-            Mode: "server", Actions: []string{"PUBLISH"},
-        }, func(ctx context.Context, req apidoc.DebugRequest) (*apidoc.DebugResponse, error) {
-            return mqttClient.Publish(ctx, req)
-        }),
-    },
-})
-```
-
-O modo `server` exige autenticação; se a autenticação estiver desativada, defina explicitamente `DebugAllowUnauth: true`. O modo navegador HTTP continua direto e sem SSRF. Proteja os destinos do modo server com `DebugPolicy` (a verificação própria do adaptador continua valendo) e ative `DebugAudit`. Protocolos de streaming implementam `StreamDebugger` e aparecem como transcrição SSE ao vivo (open / send / events). Convenções de URI e esqueletos de adaptadores: [protocols.md](../../protocols.md); notas de compatibilidade: [CHANGELOG.md](../../../CHANGELOG.md).
-
 ### Opções de configuração
 
 | Opção | Valor padrão | Descrição |
@@ -184,7 +166,7 @@ O modo `server` exige autenticação; se a autenticação estiver desativada, de
 | `GlobalParams` | — | Parâmetros globais, mesclados em cada Action |
 | `Auth` | — | Configuração de autenticação: `Enable` / `Password` / `Secret` / `Expire` / `Secure` |
 | `Apps` | — | Configuração de aplicativos: `Key` / `Title` / `Password` (senha independente por aplicativo) |
-| `DebugOrigins` | — | Origens permitidas para depuração entre domínios (nenhuma por padrão) |
+| `DebugOrigins` | — | Origens permitidas para ler a API de documentação entre domínios (interface externa, nenhuma por padrão) |
 
 ### Adaptadores de frameworks
 
@@ -242,7 +224,7 @@ A página de detalhes mostra um exemplo Mock automaticamente: personalize com `D
 
 ### Projeto de exemplo
 
-`example/` inclui 8 servidores de framework (net/http :8081, Gin :8082, Echo :8083, Chi :8084, Fiber :8085, beego :8086, Kratos :8087, go-zero :8088). Inicie todos com `go run ./example`.
+`example/` inclui 8 servidores de framework (net/http :8081, Gin :8082, Echo :8083, Chi :8084, Fiber :8085, beego :8086, Kratos :8087, go-zero :8088). Inicie todos com `go run ./example`; a API de documentação fica em `/apidoc/api/...` de cada porta e é consumida pela interface externa.
 
 ## Documentação multilíngue
 

@@ -41,10 +41,6 @@ func TestExampleNetHTTPServer(t *testing.T) {
 		mux.ServeHTTP(rec, httptest.NewRequest(method, path, nil))
 		return rec
 	}
-	if rec := do(http.MethodGet, "/apidoc"); rec.Code != http.StatusOK ||
-		!strings.Contains(rec.Body.String(), "<html") {
-		t.Fatalf("UI: want 200 html, got %d", rec.Code)
-	}
 	if rec := do(http.MethodGet, "/apidoc/api/menus"); rec.Code != http.StatusOK ||
 		!strings.Contains(rec.Body.String(), `"key":"default"`) ||
 		!strings.Contains(rec.Body.String(), `"name":"ListUsers"`) {

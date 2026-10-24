@@ -5,6 +5,13 @@
 
 ## [Unreleased]
 
+### Removed
+
+- 内嵌 Web UI、`/api/debug/*` 执行与流式会话、`Debugger`/`StreamDebugger` SPI、
+  TargetPolicy/审计、协议适配器示例模块、e2e 与示例测试脚本。
+- 库现在只提供注解解析与文档 API（`/api/menus`、`/api/detail`、`/api/export`）；
+  文档渲染与测试请求由外部 UI 负责，库不实现任何协议或服务。
+
 ## [v1.0.9] - 2026-10-24
 
 ### Added
