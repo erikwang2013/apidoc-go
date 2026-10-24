@@ -13,7 +13,7 @@
 | # | Feature | Description |
 |---|---------|-------------|
 | 1 | Automatic documentation generation | Typed Doc declaration alongside route registration; declare once, and documentation is born together with the route |
-| 2 | Documentation API | `/api/menus`, `/api/detail`, `/api/export`, for an external UI to render documentation and make test requests |
+| 2 | Documentation API | `/api/menus`, `/api/protocols`, `/api/detail`, `/api/export`, for an external UI to render documentation and make test requests |
 | 3 | Mock data | Field-level Mock examples, get ahead in interface integration |
 | 4 | Multi-app / multi-version | App / Version tree management, one plugin covers documentation for the whole project |
 | 5 | Password authentication | Global password + app-level password, HMAC Token · constant-time comparison |
@@ -24,7 +24,7 @@
 | 10 | Annotation auto-parsing | go/ast generates docs from comments; the `@apidoc` marker is all it takes |
 | 11 | HTTP caching | ETag + 304, doc responses open instantly |
 | 12 | Automatic param completion | reflect infers request params from the handler signature |
-| 13 | Any-protocol annotations | `@protocol` marks the protocol; detail returns protocol/method/url/params/responses/mock; the external UI renders the panel and makes the test request |
+| 13 | Any-protocol annotations | `@protocol` marks the protocol using the complete protocol registry and aliases (`GET /api/protocols`); detail returns protocol/protocol_info/method/url/params/responses/mock; the external UI renders the panel and makes the test request |
 
 ## Architecture Overview
 
@@ -135,7 +135,9 @@ Non-HTTP interfaces reuse `@method` + `@url`, and specify the protocol with `@pr
 func PublishTemp() {}
 ```
 
-The protocol itself never enters the library: `/api/detail` returns `protocol`, `method`, `url`, `params`, `responses` and `mock`; the external UI renders the debug panel and makes the test request itself. The library starts no protocol service and exposes no `/api/debug/*` execution endpoint.
+`@protocol` accepts the complete protocol registry and its aliases (HTTP/2, HTTP/3, SOAP, GraphQL, JSON-RPC, XML-RPC, OData, Webhooks, gRPC, Dubbo, Thrift, Hessian, MCP, A2A, ISO 8583, WebSocket, SSE, Socket.IO, WebRTC DataChannel, RTSP, RTMP, HLS, SIP, XMPP, AMQP, MQTT, STOMP, Kafka, CoAP, LwM2M, OPC UA, Modbus TCP, DNP3, IEC 60870-5-104, BACnet/IP, RTP, RTCP, TCP, UDP, Raw Socket, Unix Domain Socket); see `GET /api/protocols` for the full key, alias, scheme and default-port registry. Declare binary bodies with `@param ... type=binary` (or `hex`/`base64`) + `in=payload`.
+
+The protocol itself never enters the library: `/api/detail` returns `protocol`, `protocol_info`, `method`, `url`, `params`, `responses` and `mock`; the external UI renders the debug panel and makes the test request itself. The library starts no protocol service and exposes no `/api/debug/*` execution endpoint.
 
 ### Quick Start (Gin)
 

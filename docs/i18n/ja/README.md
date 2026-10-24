@@ -13,7 +13,7 @@
 | # | 機能 | 説明 |
 |---|------|------|
 | 1 | ドキュメント自動生成 | 型付き Doc 宣言をルート登録と同時に行う。一度宣言すれば、ドキュメントはルートと共に生まれる |
-| 2 | ドキュメント API | `/api/menus`、`/api/detail`、`/api/export`。外部 UI がドキュメントをレンダリングし、テストリクエストを送信するために提供 |
+| 2 | ドキュメント API | `/api/menus`、`/api/protocols`、`/api/detail`、`/api/export`。外部 UI がドキュメントをレンダリングし、テストリクエストを送信するために提供 |
 | 3 | Mock データ | フィールド単位の Mock サンプル。API 連携を一歩先取り |
 | 4 | 複数アプリ / 複数バージョン | App / Version のツリー管理。1 つのプラグインでプロジェクト全体のドキュメントをカバー |
 | 5 | パスワード認証 | グローバルパスワード + アプリ単位パスワード。HMAC トークン・定数時間比較 |
@@ -24,7 +24,7 @@
 | 10 | アノテーション自動パース | go/ast がコメントからドキュメントを生成。`@apidoc` マーカーだけで完了 |
 | 11 | HTTP キャッシュ | ETag + 304 で、ドキュメントレスポンスが即座に開く |
 | 12 | パラメータ自動補完 | reflect がハンドラーシグネチャからリクエストパラメータを推論 |
-| 13 | 任意プロトコルのアノテーション | `@protocol` でプロトコルを指定。detail が protocol/method/url/params/responses/mock を返し、外部 UI がパネルのレンダリングとテストリクエストを担当 |
+| 13 | 任意プロトコルのアノテーション | `@protocol` は完全なプロトコルレジストリとエイリアスからプロトコルを指定します（`GET /api/protocols`）。detail が protocol/protocol_info/method/url/params/responses/mock を返し、外部 UI がパネルのレンダリングとテストリクエストを担当 |
 
 ## アーキテクチャ概要
 
@@ -135,7 +135,9 @@ HTTP 以外のインターフェースは `@method` + `@url` を再利用し、`
 func PublishTemp() {}
 ```
 
-プロトコル自体はライブラリに入りません。`/api/detail` が `protocol`、`method`、`url`、`params`、`responses`、`mock` を返し、外部 UI がデバッグパネルをレンダリングしてテストリクエストを自ら送信します。ライブラリはプロトコルサービスを一切起動せず、`/api/debug/*` 実行エンドポイントも提供しません。
+`@protocol` は完全なプロトコル一覧とエイリアスを受け付けます（HTTP/2、HTTP/3、SOAP、GraphQL、JSON-RPC、XML-RPC、OData、Webhooks、gRPC、Dubbo、Thrift、Hessian、MCP、A2A、ISO 8583、WebSocket、SSE、Socket.IO、WebRTC DataChannel、RTSP、RTMP、HLS、SIP、XMPP、AMQP、MQTT、STOMP、Kafka、CoAP、LwM2M、OPC UA、Modbus TCP、DNP3、IEC 60870-5-104、BACnet/IP、RTP、RTCP、TCP、UDP、Raw Socket、Unix Domain Socket）。key、エイリアス、スキーム、デフォルトポートの完全なレジストリは `GET /api/protocols` にあります。バイナリ body は `@param ... type=binary`（または `hex`/`base64`）+ `in=payload` で宣言します。
+
+プロトコル自体はライブラリに入りません。`/api/detail` が `protocol`、`protocol_info`、`method`、`url`、`params`、`responses`、`mock` を返し、外部 UI がデバッグパネルをレンダリングしてテストリクエストを自ら送信します。ライブラリはプロトコルサービスを一切起動せず、`/api/debug/*` 実行エンドポイントも提供しません。
 
 ### クイックスタート（Gin）
 

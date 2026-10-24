@@ -33,7 +33,7 @@ type Framework interface {
 	// h must be this framework's handler type; the returned error names
 	// the expected type on mismatch.
 	Register(method, path string, h any) error
-	// Mount attaches the doc UI+API handler under prefix. Both {prefix}
+	// Mount attaches the doc JSON API handler under prefix. Both {prefix}
 	// and {prefix}/anything must be served.
 	Mount(prefix string, h http.Handler)
 }

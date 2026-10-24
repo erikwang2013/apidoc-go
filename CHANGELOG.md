@@ -5,12 +5,27 @@
 
 ## [Unreleased]
 
+## [v1.0.13] - 2026-10-25
+
+### Added
+
+- 协议注册表 `GET /api/protocols`：key、名称、分类、scheme、别名、默认端口。
+- `@protocol` 支持完整协议清单、别名与多词名称（HTTP/2、SOAP、gRPC、ISO 8583、
+  OPC UA、WebRTC DataChannel、Modbus TCP、IEC 60870-5-104、BACnet/IP 等）。
+- `/api/detail` 新增 `protocol_info`；二进制 body 用
+  `@param ... type=binary|hex|base64 in=payload` 声明。
+
 ### Removed
 
 - 内嵌 Web UI、`/api/debug/*` 执行与流式会话、`Debugger`/`StreamDebugger` SPI、
   TargetPolicy/审计、协议适配器示例模块、e2e 与示例测试脚本。
-- 库现在只提供注解解析与文档 API（`/api/menus`、`/api/detail`、`/api/export`）；
-  文档渲染与测试请求由外部 UI 负责，库不实现任何协议或服务。
+- 库现在只提供注解解析与文档 API（`/api/menus`、`/api/protocols`、`/api/detail`、
+  `/api/export`）；文档渲染与测试请求由外部 UI 负责，库不实现任何协议或服务。
+
+### Changed
+
+- README、多语言 README、功能/生命周期/社交预览图对齐 API-only 范围；
+  删除未引用的本地化 SVG 副本。
 
 ## [v1.0.9] - 2026-10-24
 

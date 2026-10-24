@@ -13,7 +13,7 @@
 | # | Fitur | Deskripsi |
 |---|------|------|
 | 1 | Pembuatan dokumentasi otomatis | Deklarasi Doc bertipe, didaftarkan bersama rute; satu deklarasi, dokumentasi lahir bersama rute |
-| 2 | API dokumentasi | `/api/menus`, `/api/detail`, `/api/export`, untuk UI eksternal yang merender dokumentasi dan mengirim permintaan uji |
+| 2 | API dokumentasi | `/api/menus`, `/api/protocols`, `/api/detail`, `/api/export`, untuk UI eksternal yang merender dokumentasi dan mengirim permintaan uji |
 | 3 | Data Mock | Contoh Mock tingkat bidang, mempercepat integrasi antarmuka |
 | 4 | Multi-aplikasi / multi-versi | Manajemen pohon App / Version, satu plugin mencakup dokumentasi seluruh proyek |
 | 5 | Autentikasi kata sandi | Kata sandi global + kata sandi tingkat aplikasi, HMAC Token · perbandingan waktu konstan |
@@ -24,7 +24,7 @@
 | 10 | Parsing anotasi otomatis | go/ast menghasilkan dokumentasi dari komentar; penanda `@apidoc` sudah cukup |
 | 11 | Cache HTTP | ETag + 304, respons dokumentasi terbuka seketika |
 | 12 | Pelengkapan parameter otomatis | reflect menyimpulkan parameter permintaan dari tanda tangan handler |
-| 13 | Anotasi protokol apa pun | `@protocol` menandai protokol; detail mengembalikan protocol/method/url/params/responses/mock; UI eksternal merender panel dan mengirim permintaan uji |
+| 13 | Anotasi protokol apa pun | `@protocol` menandai protokol dari registri protokol lengkap dan aliasnya (`GET /api/protocols`); detail mengembalikan protocol/protocol_info/method/url/params/responses/mock; UI eksternal merender panel dan mengirim permintaan uji |
 
 ## Ikhtisar Arsitektur
 
@@ -135,7 +135,9 @@ Antarmuka non-HTTP menggunakan kembali `@method` + `@url` dan menentukan protoko
 func PublishTemp() {}
 ```
 
-Protokolnya sendiri tidak masuk ke pustaka: `/api/detail` mengembalikan `protocol`, `method`, `url`, `params`, `responses`, dan `mock`; UI eksternal merender panel debug dan mengirim permintaan uji sendiri. Pustaka tidak menjalankan layanan protokol apa pun dan tidak menyediakan endpoint eksekusi `/api/debug/*`.
+`@protocol` menerima daftar protokol lengkap dan aliasnya (HTTP/2, HTTP/3, SOAP, GraphQL, JSON-RPC, XML-RPC, OData, Webhooks, gRPC, Dubbo, Thrift, Hessian, MCP, A2A, ISO 8583, WebSocket, SSE, Socket.IO, WebRTC DataChannel, RTSP, RTMP, HLS, SIP, XMPP, AMQP, MQTT, STOMP, Kafka, CoAP, LwM2M, OPC UA, Modbus TCP, DNP3, IEC 60870-5-104, BACnet/IP, RTP, RTCP, TCP, UDP, Raw Socket, Unix Domain Socket); registri lengkap key, alias, skema, dan port default tersedia di `GET /api/protocols`. Body biner dideklarasikan dengan `@param ... type=binary` (atau `hex`/`base64`) + `in=payload`.
+
+Protokolnya sendiri tidak masuk ke pustaka: `/api/detail` mengembalikan `protocol`, `protocol_info`, `method`, `url`, `params`, `responses`, dan `mock`; UI eksternal merender panel debug dan mengirim permintaan uji sendiri. Pustaka tidak menjalankan layanan protokol apa pun dan tidak menyediakan endpoint eksekusi `/api/debug/*`.
 
 ### Memulai Cepat (Gin)
 

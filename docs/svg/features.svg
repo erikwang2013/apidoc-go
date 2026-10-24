@@ -73,7 +73,7 @@
   <text x="183" y="594" text-anchor="middle" font-size="15" font-weight="700" fill="#ffffff">10</text>
   <text x="183" y="626" text-anchor="middle" font-size="15" font-weight="600" fill="#1a1a2e">注释自动解析</text>
   <text x="183" y="650" text-anchor="middle" font-size="12" fill="#555">go/ast 从注释生成文档</text>
-  <text x="183" y="668" text-anchor="middle" font-size="12" fill="#555">`@apidoc` 标记即注册</text>
+  <text x="183" y="668" text-anchor="middle" font-size="12" fill="#555">`@apidoc` / `@protocol` 注解</text>
 
   <rect x="327" y="550" width="246" height="130" rx="12" fill="#fffbeb" stroke="#f59e0b"/>
   <circle cx="450" cy="588" r="14" fill="#f59e0b"/>

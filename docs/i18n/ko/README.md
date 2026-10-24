@@ -13,7 +13,7 @@
 | # | 기능 | 설명 |
 |---|------|------|
 | 1 | 문서 자동 생성 | 타입화된 Doc 선언을 라우트와 함께 등록, 한 번의 선언으로 문서와 라우트 동시 생성 |
-| 2 | 문서 API | `/api/menus`, `/api/detail`, `/api/export`, 외부 UI가 문서를 렌더링하고 테스트 요청을 보낼 수 있도록 제공 |
+| 2 | 문서 API | `/api/menus`, `/api/protocols`, `/api/detail`, `/api/export`, 외부 UI가 문서를 렌더링하고 테스트 요청을 보낼 수 있도록 제공 |
 | 3 | Mock 데이터 | 필드 수준 Mock 예시, 인터페이스 연동이 한 발 앞서 |
 | 4 | 다중 앱 / 다중 버전 | App / Version 트리 관리, 플러그인 하나로 전체 프로젝트 문서 |
 | 5 | 비밀번호 인증 | 전역 비밀번호 + 앱 수준 비밀번호, HMAC 토큰 · 항시 비교 |
@@ -24,7 +24,7 @@
 | 10 | 어노테이션 자동 파싱 | go/ast가 주석에서 문서를 생성, `@apidoc` 마커만 있으면 됨 |
 | 11 | HTTP 캐싱 | ETag + 304, 문서 응답이 즉시 열림 |
 | 12 | 파라미터 자동 완성 | reflect가 핸들러 시그니처에서 요청 파라미터를 추론 |
-| 13 | 임의 프로토콜 어노테이션 | `@protocol`로 프로토콜 지정; detail이 protocol/method/url/params/responses/mock 반환, 외부 UI가 패널 렌더링과 테스트 요청 담당 |
+| 13 | 임의 프로토콜 어노테이션 | `@protocol`는 전체 프로토콜 레지스트리와 별칭으로 프로토콜을 지정합니다(`GET /api/protocols`). detail이 protocol/protocol_info/method/url/params/responses/mock 반환, 외부 UI가 패널 렌더링과 테스트 요청 담당 |
 
 ## 아키텍처 개요
 
@@ -135,7 +135,9 @@ func main() {
 func PublishTemp() {}
 ```
 
-프로토콜 자체는 라이브러리에 들어오지 않습니다: `/api/detail`이 `protocol`, `method`, `url`, `params`, `responses`, `mock`을 반환하고, 외부 UI가 디버그 패널을 렌더링하며 테스트 요청을 직접 보냅니다. 라이브러리는 어떤 프로토콜 서비스도 시작하지 않으며 `/api/debug/*` 실행 엔드포인트도 제공하지 않습니다.
+`@protocol`는 전체 프로토콜 목록과 별칭을 허용합니다(HTTP/2, HTTP/3, SOAP, GraphQL, JSON-RPC, XML-RPC, OData, Webhooks, gRPC, Dubbo, Thrift, Hessian, MCP, A2A, ISO 8583, WebSocket, SSE, Socket.IO, WebRTC DataChannel, RTSP, RTMP, HLS, SIP, XMPP, AMQP, MQTT, STOMP, Kafka, CoAP, LwM2M, OPC UA, Modbus TCP, DNP3, IEC 60870-5-104, BACnet/IP, RTP, RTCP, TCP, UDP, Raw Socket, Unix Domain Socket). 전체 key, 별칭, scheme, 기본 포트 레지스트리는 `GET /api/protocols`에 있습니다. 바이너리 body는 `@param ... type=binary`(또는 `hex`/`base64`) + `in=payload`로 선언합니다.
+
+프로토콜 자체는 라이브러리에 들어오지 않습니다: `/api/detail`이 `protocol`, `protocol_info`, `method`, `url`, `params`, `responses`, `mock`을 반환하고, 외부 UI가 디버그 패널을 렌더링하며 테스트 요청을 직접 보냅니다. 라이브러리는 어떤 프로토콜 서비스도 시작하지 않으며 `/api/debug/*` 실행 엔드포인트도 제공하지 않습니다.
 
 ### 빠른 시작 (Gin)
 

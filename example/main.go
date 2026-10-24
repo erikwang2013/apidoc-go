@@ -1,16 +1,16 @@
 // Command example runs eight demo servers, one per supported framework:
 // net/http on :8081, gin on :8082, echo on :8083, chi on :8084,
 // fiber on :8085, beego on :8086, kratos on :8087 and go-zero on :8088.
-// Each serves its own routes plus the apidoc UI mounted at /apidoc. Docs
-// come from hand-written registration and from parse.ParseDir over the
-// annotated handlers in example/handlers.
+// Each serves its own routes plus the apidoc JSON API mounted at /apidoc.
+// Docs come from hand-written registration and from parse.ParseDir over
+// the annotated handlers in example/handlers.
 //
 // Run from the module root:
 //
 //	go run ./example
 //
-// then open e.g. http://localhost:8081/apidoc. The doc JSON API, the
-// export endpoint and the UI behave identically on all eight servers.
+// then query e.g. http://localhost:8081/apidoc/api/menus. The doc JSON API
+// and export endpoint behave identically on all eight servers.
 package main
 
 import (

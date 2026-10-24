@@ -13,7 +13,7 @@
 | # | Função | Descrição |
 |---|--------|-----------|
 | 1 | Geração automática de documentação | Declaração tipada de Doc junto com o registro da rota; declare uma única vez e a documentação nasce junto com a rota |
-| 2 | API de documentação | `/api/menus`, `/api/detail`, `/api/export`, para uma interface externa renderizar a documentação e enviar as requisições de teste |
+| 2 | API de documentação | `/api/menus`, `/api/protocols`, `/api/detail`, `/api/export`, para uma interface externa renderizar a documentação e enviar as requisições de teste |
 | 3 | Dados Mock | Exemplos Mock por campo, adiante-se na integração de interfaces |
 | 4 | Múltiplos aplicativos / versões | Gestão hierárquica de App / Version, um único plugin cobre a documentação de todo o projeto |
 | 5 | Autenticação por senha | Senha global + senha por aplicativo, HMAC Token · comparação em tempo constante |
@@ -24,7 +24,7 @@
 | 10 | Parsing automático de anotações | go/ast gera a documentação a partir de comentários; basta o marcador `@apidoc` |
 | 11 | Cache HTTP | ETag + 304, as respostas da documentação abrem instantaneamente |
 | 12 | Preenchimento automático de parâmetros | reflect infere os parâmetros da solicitação a partir da assinatura do handler |
-| 13 | Anotações para qualquer protocolo | `@protocol` indica o protocolo; detail retorna protocol/method/url/params/responses/mock; a interface externa renderiza o painel e envia a requisição de teste |
+| 13 | Anotações para qualquer protocolo | `@protocol` indica o protocolo a partir do registro completo de protocolos e seus aliases (`GET /api/protocols`); detail retorna protocol/protocol_info/method/url/params/responses/mock; a interface externa renderiza o painel e envia a requisição de teste |
 
 ## Visão geral da arquitetura
 
@@ -135,7 +135,9 @@ As interfaces não HTTP reutilizam `@method` + `@url` e indicam o protocolo com 
 func PublishTemp() {}
 ```
 
-O protocolo em si não faz parte da biblioteca: `/api/detail` retorna `protocol`, `method`, `url`, `params`, `responses` e `mock`; a interface externa renderiza o painel de depuração e envia ela mesma a requisição de teste. A biblioteca não inicia nenhum serviço de protocolo nem expõe endpoints de execução `/api/debug/*`.
+`@protocol` aceita a lista completa de protocolos e seus aliases (HTTP/2, HTTP/3, SOAP, GraphQL, JSON-RPC, XML-RPC, OData, Webhooks, gRPC, Dubbo, Thrift, Hessian, MCP, A2A, ISO 8583, WebSocket, SSE, Socket.IO, WebRTC DataChannel, RTSP, RTMP, HLS, SIP, XMPP, AMQP, MQTT, STOMP, Kafka, CoAP, LwM2M, OPC UA, Modbus TCP, DNP3, IEC 60870-5-104, BACnet/IP, RTP, RTCP, TCP, UDP, Raw Socket, Unix Domain Socket); o registro completo de chave, alias, esquema e porta padrão está em `GET /api/protocols`. Corpos binários são declarados com `@param ... type=binary` (ou `hex`/`base64`) + `in=payload`.
+
+O protocolo em si não faz parte da biblioteca: `/api/detail` retorna `protocol`, `protocol_info`, `method`, `url`, `params`, `responses` e `mock`; a interface externa renderiza o painel de depuração e envia ela mesma a requisição de teste. A biblioteca não inicia nenhum serviço de protocolo nem expõe endpoints de execução `/api/debug/*`.
 
 ### Início rápido (Gin)
 

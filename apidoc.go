@@ -32,8 +32,8 @@ type Config struct {
 type AuthConfig = auth.Config
 
 // AppConfig declares a doc app: Key is the app key used in Doc.App,
-// Title is shown in the UI, Password (optional) protects that app's
-// detail data with a scoped token.
+// Title is shown in the external UI, Password (optional) protects that
+// app's detail data with a scoped token.
 type AppConfig struct {
 	Key, Title, Password string
 }
@@ -109,7 +109,7 @@ func (s *Server) Register(r Route) error {
 	return s.ad.Register(r.Method, r.URL, r.Handler)
 }
 
-// Mount attaches the doc UI+API to the framework at the configured
+// Mount attaches the doc JSON API to the framework at the configured
 // prefix, replaying any registrations made beforehand.
 func (s *Server) Mount(a adapter.Framework) error {
 	s.mu.Lock()

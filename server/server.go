@@ -276,8 +276,8 @@ func validSession(o Opts, r *http.Request) bool {
 }
 
 // withAuth gates the /api endpoints when global auth is enabled.
-// Login and app-login are the way in; the UI itself stays reachable so
-// its login screen can render (it shows on 401 from /api/menus).
+// Login and app-login are the way in; every other /api route requires a
+// valid session.
 func withAuth(o Opts, next http.Handler) http.Handler {
 	if !o.Auth.Enable {
 		return next

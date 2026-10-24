@@ -43,7 +43,9 @@ apidoc-go/
 ├── apidoc.go            # 核心入口：New / Register / Mount / Handler
 ├── doc.go               # Route / Doc / Param / Response 类型
 ├── model/               # 数据模型
-│   └── model.go         #   Project / App / Version / Controller / Action
+│   ├── model.go         #   Project / App / Version / Controller / Action
+│   ├── protocol.go      #   URL scheme → protocol
+│   └── protocols.go     #   协议注册表 / 别名 / 默认端口
 ├── store/               # 存储与去重
 │   └── store.go         #   (app, version, method, url) 去重，后者覆盖
 ├── auth/                # 鉴权
