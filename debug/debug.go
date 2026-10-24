@@ -64,7 +64,7 @@ type Response struct {
 type Field struct {
 	Name        string   `json:"name"`
 	Label       string   `json:"label,omitempty"`
-	Type        string   `json:"type,omitempty"` // text|password|number|bool|select|textarea
+	Type        string   `json:"type,omitempty"` // text|password|number|bool|select|textarea|file
 	Default     string   `json:"default,omitempty"`
 	Placeholder string   `json:"placeholder,omitempty"`
 	Required    bool     `json:"required,omitempty"`

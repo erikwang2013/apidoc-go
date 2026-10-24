@@ -13,17 +13,20 @@
 | # | Fonctionnalité | Description |
 |---|----------------|-------------|
 | 1 | Génération automatique de documentation | Déclaration Doc typée lors de l'enregistrement de la route ; déclarez une fois, documentation et route naissent ensemble |
-| 2 | Débogage en ligne | Appelez les vrais endpoints directement depuis le navigateur, sans relais côté serveur, naturellement sans SSRF |
+| 2 | Débogage en ligne | En mode navigateur, les requêtes vont directement aux vrais endpoints (sans relais serveur, sans SSRF) ; le débogage en mode server exige authentification + CSRF + limites |
 | 3 | Données Mock | Exemples Mock au niveau des champs, une longueur d'avance dans l'intégration des interfaces |
 | 4 | Multi-applications / multi-versions | Gestion arborescente App / Version, un seul plugin couvre toute la documentation du projet |
 | 5 | Authentification par mot de passe | Mot de passe global + mot de passe par application, jeton HMAC · comparaison en temps constant |
 | 6 | Documentation Markdown | Rendu sécurisé avec goldmark, le HTML natif est automatiquement supprimé |
 | 7 | Adaptation multi-frameworks | net/http · Gin · Echo · Chi · Fiber · beego · Kratos · go-zero, une seule intégration compatible avec tous les frameworks |
 | 8 | Export JSON / TypeScript | Exportez les types d'interface en un clic, une intégration frontend-backend plus fluide |
-| 9 | Protection de sécurité | Pas de SSRF · restriction par liste blanche CORS · protection XSS · protection anti-traversée de chemin |
+| 9 | Protection de sécurité | Mode navigateur sans SSRF · débogage en mode server : authentification + en-tête CSRF + limites de ressources (la liste blanche des cibles relève de l'adaptateur) · restriction CORS par liste blanche · protection XSS · protection anti-traversée de chemin |
 | 10 | Analyse automatique des annotations | go/ast génère la documentation à partir des commentaires ; le marqueur `@apidoc` suffit |
 | 11 | Cache HTTP | ETag + 304, les réponses des docs s'ouvrent instantanément |
 | 12 | Complétion automatique des paramètres | reflect déduit les paramètres de requête à partir de la signature du handler |
+| 13 | Débogage de tout protocole | Déclaration `@protocol` + extension `Debugger` : un panneau unique pour saisir, envoyer et voir la réponse |
+| 14 | Sessions en streaming | `StreamDebugger` maintient des sessions durables : open / send / transcription SSE en direct |
+| 15 | Durcissement du débogage | TargetPolicy · journal d'audit · masquage des secrets · envoi de fichiers/certificats · extraits de code · harnais de test d'adaptateur |
 
 ## Vue d'ensemble de l'architecture
 
@@ -139,6 +142,37 @@ r.Run(":8080")
 ```
 
 Pour Echo / Chi / Fiber, il suffit de remplacer le constructeur de l'adaptateur : `adapter.NewEcho(e)`, `adapter.NewChi(mux)`, `adapter.NewFiber(app)` — le reste du code reste strictement identique. Pour beego / Kratos / go-zero, voir le tableau « Adaptateurs de framework » ci-dessous.
+
+### Débogage de tout protocole
+
+Les points d'accès non HTTP réutilisent `@method` + `@url` ; `@protocol` nomme le protocole (ou il est déduit du schéma de l'URL) :
+
+```go
+// @apidoc
+// @protocol mqtt
+// @method PUBLISH
+// @url mqtt://broker:1883/sensors/temp
+// @title Publier la température
+// @param qos int false "QoS" in=option default=1
+// @param payload json true "Corps du message" in=payload
+func PublishTemp() {}
+```
+
+Le protocole est exécuté par un `Debugger` que vous fournissez — généralement une fine enveloppe autour d'un client déjà présent dans le projet :
+
+```go
+s := apidoc.New(apidoc.Config{
+    Debuggers: []apidoc.Debugger{
+        apidoc.DebuggerFunc("mqtt", apidoc.DebugSpec{
+            Mode: "server", Actions: []string{"PUBLISH"},
+        }, func(ctx context.Context, req apidoc.DebugRequest) (*apidoc.DebugResponse, error) {
+            return mqttClient.Publish(ctx, req)
+        }),
+    },
+})
+```
+
+Le mode `server` exige une authentification ; si l'authentification est désactivée, il faut définir explicitement `DebugAllowUnauth: true`. Le mode navigateur HTTP reste direct et sans SSRF. Protégez les cibles du mode server avec `DebugPolicy` (la vérification propre à l'adaptateur s'applique toujours) et activez `DebugAudit`. Les protocoles de streaming implémentent `StreamDebugger` et s'affichent comme une transcription SSE en direct (open / send / events). Conventions d'URI et squelettes d'adaptateurs : [protocols.md](../../protocols.md) ; notes de compatibilité : [CHANGELOG.md](../../../CHANGELOG.md).
 
 ### Options de configuration
 

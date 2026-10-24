@@ -6,6 +6,9 @@ import "context"
 // or subscription-style protocols.
 type StreamDebugger interface {
 	Debugger
+	// Open dials and handshakes. ctx covers the handshake only; the
+	// returned Session must remain usable until Close, independent of
+	// that ctx.
 	Open(ctx context.Context, req Request) (Session, error)
 }
 

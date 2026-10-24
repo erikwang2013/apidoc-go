@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"net/url"
+	"strings"
 	"sync"
 
 	"github.com/erikwang2013/apidoc-go/model"
@@ -54,6 +55,8 @@ func (s *Store) Register(method, u string, d model.Doc) {
 	}
 	if d.Protocol == "" {
 		d.Protocol = model.ProtocolOf(u)
+	} else {
+		d.Protocol = strings.ToLower(strings.TrimSpace(d.Protocol))
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()

@@ -13,6 +13,7 @@ import (
 
 	"github.com/erikwang2013/apidoc-go/adapter"
 	"github.com/erikwang2013/apidoc-go/auth"
+	"github.com/erikwang2013/apidoc-go/debug"
 	"github.com/erikwang2013/apidoc-go/model"
 	"github.com/erikwang2013/apidoc-go/server"
 	"github.com/erikwang2013/apidoc-go/store"
@@ -32,6 +33,8 @@ type Config struct {
 	DebugAllowUnauth   bool
 	DebugTimeout       time.Duration
 	DebugMaxConcurrent int
+	DebugPolicy        *debug.Policy
+	DebugAudit         func(debug.AuditEvent)
 }
 
 // AuthConfig is the auth configuration.
@@ -166,6 +169,8 @@ func (s *Server) Handler() http.Handler {
 			DebugAllowUnauth:   s.cfg.DebugAllowUnauth,
 			DebugTimeout:       s.cfg.DebugTimeout,
 			DebugMaxConcurrent: s.cfg.DebugMaxConcurrent,
+			DebugPolicy:        s.cfg.DebugPolicy,
+			DebugAudit:         s.cfg.DebugAudit,
 		})
 	})
 	return s.handler

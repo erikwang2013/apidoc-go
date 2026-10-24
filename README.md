@@ -15,18 +15,20 @@
 | # | 功能 | 说明 |
 |---|------|------|
 | 1 | 文档自动生成 | 类型化 Doc 声明，随路由注册，一处声明，文档与路由同生 |
-| 2 | 在线调试 | 浏览器端直接请求真实接口，无服务端转发，天然无 SSRF |
+| 2 | 在线调试 | 浏览器模式直接请求真实接口，无服务端转发、天然无 SSRF；server 模式调试需鉴权 + CSRF + 限额 |
 | 3 | Mock 数据 | 字段级 Mock 示例，接口联调快人一步 |
 | 4 | 多应用 / 多版本 | App / Version 树形管理，一套插件覆盖全项目文档 |
 | 5 | 密码鉴权 | 全局密码 + 应用级密码，HMAC Token · 恒时比较 |
 | 6 | Markdown 文档 | goldmark 安全渲染，原生 HTML 自动剥离 |
 | 7 | 多框架适配 | net/http · Gin · Echo · Chi · Fiber · beego · Kratos · go-zero，一次接入全框架通用 |
 | 8 | JSON / TypeScript 导出 | 接口类型一键导出，前后端联调更顺畅 |
-| 9 | 安全防护 | 无 SSRF · CORS 白名单限定 · 防 XSS · 防路径穿越 |
+| 9 | 安全防护 | 浏览器模式无 SSRF；server 模式调试需鉴权 + CSRF 头 + 资源限额（目标白名单由适配器负责）· CORS 白名单限定 · 防 XSS · 防路径穿越 |
 | 10 | 注释自动解析 | go/ast 从注释自动生成文档，`@apidoc` 标记即注册 |
 | 11 | 接口缓存 | ETag + 304，文档响应秒开 |
 | 12 | 参数自动补全 | reflect 从 handler 签名自动推断请求参数 |
 | 13 | 任意协议调试 | `@protocol` 声明 + `Debugger` 扩展，统一面板填参、发送、看响应 |
+| 14 | 流式会话 | `StreamDebugger` 长连接会话，open / send / SSE 实时 transcript |
+| 15 | 调试硬化 | TargetPolicy · 审计日志 · 密钥脱敏 · 文件/证书上传 · 代码片段 · 适配器测试工具包 |
 
 ## 架构总览
 
@@ -48,10 +50,17 @@ apidoc-go/
 │   └── store.go         #   (app, version, method, url) 去重，后者覆盖
 ├── auth/                # 鉴权
 │   └── auth.go          #   密码校验 · HMAC Token 签发与验证
+├── debug/               # 协议调试 SPI
+│   ├── debug.go         #   Debugger / Spec / Request / Response / Policy
+│   ├── stream.go        #   StreamDebugger / Session
+│   └── debugtest/       #   适配器测试辅助
 ├── server/              # JSON API + 内嵌 Web UI
 │   ├── server.go
+│   ├── debug_exec.go    #   /api/debug/exec 执行与限额
+│   ├── debug_stream.go  #   open / send / events / close 会话
 │   └── static/
-│       └── index.html
+│       ├── index.html
+│       └── debug.js     #   数据驱动调试面板
 ├── adapter/             # 框架适配层（类型化接口）
 │   ├── adapter.go
 │   ├── nethttp.go       #   net/http  ServeMux
@@ -67,8 +76,10 @@ apidoc-go/
 │   └── mock.go          #   字段级示例值生成
 ├── example/             # 示例项目（8 框架 :8081–:8088）
 │   ├── main.go
-│   └── handlers/        #   @apidoc 注释示例
+│   ├── handlers/        #   @apidoc 注释示例
+│   └── debugger-<family>/ # 协议适配器示例（独立嵌套模块）
 └── docs/                # 文档与素材
+    ├── protocols.md     # 协议 URI 约定与适配器骨架
     ├── alipay.png
     ├── weixinpay.png
     └── svg/             # 架构图 / 功能图 / 生命周期图
@@ -147,16 +158,51 @@ s := apidoc.New(apidoc.Config{
     Debuggers: []apidoc.Debugger{
         apidoc.DebuggerFunc("mqtt", apidoc.DebugSpec{
             Mode: "server", Actions: []string{"PUBLISH"},
+            Snippets: map[string]string{
+                "Go": "client.Publish({{url}}, {{body}})",
+            },
         }, func(ctx context.Context, req apidoc.DebugRequest) (*apidoc.DebugResponse, error) {
             return mqttClient.Publish(ctx, req)
         }),
     },
+    DebugPolicy: &debug.Policy{AllowHosts: []string{"broker:1883"}},
+    DebugAudit:  func(e debug.AuditEvent) { log.Printf("%s %s %s", e.ActionID, e.Target, e.Status) },
 })
 ```
 
+其中 `debug.Policy`、`debug.AuditEvent` 来自
+`github.com/erikwang2013/apidoc-go/debug`。
+
 `server` 模式需要鉴权；关闭全局鉴权时必须显式设置
-`DebugAllowUnauth: true`。目标白名单由适配器负责。完整可运行示例见
-`example/debugger/tcp.go`（net/http demo，`:8081`，TCP echo 在 `:19000`）。
+`DebugAllowUnauth: true`。**浏览器模式**的 HTTP 调试由浏览器直接请求，天然无
+SSRF；**server 模式**由 `DebugPolicy`（DNS 解析后逐 IP 校验 host/CIDR、私网 /
+回环 / 公网与端口）兜底，但目标白名单仍由适配器负责。审计回调只记录动作、
+目标、状态、耗时与字节数，绝不记录参数、消息体或 options。
+
+流式协议实现 `StreamDebugger`，获得长连接会话与实时 transcript：
+
+```go
+type Subscriber struct{ client *mqtt.Client }
+
+func (s *Subscriber) Open(ctx context.Context, req apidoc.DebugRequest) (apidoc.Session, error) {
+    return s.client.Subscribe(ctx, req.URL) // 返回 apidoc.Session
+}
+```
+
+对应接口：`POST /api/debug/open` → `{session_id}`、`POST /api/debug/send`、
+`GET /api/debug/events?session_id=`（SSE）、`POST /api/debug/close`。会话默认
+上限 16 个、空闲 5 分钟、总时长 30 分钟、每会话 256 条事件、单消息 1 MiB。
+
+P3 硬化清单：
+
+- `Spec.Snippets`：按语言提供代码片段模板，占位符 `{{method}}`、`{{url}}`、`{{body}}`，UI 一键复制。
+- `Field.Secret`：只渲染密码框，不持久化，审计脱敏。
+- `Field.Type == "file"`：渲染文件选择器，内容以 base64 写入 options；单文件 256 KiB，整个请求仍受 1 MiB 限制（证书上传同理）。
+- `debug/debugtest`：`FakeAdapter`、`RunExec`、`RequireSpec` 等适配器测试辅助。
+
+完整可运行示例见 `example/debugger/tcp.go`（net/http demo，`:8081`，TCP echo 在
+`:19000`）。协议 URI 约定、注解与适配器骨架见
+[docs/protocols.md](docs/protocols.md)；变更与兼容性说明见 [CHANGELOG.md](CHANGELOG.md)。
 
 ### 快速开始（Gin）
 
@@ -188,6 +234,12 @@ Echo / Chi / Fiber 仅需替换适配器构造器：`adapter.NewEcho(e)`、`adap
 | `Auth` | — | 鉴权配置：`Enable` / `Password` / `Secret` / `Expire` / `Secure` |
 | `Apps` | — | 应用配置：`Key` / `Title` / `Password`（应用级独立密码） |
 | `DebugOrigins` | — | 允许跨域调试的来源（默认无） |
+| `Debuggers` | — | 协议调试适配器（`Debugger` / `StreamDebugger`），按协议注册 |
+| `DebugAllowUnauth` | `false` | 关闭鉴权时仍允许 server 模式调试（危险，仅限开发环境） |
+| `DebugTimeout` | `30s` | 单次 server 模式调试超时 |
+| `DebugMaxConcurrent` | `8` | server 模式调试最大并发 |
+| `DebugPolicy` | — | 目标策略 `*debug.Policy`：host/CIDR、私网/回环/公网、端口，exec/open 前校验 |
+| `DebugAudit` | — | 审计回调 `func(debug.AuditEvent)`，不记录参数/消息体/options |
 
 ### 框架适配器
 
@@ -246,6 +298,8 @@ for _, r := range results {
 ### 示例项目
 
 `example/` 内置 8 个框架服务器（net/http :8081、Gin :8082、Echo :8083、Chi :8084、Fiber :8085、beego :8086、Kratos :8087、go-zero :8088），`go run ./example` 一键启动。
+
+各协议适配器示例位于 `example/debugger-*` 独立嵌套模块。运行根模块、全部示例模块与浏览器 E2E：`bash scripts/test-examples.sh`（需 Go 1.24+；部分嵌套模块会请求更高 toolchain，浏览器测试需 Node 22+ 与 Chrome/Chromium）。
 
 ## 多语言文档
 

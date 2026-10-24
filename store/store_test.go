@@ -63,6 +63,15 @@ func TestJSONRoundTrip(t *testing.T) {
 	}
 }
 
+func TestRegisterProtocolNormalized(t *testing.T) {
+	s := New("p")
+	s.Register("PUBLISH", "mqtt://broker/topic", model.Doc{App: "a", Version: "v1", Protocol: "  MQTT  "})
+	a, ok := s.Action(ActionID("a", "v1", "PUBLISH", "mqtt://broker/topic"))
+	if !ok || a.Protocol != "mqtt" {
+		t.Fatalf("explicit protocol not normalized: ok=%v action=%+v", ok, a)
+	}
+}
+
 func TestDefaults(t *testing.T) {
 	s := New("p")
 	s.Register("GET", "/x", model.Doc{})

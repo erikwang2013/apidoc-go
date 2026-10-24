@@ -1,8 +1,13 @@
 // Protocol-agnostic debug panel. The server supplies a per-protocol
 // spec; this file only renders it and sends the values back.
+// Response rendering lives in debug-format.js; the server serves both
+// files as one script.
 let debugDoc = null;
+let stream = null; // {id, src} while a streaming session is open
+const maxDebugFile = 256 * 1024;
 
 function setupDebug(d) {
+  if (stream) closeStream();
   debugDoc = d;
   const spec = d.debug_spec;
   const unavailable = document.getElementById('dg-unavailable');
@@ -13,6 +18,7 @@ function setupDebug(d) {
   server.classList.add('hidden');
   showResult('', '');
   if (!spec) {
+    setupSnippets({});
     unavailable.textContent = 'No debugger registered for protocol ' + (d.protocol || 'http');
     unavailable.classList.remove('hidden');
     return;
@@ -48,16 +54,11 @@ function setupBrowserDebug(d) {
     const lab = document.createElement('span');
     lab.textContent = '[' + p.in + '] ' + p.name;
     lab.style.minWidth = '140px';
-    const inp = document.createElement('input');
-    inp.type = 'text';
-    inp.dataset.in = p.in;
-    inp.dataset.name = p.name;
-    inp.placeholder = p.desc || '';
-    inp.value = p.mock || p.default || '';
     row.appendChild(lab);
-    row.appendChild(inp);
+    row.appendChild(paramInput(p));
     box.appendChild(row);
   }
+  setupSnippets(spec);
 }
 
 function setupServerDebug(d, spec) {
@@ -125,9 +126,19 @@ function setupServerDebug(d, spec) {
   if (bodyParam && encodings.includes(bodyParam.type)) {
     enc.value = bodyParam.type;
   }
+
+  const streaming = !!spec.streaming;
+  document.getElementById('dg-stream').classList.toggle('hidden', !streaming);
+  document.getElementById('dg-send').classList.toggle('hidden', streaming);
+  if (!streaming) closeStreamUI();
+  document.getElementById('dg-transcript').textContent = '';
+  setupSnippets(spec);
 }
 
+function truthy(v) { return v === 'true' || v === '1'; }
+
 function fieldInput(f) {
+  if (f.type === 'file') return fileField(f);
   let el;
   if (f.type === 'select' && f.options && f.options.length) {
     el = document.createElement('select');
@@ -139,6 +150,7 @@ function fieldInput(f) {
     }
     el.dataset.name = f.name;
     if (f.default) el.value = f.default;
+    el.dataset.required = f.required ? '1' : '';
     return el;
   }
   if (f.type === 'textarea') {
@@ -146,15 +158,51 @@ function fieldInput(f) {
   } else if (f.type === 'bool' || f.type === 'checkbox') {
     el = document.createElement('input');
     el.type = 'checkbox';
-    el.checked = f.default === 'true' || f.default === '1';
+    el.checked = truthy(f.default);
   } else {
     el = document.createElement('input');
     el.type = f.secret ? 'password' : (f.type === 'number' ? 'number' : 'text');
   }
   el.dataset.name = f.name;
+  el.dataset.required = f.required ? '1' : '';
   if (f.placeholder) el.placeholder = f.placeholder;
   if (f.default && el.type !== 'checkbox') el.value = f.default;
   return el;
+}
+
+// File fields send base64 through options; nothing is stored locally.
+function fileField(f) {
+  const wrap = document.createElement('div');
+  wrap.className = 'dg-file';
+  const el = document.createElement('input');
+  el.type = 'file';
+  el.dataset.name = f.name;
+  el.dataset.required = f.required ? '1' : '';
+  el.dataset.file = '1';
+  const status = document.createElement('span');
+  status.className = 'meta';
+  el.onchange = () => readFileOption(el, status);
+  wrap.appendChild(el);
+  wrap.appendChild(status);
+  return wrap;
+}
+
+function readFileOption(inp, status) {
+  inp.dataset.b64 = '';
+  status.textContent = '';
+  const file = inp.files && inp.files[0];
+  if (!file) return;
+  if (file.size > maxDebugFile) {
+    status.textContent = 'file too large (max 256 KiB)';
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = () => {
+    inp.dataset.b64 = bytesToB64(new Uint8Array(reader.result));
+    status.textContent = file.name + ' (' + file.size + ' bytes)';
+  };
+  reader.onerror = () => { status.textContent = 'file read failed'; };
+  reader.readAsArrayBuffer(file);
 }
 
 function paramInput(p) {
@@ -162,6 +210,7 @@ function paramInput(p) {
   if (p.type === 'bool' || p.type === 'boolean') {
     el = document.createElement('input');
     el.type = 'checkbox';
+    el.checked = truthy(p.mock || p.default);
   } else if (p.type === 'int' || p.type === 'int64' || p.type === 'number' ||
              p.type === 'float' || p.type === 'float64' || p.type === 'double') {
     el = document.createElement('input');
@@ -172,6 +221,7 @@ function paramInput(p) {
   }
   el.dataset.name = p.name;
   el.dataset.in = p.in || '';
+  el.dataset.required = p.required ? '1' : '';
   el.placeholder = p.desc || '';
   if (el.type !== 'checkbox') el.value = p.mock || p.default || '';
   return el;
@@ -191,8 +241,8 @@ async function sendBrowserDebug() {
   const method = document.getElementById('dg-method').value;
   const query = [], headers = {}, body = {};
   document.querySelectorAll('#dg-params input').forEach(inp => {
-    const v = inp.value.trim();
-    if (!v) return;
+    const v = inp.type === 'checkbox' ? (inp.checked ? 'true' : 'false') : inp.value.trim();
+    if (!v && !inp.dataset.required) return;
     if (inp.dataset.in === 'query') query.push(encodeURIComponent(inp.dataset.name) + '=' + encodeURIComponent(v));
     else if (inp.dataset.in === 'header') headers[inp.dataset.name] = v;
     else if (inp.dataset.in === 'path') url = url.replace('{' + inp.dataset.name + '}', encodeURIComponent(v));
@@ -212,40 +262,54 @@ async function sendBrowserDebug() {
   }
 }
 
-async function sendServerDebug() {
+function serverDebugPayload() {
   const params = [];
   document.querySelectorAll('#dg-s-params .dg-param').forEach(row => {
     const inp = row.querySelector('input');
     if (!inp) return;
-    params.push({
-      name: inp.dataset.name,
-      in: inp.dataset.in,
-      value: inp.type === 'checkbox' ? (inp.checked ? 'true' : 'false') : inp.value
-    });
+    const value = inp.type === 'checkbox' ? (inp.checked ? 'true' : 'false') : inp.value;
+    if (value === '' && !inp.dataset.required) return;
+    params.push({ name: inp.dataset.name, in: inp.dataset.in, value });
   });
   const options = {};
   document.querySelectorAll('#dg-connect .row').forEach(row => {
     const inp = row.querySelector('input,select,textarea');
     if (!inp) return;
-    options[inp.dataset.name] = inp.type === 'checkbox' ? (inp.checked ? 'true' : 'false') : inp.value;
+    let value;
+    if (inp.dataset.file) value = inp.dataset.b64 || '';
+    else value = inp.type === 'checkbox' ? (inp.checked ? 'true' : 'false') : inp.value;
+    if (value === '' && !inp.dataset.required) return;
+    options[inp.dataset.name] = value;
   });
   const encoding = document.getElementById('dg-encoding').value || 'json';
-  const bodyBytes = encodeText(document.getElementById('dg-body').value, encoding);
-  const headers = { 'X-Apidoc-Debug': '1' };
-  if (appTokens[debugDoc.app]) headers['X-Apidoc-App-Token'] = appTokens[debugDoc.app];
-  const payload = {
+  return {
     id: debugDoc.id,
     method: document.getElementById('dg-action').value || debugDoc.method,
     url: document.getElementById('dg-target').value || debugDoc.url,
     params,
-    body: bytesToB64(bodyBytes),
+    body: bytesToB64(encodeText(document.getElementById('dg-body').value, encoding)),
     encoding,
     headers: {},
     options
   };
-  const { res, data } = await api('/api/debug/exec', {
-    method: 'POST', headers, body: JSON.stringify(payload)
-  });
+}
+
+function debugHeaders() {
+  const headers = { 'X-Apidoc-Debug': '1' };
+  if (appTokens[debugDoc.app]) headers['X-Apidoc-App-Token'] = appTokens[debugDoc.app];
+  return headers;
+}
+
+async function sendServerDebug() {
+  let res, data;
+  try {
+    ({ res, data } = await api('/api/debug/exec', {
+      method: 'POST', headers: debugHeaders(), body: JSON.stringify(serverDebugPayload())
+    }));
+  } catch (e) {
+    showResult('request failed', String(e));
+    return;
+  }
   if (res.status !== 200) {
     showResult(String(res.status) + ' ' + res.statusText, (data && data.msg) || '');
     return;
@@ -253,130 +317,166 @@ async function sendServerDebug() {
   renderDebugResponse(data.data);
 }
 
-function renderDebugResponse(r) {
-  document.getElementById('res-status').textContent =
-    (r.status || 'OK') + ' · ' + (r.duration_ms || 0) + ' ms';
-  document.getElementById('res-body').textContent = renderBody(r);
-  const extra = document.getElementById('res-extra');
-  extra.textContent = '';
+function streamStatus(msg) {
+  document.getElementById('dg-session').textContent = msg;
+}
 
-  const headers = r.headers || {};
-  const hk = Object.keys(headers);
-  if (hk.length) {
-    extra.appendChild(sectionTitle('Headers'));
-    const t = document.createElement('table');
-    t.appendChild(tableHead(['Name', 'Value']));
-    for (const k of hk) {
-      const tr = document.createElement('tr');
-      tr.appendChild(textCell(k));
-      tr.appendChild(textCell(headers[k]));
-      t.appendChild(tr);
+function appendTranscript(ev) {
+  const box = document.getElementById('dg-transcript');
+  const line = '[' + (ev.time || '') + '] ' + (ev.direction || '') +
+    (ev.name ? ' ' + ev.name : '') + (ev.data ? ': ' + ev.data : '');
+  box.textContent += (box.textContent ? '\n' : '') + line;
+  box.scrollTop = box.scrollHeight;
+}
+
+async function connectStream() {
+  if (stream) return stream.id;
+  let res, data;
+  try {
+    ({ res, data } = await api('/api/debug/open', {
+      method: 'POST', headers: debugHeaders(), body: JSON.stringify(serverDebugPayload())
+    }));
+  } catch (e) {
+    streamStatus('open failed: ' + e);
+    return null;
+  }
+  if (res.status !== 200) {
+    streamStatus('open failed: ' + ((data && data.msg) || res.status));
+    return null;
+  }
+  const id = data.data.session_id;
+  const token = appTokens[debugDoc.app];
+  const src = new EventSource(base + '/api/debug/events?session_id=' +
+    encodeURIComponent(id) + (token ? '&app_token=' + encodeURIComponent(token) : ''));
+  src.onmessage = e => {
+    try { appendTranscript(JSON.parse(e.data)); } catch (_) { appendTranscript({ data: e.data }); }
+  };
+  src.addEventListener('end', () => { streamStatus('session ended'); closeStreamUI(); });
+  src.onerror = () => { if (stream) streamStatus('stream disconnected (retrying)'); };
+  stream = { id, src };
+  document.getElementById('dg-transcript').textContent = '';
+  streamStatus('connected');
+  return id;
+}
+
+async function sendStreamMessage() {
+  const id = (stream && stream.id) || await connectStream();
+  if (!id) return;
+  const encoding = document.getElementById('dg-encoding').value || 'json';
+  const body = bytesToB64(encodeText(document.getElementById('dg-body').value, encoding));
+  let res, data;
+  try {
+    ({ res, data } = await api('/api/debug/send', {
+      method: 'POST', headers: debugHeaders(),
+      body: JSON.stringify({ session_id: id, body, encoding })
+    }));
+  } catch (e) {
+    streamStatus('send failed: ' + e);
+    return;
+  }
+  if (res.status !== 200) {
+    streamStatus('send failed: ' + ((data && data.msg) || res.status));
+    return;
+  }
+  streamStatus('sent');
+}
+
+async function closeStream() {
+  if (!stream) return;
+  const id = stream.id;
+  closeStreamUI();
+  streamStatus('session closed');
+  try {
+    await api('/api/debug/close', {
+      method: 'POST', headers: debugHeaders(), body: JSON.stringify({ session_id: id })
+    });
+  } catch (e) {}
+}
+
+function closeStreamUI() {
+  if (!stream) return;
+  stream.src.close();
+  stream = null;
+}
+
+// Spec.Snippets: one tab per language, copy with a clipboard fallback.
+function setupSnippets(spec) {
+  const box = document.getElementById('dg-snippets');
+  if (!box) return;
+  box.textContent = '';
+  const snippets = (spec && spec.snippets) || {};
+  const langs = Object.keys(snippets);
+  if (!langs.length) return;
+  const details = document.createElement('details');
+  const summary = document.createElement('summary');
+  summary.textContent = 'Code snippets';
+  details.appendChild(summary);
+  const tabs = document.createElement('div');
+  tabs.className = 'row';
+  const pre = document.createElement('pre');
+  const status = document.createElement('span');
+  status.className = 'meta';
+  let active = langs[0];
+  const show = lang => {
+    active = lang;
+    pre.textContent = fillSnippet(snippets[lang]);
+    status.textContent = '';
+    for (const b of Array.from(tabs.children)) {
+      b.classList.toggle('on', b.dataset.lang === lang);
     }
-    extra.appendChild(t);
+  };
+  for (const lang of langs) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.textContent = lang;
+    b.dataset.lang = lang;
+    b.onclick = () => show(lang);
+    tabs.appendChild(b);
   }
+  const copy = document.createElement('button');
+  copy.type = 'button';
+  copy.textContent = 'Copy';
+  copy.onclick = () => copyText(fillSnippet(snippets[active]), status);
+  tabs.appendChild(copy);
+  details.appendChild(tabs);
+  details.appendChild(pre);
+  details.appendChild(status);
+  box.appendChild(details);
+  show(active);
+}
 
-  const events = r.events || [];
-  if (events.length) {
-    extra.appendChild(sectionTitle('Events'));
-    const t = document.createElement('table');
-    t.appendChild(tableHead(['Time', 'Direction', 'Name', 'Data']));
-    for (const e of events) {
-      const tr = document.createElement('tr');
-      tr.appendChild(textCell(e.time || ''));
-      tr.appendChild(textCell(e.direction || ''));
-      tr.appendChild(textCell(e.name || ''));
-      tr.appendChild(textCell(e.data || ''));
-      t.appendChild(tr);
-    }
-    extra.appendChild(t);
+function fillSnippet(tmpl) {
+  const d = debugDoc || {};
+  const method = valueOf('dg-action') || valueOf('dg-method') || d.method || '';
+  const url = valueOf('dg-target') || valueOf('dg-url') || d.url || '';
+  const body = valueOf('dg-body');
+  return String(tmpl).split('{{method}}').join(method)
+    .split('{{url}}').join(url).split('{{body}}').join(body);
+}
+
+function valueOf(id) {
+  const el = document.getElementById(id);
+  return el ? el.value : '';
+}
+
+function copyText(text, status) {
+  const done = ok => { status.textContent = ok ? 'copied' : 'copy failed'; };
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(() => done(true), () => fallbackCopy(text, done));
+    return;
   }
-
-  if (r.truncated) {
-    const p = document.createElement('p');
-    p.className = 'meta';
-    p.textContent = 'Response truncated by the server.';
-    extra.appendChild(p);
-  }
+  fallbackCopy(text, done);
 }
 
-function renderBody(r) {
-  const bytes = b64ToBytes(r.body || '');
-  const spec = (debugDoc && debugDoc.debug_spec) || {};
-  const view = (spec.response_view || 'auto').toLowerCase();
-  const enc = (r.encoding || '').toLowerCase();
-  if (view === 'hex' || enc === 'hex' || enc === 'binary') return hexDump(bytes);
-  const text = new TextDecoder('utf-8', { fatal: false }).decode(bytes);
-  if (view === 'json' || view === 'auto' || enc === 'json') {
-    try { return JSON.stringify(JSON.parse(text), null, 2); } catch (e) {}
-  }
-  return text;
-}
-
-function sectionTitle(s) {
-  const h = document.createElement('h3');
-  h.textContent = s;
-  return h;
-}
-
-function tableHead(names) {
-  const tr = document.createElement('tr');
-  for (const n of names) {
-    const th = document.createElement('th');
-    th.textContent = n;
-    tr.appendChild(th);
-  }
-  return tr;
-}
-
-function textCell(s) {
-  const td = document.createElement('td');
-  td.textContent = s == null ? '' : String(s);
-  return td;
-}
-
-function showResult(status, body) {
-  document.getElementById('res-status').textContent = status || '';
-  document.getElementById('res-body').textContent = body || '';
-  const extra = document.getElementById('res-extra');
-  if (extra) extra.textContent = '';
-}
-
-function encodeText(s, enc) {
-  if (enc === 'base64') return b64ToBytes(s.trim());
-  if (enc === 'hex') {
-    const clean = (s || '').replace(/\s+/g, '');
-    const out = new Uint8Array(Math.floor(clean.length / 2));
-    for (let i = 0; i < out.length; i++) {
-      const v = parseInt(clean.substr(i * 2, 2), 16);
-      out[i] = isNaN(v) ? 0 : v;
-    }
-    return out;
-  }
-  return new TextEncoder().encode(s || '');
-}
-
-function bytesToB64(bytes) {
-  let bin = '';
-  const chunk = 0x8000;
-  for (let i = 0; i < bytes.length; i += chunk) {
-    bin += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
-  }
-  return btoa(bin);
-}
-
-function b64ToBytes(s) {
-  const bin = atob(s || '');
-  const out = new Uint8Array(bin.length);
-  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
-  return out;
-}
-
-function hexDump(bytes) {
-  const lines = [];
-  for (let i = 0; i < bytes.length; i += 16) {
-    const chunk = bytes.subarray(i, i + 16);
-    const hex = Array.from(chunk).map(b => b.toString(16).padStart(2, '0')).join(' ');
-    lines.push(i.toString(16).padStart(8, '0') + '  ' + hex);
-  }
-  return lines.join('\n');
+function fallbackCopy(text, done) {
+  const area = document.createElement('textarea');
+  area.value = text;
+  area.style.position = 'fixed';
+  area.style.opacity = '0';
+  document.body.appendChild(area);
+  area.select();
+  let ok = false;
+  try { ok = document.execCommand('copy'); } catch (e) {}
+  area.remove();
+  done(ok);
 }

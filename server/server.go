@@ -31,9 +31,13 @@ var uiFS embed.FS
 // rather than a plain []byte embed: some hardened toolchains reject
 // string/[]byte go:embed directives.)
 var (
-	indexHTML      = readUI("static/index.html")
-	petSVG         = readUI("static/apidoc-pet.svg")
-	debugJSPayload = readUI("static/debug.js")
+	indexHTML = readUI("static/index.html")
+	petSVG    = readUI("static/apidoc-pet.svg")
+	// Split across two source files to keep each readable; served as one
+	// script so the panel needs no extra request or module loader.
+	debugJSPayload = bytes.Join([][]byte{
+		readUI("static/debug.js"), readUI("static/debug-format.js"),
+	}, []byte("\n"))
 )
 
 func readUI(name string) []byte {
@@ -61,6 +65,8 @@ type Opts struct {
 	DebugAllowUnauth   bool
 	DebugTimeout       time.Duration
 	DebugMaxConcurrent int
+	DebugPolicy        *debug.Policy
+	DebugAudit         func(debug.AuditEvent)
 }
 
 // Handler builds the doc server handler: auth middleware, CORS, JSON API
@@ -76,13 +82,18 @@ func Handler(o Opts) http.Handler {
 	}
 	page := bytes.ReplaceAll(indexHTML, []byte("{{PREFIX}}"), []byte(html.EscapeString(o.Prefix)))
 	mux := http.NewServeMux()
-	h := &apiHandler{o: o, page: page, sem: make(chan struct{}, max)}
+	h := &apiHandler{o: o, page: page, sem: make(chan struct{}, max),
+		sessions: newSessionManager(maxDebugSessions, sessionIdle, sessionTTL)}
 	mux.HandleFunc("GET /api/menus", h.menus)
 	mux.HandleFunc("GET /api/detail", h.detail)
 	mux.HandleFunc("GET /api/export", h.export)
 	mux.HandleFunc("POST /api/login", h.login)
 	mux.HandleFunc("POST /api/app-login", h.appLogin)
 	mux.HandleFunc("POST /api/debug/exec", h.debugExec)
+	mux.HandleFunc("POST /api/debug/open", h.debugOpen)
+	mux.HandleFunc("POST /api/debug/send", h.debugSend)
+	mux.HandleFunc("GET /api/debug/events", h.debugEvents)
+	mux.HandleFunc("POST /api/debug/close", h.debugClose)
 	mux.HandleFunc("GET /{$}", h.ui)
 	mux.HandleFunc("GET /debug.js", h.debugJS)
 	mux.HandleFunc("GET /apidoc-pet.svg", h.pet)
@@ -99,9 +110,10 @@ func Handler(o Opts) http.Handler {
 }
 
 type apiHandler struct {
-	o    Opts
-	page []byte
-	sem  chan struct{}
+	o        Opts
+	page     []byte
+	sem      chan struct{}
+	sessions *sessionManager
 }
 
 // login issues the global session cookie.

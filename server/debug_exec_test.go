@@ -298,6 +298,83 @@ func TestDebugExecParamWithoutIn(t *testing.T) {
 	}
 }
 
+func TestDebugExecResponseCaps(t *testing.T) {
+	spec := debug.Spec{Mode: debug.ModeServer, Actions: []string{"PUBLISH"}}
+	headers := map[string]string{}
+	for i := 0; i < maxDebugHeaders+10; i++ {
+		headers[fmt.Sprintf("H-%d", i)] = strings.Repeat("v", maxDebugHeaderValue+10)
+	}
+	d := &captureDebugger{spec: spec, resp: &debug.Response{
+		Status:  strings.Repeat("s", maxDebugStatus+10),
+		Headers: headers,
+		Events:  []debug.Event{{Direction: "in", Data: strings.Repeat("e", maxDebugEventData+10)}},
+	}}
+	h := Handler(Opts{Prefix: "/apidoc", Store: newDebugStore(),
+		Debuggers: map[string]debug.Debugger{"mqtt": d}, DebugAllowUnauth: true})
+	id := store.ActionID("a", "v1", "PUBLISH", "mqtt://broker/topic")
+	body := fmt.Sprintf(`{"id":%q,"method":"PUBLISH","url":"mqtt://broker/topic",`+
+		`"params":[],"body":"","encoding":"json"}`, id)
+	rec := debugPost(t, h, body, true)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
+	}
+	var out struct {
+		Data debugExecResp `json:"data"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &out); err != nil {
+		t.Fatal(err)
+	}
+	r := out.Data
+	if !r.Truncated {
+		t.Fatal("truncation not reported")
+	}
+	if len(r.Status) > maxDebugStatus {
+		t.Fatalf("status not capped: %d", len(r.Status))
+	}
+	if len(r.Events) != 1 || len(r.Events[0].Data) > maxDebugEventData {
+		t.Fatalf("event data not capped: %+v", r.Events)
+	}
+	if len(r.Headers) > maxDebugHeaders {
+		t.Fatalf("headers not capped: %d", len(r.Headers))
+	}
+	for k, v := range r.Headers {
+		if len(k) > maxDebugHeaderValue || len(v) > maxDebugHeaderValue {
+			t.Fatalf("header value not capped: %q (%d)", k, len(v))
+		}
+	}
+}
+
+func TestDebugContentTypeStrict(t *testing.T) {
+	d := &captureDebugger{spec: debug.Spec{Mode: debug.ModeServer, Actions: []string{"PUBLISH"}}}
+	h := Handler(Opts{Prefix: "/apidoc", Store: newDebugStore(),
+		Debuggers: map[string]debug.Debugger{"mqtt": d}, DebugAllowUnauth: true})
+	id := store.ActionID("a", "v1", "PUBLISH", "mqtt://broker/topic")
+	body := fmt.Sprintf(`{"id":%q,"method":"PUBLISH","url":"mqtt://broker/topic",`+
+		`"params":[],"body":"","encoding":"json"}`, id)
+	cases := []struct {
+		ct     string
+		status int
+	}{
+		{"application/json", http.StatusOK},
+		{"application/json; charset=utf-8", http.StatusOK},
+		{"application/jsonfoo", http.StatusUnsupportedMediaType},
+		{"text/json", http.StatusUnsupportedMediaType},
+		{"", http.StatusUnsupportedMediaType},
+	}
+	for _, tc := range cases {
+		r := httptest.NewRequest(http.MethodPost, "/api/debug/exec", strings.NewReader(body))
+		if tc.ct != "" {
+			r.Header.Set("Content-Type", tc.ct)
+		}
+		r.Header.Set("X-Apidoc-Debug", "1")
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, r)
+		if rec.Code != tc.status {
+			t.Errorf("content-type %q status = %d, want %d", tc.ct, rec.Code, tc.status)
+		}
+	}
+}
+
 func TestDebugExecInputCaps(t *testing.T) {
 	h := Handler(Opts{Prefix: "/apidoc", Store: newDebugStore(),
 		Debuggers: map[string]debug.Debugger{"mqtt": &captureDebugger{
