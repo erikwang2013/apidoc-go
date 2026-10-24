@@ -259,8 +259,10 @@ func (s *session) readLoop(ctx context.Context) {
 默认最多 16 个会话、空闲 5 分钟、总时长 30 分钟、每会话 256 条事件、单消息
 1 MiB；客户端断开时关闭会话。`Send` 必须响应自己的 ctx；会话生命周期见上。
 
-所有调试端点复用同一套校验：`X-Apidoc-Debug: 1`、JSON Content-Type、全局/应用
-token、action id 绑定，以及 method/target/param 白名单；`server` 模式在
+`POST /api/debug/open|send|close` 使用 JSON + `X-Apidoc-Debug: 1`，复用全局/应用
+token、action id 绑定，以及 method/target/param 白名单。`GET /api/debug/events`
+是 SSE：EventSource 不能设置自定义请求头，因此用会话 cookie 或 `app_token`
+查询参数认证，不要求 `X-Apidoc-Debug` 或 JSON Content-Type。`server` 模式在
 `Auth.Enable` 下要求会话，关闭鉴权时必须显式 `DebugAllowUnauth: true`。
 
 ## 6. TargetPolicy 与审计
@@ -281,6 +283,10 @@ cfg := apidoc.Config{
 
 - `Policy.Check(ctx, rawURL)` 先解析 DNS，再逐 IP 校验 host[:port]/CIDR、
   `AllowPrivate`、`AllowLoopback`、`AllowPublic`、`AllowPorts`；exec/open 前执行。
+- `AllowPorts` 使用 URL 显式端口；省略端口时按常见 scheme 的默认端口补齐
+  （http/https/ws/wss/mqtt/amqp/kafka/stomp/grpc/coap/opcua/modbus/sip/rtsp/
+  xmpp 等）。没有默认端口的 scheme（如 tcp/udp/rtp/iso8583）在设置
+  `AllowPorts` 时必须显式写端口，否则返回 `requires an explicit port`。
 - 库级策略是兜底，适配器必须继续校验自己的目标。
 - `AuditEvent` 只含 `Time`、`ActionID`、`App`、`Protocol`、`Method`、`Target`、
   `Status`、`Duration`、`Bytes`、`Error`；绝不记录 params、body、options。

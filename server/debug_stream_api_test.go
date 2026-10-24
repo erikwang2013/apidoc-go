@@ -434,6 +434,9 @@ func TestStreamingUIAssets(t *testing.T) {
 	if strings.Contains(js, "innerHTML") {
 		t.Fatal("debug.js must not use innerHTML")
 	}
+	if strings.Contains(js, "retrying") {
+		t.Fatal("debug.js must close the stream on disconnect instead of retrying")
+	}
 	// Both the exec and streaming send paths surface network failures.
 	if n := strings.Count(js, "request failed"); n < 2 {
 		t.Fatalf("network error handling missing: %d", n)

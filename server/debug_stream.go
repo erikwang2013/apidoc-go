@@ -265,7 +265,7 @@ func (h *apiHandler) debugOpen(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := checkFileOptions(spec, req.Options); err != nil {
-		errJSON(w, http.StatusRequestEntityTooLarge, err.Error())
+		writeFileOptionError(w, err)
 		return
 	}
 	method, target, enc, ok := h.resolveDebugTarget(w, a, spec, &req)

@@ -34,6 +34,13 @@ func TestDebugOptionCap(t *testing.T) {
 		t.Fatalf("option length = %d, want %d", len(got), len(atLimit))
 	}
 
+	// Invalid base64 is a bad request, not a size-limit error.
+	req.Options = map[string]string{"cert": "not-base64!!"}
+	b, _ = json.Marshal(req)
+	if rec := debugPost(t, h, string(b), true); rec.Code != http.StatusBadRequest {
+		t.Fatalf("invalid base64 status = %d", rec.Code)
+	}
+
 	// A declared file field is capped at 256 KiB raw even when its base64
 	// form still fits the generic option cap.
 	raw260 := base64.StdEncoding.EncodeToString(make([]byte, 260<<10))

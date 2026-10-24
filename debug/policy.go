@@ -29,6 +29,18 @@ var policyDefaultPorts = map[string]int{
 	"ws": 80, "wss": 443,
 	"mqtt": 1883, "mqtts": 8883,
 	"amqp": 5672, "amqps": 5671,
+	"kafka": 9092, "stomp": 61613,
+	"grpc": 443, "grpcs": 443,
+	"coap": 5683, "coaps": 5684,
+	"lwm2m": 5683, "opcua": 4840, "opc.tcp": 4840,
+	"modbus": 502, "dnp3": 20000, "iec104": 2404, "bacnet": 47808,
+	"sip": 5060, "sips": 5061,
+	"rtsp": 554, "rtsps": 322, "rtmp": 1935,
+	"xmpp": 5222, "xmpps": 5223,
+	"thrift": 9090, "dubbo": 20880,
+	"hls": 80, "sse": 80, "socketio": 80, "mcp": 80, "a2a": 80, "webrtc": 80,
+	"hessian": 80, "jsonrpc": 80, "xmlrpc": 80, "soap": 80, "graphql": 80, "odata": 80,
+	"webhook": 80, "webhooks": 80,
 }
 
 // Check resolves rawURL and validates every resolved address. It returns
@@ -50,6 +62,9 @@ func (p *Policy) Check(ctx context.Context, rawURL string) error {
 		if port, err = strconv.Atoi(s); err != nil || port <= 0 {
 			return fmt.Errorf("debug: policy: target %q has an invalid port", redactURL(rawURL))
 		}
+	}
+	if port == 0 && len(p.AllowPorts) > 0 {
+		return fmt.Errorf("debug: policy: target %q requires an explicit port for scheme %q", redactURL(rawURL), u.Scheme)
 	}
 	if len(p.AllowPorts) > 0 && !slices.Contains(p.AllowPorts, port) {
 		return fmt.Errorf("debug: policy: target %q denied (port %d)", redactURL(rawURL), port)

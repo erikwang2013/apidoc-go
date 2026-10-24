@@ -354,7 +354,11 @@ async function connectStream() {
     try { appendTranscript(JSON.parse(e.data)); } catch (_) { appendTranscript({ data: e.data }); }
   };
   src.addEventListener('end', () => { streamStatus('session ended'); closeStreamUI(); });
-  src.onerror = () => { if (stream) streamStatus('stream disconnected (retrying)'); };
+  src.onerror = () => {
+    if (!stream) return;
+    closeStreamUI();
+    streamStatus('stream disconnected; connect again to continue');
+  };
   stream = { id, src };
   document.getElementById('dg-transcript').textContent = '';
   streamStatus('connected');

@@ -106,3 +106,23 @@ func TestPolicyRedactsUserinfo(t *testing.T) {
 		t.Fatalf("policy error leaked userinfo: %v", err)
 	}
 }
+
+func TestPolicyDefaultPorts(t *testing.T) {
+	ctx := context.Background()
+	p := &Policy{AllowHosts: []string{"127.0.0.1"}, AllowPorts: []int{9092, 5683, 443}}
+	for _, target := range []string{
+		"kafka://127.0.0.1/topic",
+		"coap://127.0.0.1/data",
+		"grpc://127.0.0.1/svc/Method",
+	} {
+		if err := p.Check(ctx, target); err != nil {
+			t.Errorf("%s denied: %v", target, err)
+		}
+	}
+
+	q := &Policy{AllowHosts: []string{"127.0.0.1"}, AllowPorts: []int{1234}}
+	if err := q.Check(ctx, "unknown://127.0.0.1/x"); err == nil ||
+		!strings.Contains(err.Error(), "explicit port") {
+		t.Fatalf("unknown scheme error = %v, want explicit-port hint", err)
+	}
+}

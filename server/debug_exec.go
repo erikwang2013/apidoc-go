@@ -87,7 +87,7 @@ func (h *apiHandler) debugExec(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := checkFileOptions(spec, req.Options); err != nil {
-		errJSON(w, http.StatusRequestEntityTooLarge, err.Error())
+		writeFileOptionError(w, err)
 		return
 	}
 	method, target, enc, ok := h.resolveDebugTarget(w, a, spec, &req)
@@ -204,6 +204,11 @@ func decodeDebugJSON(w http.ResponseWriter, r *http.Request, v any) bool {
 	return true
 }
 
+var (
+	errDebugFileEncoding = errors.New("file is not valid base64")
+	errDebugFileTooLarge = errors.New("file exceeds 256 KiB")
+)
+
 // checkFileOptions enforces the raw 256 KiB limit on declared file
 // fields. Options carry base64, so the generic option cap is larger.
 func checkFileOptions(spec debug.Spec, options map[string]string) error {
@@ -217,13 +222,23 @@ func checkFileOptions(spec debug.Spec, options map[string]string) error {
 		}
 		raw, err := base64.StdEncoding.DecodeString(v)
 		if err != nil {
-			return fmt.Errorf("file %s is not valid base64", f.Name)
+			return fmt.Errorf("%w: %s", errDebugFileEncoding, f.Name)
 		}
 		if len(raw) > maxDebugFile {
-			return fmt.Errorf("file %s exceeds 256 KiB", f.Name)
+			return fmt.Errorf("%w: %s", errDebugFileTooLarge, f.Name)
 		}
 	}
 	return nil
+}
+
+// writeFileOptionError maps a file option error to 400 (bad base64) or
+// 413 (too large).
+func writeFileOptionError(w http.ResponseWriter, err error) {
+	status := http.StatusBadRequest
+	if errors.Is(err, errDebugFileTooLarge) {
+		status = http.StatusRequestEntityTooLarge
+	}
+	errJSON(w, status, err.Error())
 }
 
 // checkDebugCaps bounds param, header and option counts and sizes.
