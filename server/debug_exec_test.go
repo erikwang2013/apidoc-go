@@ -398,3 +398,32 @@ func TestDebugExecInputCaps(t *testing.T) {
 		t.Fatalf("param value cap status = %d", rec.Code)
 	}
 }
+
+func TestDebugExecHeaderKeyCap(t *testing.T) {
+	huge := strings.Repeat("K", maxDebugHeaderValue+1)
+	d := &captureDebugger{
+		spec: debug.Spec{Mode: debug.ModeServer, Actions: []string{"PUBLISH"}},
+		resp: &debug.Response{Status: "OK", Headers: map[string]string{huge: "v"}},
+	}
+	h := Handler(Opts{Prefix: "/apidoc", Store: newDebugStore(),
+		Debuggers: map[string]debug.Debugger{"mqtt": d}, DebugAllowUnauth: true})
+	id := store.ActionID("a", "v1", "PUBLISH", "mqtt://broker/topic")
+	body := fmt.Sprintf(`{"id":%q,"method":"PUBLISH","url":"mqtt://broker/topic",`+
+		`"params":[],"body":"","encoding":"json"}`, id)
+	rec := debugPost(t, h, body, true)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
+	}
+	var out struct {
+		Data struct {
+			Headers   map[string]string `json:"headers"`
+			Truncated bool              `json:"truncated"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &out); err != nil {
+		t.Fatal(err)
+	}
+	if len(out.Data.Headers) != 0 || !out.Data.Truncated {
+		t.Fatalf("oversized header key not capped: %+v", out.Data)
+	}
+}

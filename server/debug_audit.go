@@ -2,10 +2,21 @@ package server
 
 import (
 	"context"
+	"net/url"
 	"time"
 
 	"github.com/erikwang2013/apidoc-go/debug"
 )
+
+// redactTarget strips URL userinfo before it reaches audit/log output.
+func redactTarget(raw string) string {
+	u, err := url.Parse(raw)
+	if err != nil || u.User == nil {
+		return raw
+	}
+	u.User = nil
+	return u.String()
+}
 
 const (
 	auditOK      = "ok"

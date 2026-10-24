@@ -42,6 +42,18 @@ func main() {
 			Responses: []apidoc.Response{{Name: "ok", Type: "string", Desc: "echoed bytes"}},
 		},
 	}))
+	// Browser-mode HTTP action: the UI fetches its handler directly.
+	must(s.Register(apidoc.Route{
+		Method: "GET",
+		URL:    "/e2e/http",
+		Handler: http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			_, _ = w.Write([]byte("http-browser-ok"))
+		}),
+		Doc: apidoc.Doc{
+			Title: "HTTP Browser", Author: "e2e",
+			Responses: []apidoc.Response{{Name: "ok", Type: "string"}},
+		},
+	}))
 	// Regression fixture: an action with params but no documented responses.
 	// The server emits "responses": null for it.
 	must(s.Register(apidoc.Route{

@@ -39,20 +39,20 @@ func (p *Policy) Check(ctx context.Context, rawURL string) error {
 	}
 	u, err := url.Parse(rawURL)
 	if err != nil {
-		return fmt.Errorf("debug: policy: invalid target %q: %w", rawURL, err)
+		return fmt.Errorf("debug: policy: invalid target %q", redactURL(rawURL))
 	}
 	host := u.Hostname()
 	if host == "" {
-		return fmt.Errorf("debug: policy: target %q has no host", rawURL)
+		return fmt.Errorf("debug: policy: target %q has no host", redactURL(rawURL))
 	}
 	port := policyDefaultPorts[strings.ToLower(u.Scheme)]
 	if s := u.Port(); s != "" {
 		if port, err = strconv.Atoi(s); err != nil || port <= 0 {
-			return fmt.Errorf("debug: policy: target %q has an invalid port", rawURL)
+			return fmt.Errorf("debug: policy: target %q has an invalid port", redactURL(rawURL))
 		}
 	}
 	if len(p.AllowPorts) > 0 && !slices.Contains(p.AllowPorts, port) {
-		return fmt.Errorf("debug: policy: target %q denied (port %d)", rawURL, port)
+		return fmt.Errorf("debug: policy: target %q denied (port %d)", redactURL(rawURL), port)
 	}
 	addrs, err := net.DefaultResolver.LookupIPAddr(ctx, host)
 	if err != nil {
@@ -63,10 +63,20 @@ func (p *Policy) Check(ctx context.Context, rawURL string) error {
 	}
 	for _, a := range addrs {
 		if !p.allows(host, port, a.IP) {
-			return fmt.Errorf("debug: policy: target %q denied (%s)", rawURL, a.IP)
+			return fmt.Errorf("debug: policy: target %q denied (%s)", redactURL(rawURL), a.IP)
 		}
 	}
 	return nil
+}
+
+// redactURL removes userinfo from a target before it appears in errors.
+func redactURL(raw string) string {
+	u, err := url.Parse(raw)
+	if err != nil || u.User == nil {
+		return raw
+	}
+	u.User = nil
+	return u.String()
 }
 
 func (p *Policy) allows(host string, port int, ip net.IP) bool {

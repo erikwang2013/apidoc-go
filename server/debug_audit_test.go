@@ -11,6 +11,7 @@ import (
 
 	"github.com/erikwang2013/apidoc-go/debug"
 	"github.com/erikwang2013/apidoc-go/debug/debugtest"
+	"github.com/erikwang2013/apidoc-go/model"
 	"github.com/erikwang2013/apidoc-go/store"
 )
 
@@ -134,5 +135,34 @@ func TestDebugStreamAuditLifecycle(t *testing.T) {
 	}
 	if events[0].Bytes != 0 || events[1].Bytes != len("world") || events[2].Bytes != 0 {
 		t.Fatalf("audit bytes wrong: %+v", events)
+	}
+}
+
+func TestAuditRedactsUserinfo(t *testing.T) {
+	d := &debugtest.FakeAdapter{
+		Proto:     "amqp",
+		SpecValue: debug.Spec{Mode: debug.ModeServer, Actions: []string{"PUBLISH"}},
+		Response:  &debug.Response{Status: "OK"},
+	}
+	var got debug.AuditEvent
+	s := store.New("p")
+	s.Register("PUBLISH", "amqp://user:secret@broker:5672/q", model.Doc{
+		App: "a", Version: "v1", Protocol: "amqp", Title: "p",
+	})
+	h := Handler(Opts{Prefix: "/apidoc", Store: s,
+		Debuggers:        map[string]debug.Debugger{"amqp": d},
+		DebugAllowUnauth: true,
+		DebugAudit:       func(e debug.AuditEvent) { got = e }})
+	id := store.ActionID("a", "v1", "PUBLISH", "amqp://user:secret@broker:5672/q")
+	body := fmt.Sprintf(`{"id":%q,"method":"PUBLISH",`+
+		`"url":"amqp://user:secret@broker:5672/q","params":[],"body":"","encoding":"json"}`, id)
+	if rec := debugPost(t, h, body, true); rec.Code != http.StatusOK {
+		t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
+	}
+	if strings.Contains(got.Target, "secret") {
+		t.Fatalf("audit leaked userinfo: %q", got.Target)
+	}
+	if !strings.Contains(got.Target, "broker:5672") {
+		t.Fatalf("audit lost target: %q", got.Target)
 	}
 }

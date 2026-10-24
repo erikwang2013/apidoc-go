@@ -17,6 +17,8 @@ function setupDebug(d) {
   browser.classList.add('hidden');
   server.classList.add('hidden');
   showResult('', '');
+  const send = document.getElementById('dg-send');
+  if (send) send.classList.toggle('hidden', !spec || !!spec.streaming);
   if (!spec) {
     setupSnippets({});
     unavailable.textContent = 'No debugger registered for protocol ' + (d.protocol || 'http');

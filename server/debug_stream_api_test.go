@@ -2,12 +2,14 @@ package server
 
 import (
 	"bufio"
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -441,5 +443,51 @@ func TestStreamingUIAssets(t *testing.T) {
 		if !strings.Contains(page, want) {
 			t.Errorf("index.html missing %q", want)
 		}
+	}
+}
+
+type blockingOpenDebugger struct {
+	fakeStreamDebugger
+	started chan struct{}
+	release chan struct{}
+	once    sync.Once
+}
+
+func (d *blockingOpenDebugger) Open(ctx context.Context, req debug.Request) (debug.Session, error) {
+	d.once.Do(func() { close(d.started) })
+	select {
+	case <-d.release:
+		return newFakeStreamSession(), nil
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	}
+}
+
+func TestDebugOpenConcurrencyCap(t *testing.T) {
+	d := &blockingOpenDebugger{
+		fakeStreamDebugger: fakeStreamDebugger{spec: streamSpec()},
+		started:            make(chan struct{}),
+		release:            make(chan struct{}),
+	}
+	h := streamHandler(d, Opts{DebugAllowUnauth: true, DebugMaxConcurrent: 1})
+	first := make(chan int, 1)
+	go func() { first <- postDebug(t, h, "/api/debug/open", streamOpenBody(t), true).Code }()
+	<-d.started
+
+	second := make(chan int, 1)
+	go func() { second <- postDebug(t, h, "/api/debug/open", streamOpenBody(t), true).Code }()
+	select {
+	case code := <-second:
+		if code != http.StatusTooManyRequests {
+			t.Fatalf("second open status = %d, want 429", code)
+		}
+	case <-time.After(500 * time.Millisecond):
+		close(d.release)
+		<-first
+		t.Fatal("second open was not capped")
+	}
+	close(d.release)
+	if code := <-first; code != http.StatusOK {
+		t.Fatalf("first open status = %d", code)
 	}
 }

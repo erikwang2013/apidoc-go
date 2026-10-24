@@ -2,6 +2,7 @@ package debug
 
 import (
 	"context"
+	"strings"
 	"testing"
 )
 
@@ -92,5 +93,16 @@ func TestPolicyNilAllows(t *testing.T) {
 	var p *Policy
 	if err := p.Check(context.Background(), "tcp://127.0.0.1:1"); err != nil {
 		t.Fatalf("nil policy denied: %v", err)
+	}
+}
+
+func TestPolicyRedactsUserinfo(t *testing.T) {
+	p := &Policy{}
+	err := p.Check(context.Background(), "amqp://user:secret@127.0.0.1:5672/q")
+	if err == nil {
+		t.Fatal("empty policy should deny")
+	}
+	if strings.Contains(err.Error(), "secret") {
+		t.Fatalf("policy error leaked userinfo: %v", err)
 	}
 }

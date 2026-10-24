@@ -304,6 +304,7 @@ async function main() {
     const titles = await page.evalJS(
       `[...document.querySelectorAll('#tree li.act')].map(x => x.textContent.trim())`);
     assert(titles.includes('TCP Echo'), 'sidebar missing TCP Echo: ' + q(titles));
+    assert(titles.includes('HTTP Browser'), 'sidebar missing HTTP Browser: ' + q(titles));
     assert(titles.includes('No Responses'), 'sidebar missing No Responses: ' + q(titles));
     assert(titles.includes('Fake Stream'), 'sidebar missing Fake Stream: ' + q(titles));
 
@@ -434,6 +435,23 @@ async function main() {
     assert(await page.clickButton('#dg-stream', 'Close'), 'could not click Close');
     await page.waitFor('session closed status',
       `document.getElementById('dg-session').textContent === 'session closed'`, 10000);
+
+    step('regression: browser-mode HTTP action re-shows the Send button');
+    assert(await page.clickAction('HTTP Browser'), 'could not click HTTP Browser');
+    await page.waitFor('HTTP Browser detail',
+      `document.getElementById('d-title').textContent === 'HTTP Browser'`);
+    await page.clickById('tab-debug');
+    await page.waitFor('browser panel',
+      `!document.getElementById('dg-browser').classList.contains('hidden') &&
+       document.getElementById('dg-url').value === '/e2e/http'`);
+    const browserSendHidden = await page.evalJS(
+      `document.getElementById('dg-send').classList.contains('hidden')`);
+    assert(!browserSendHidden,
+      '#dg-send stayed hidden after selecting a browser-mode action (streaming action left it hidden)');
+    assert(await page.clickById('dg-send'), 'could not click browser Send');
+    await page.waitFor('HTTP browser response',
+      `document.getElementById('res-body').textContent === 'http-browser-ok'`, 10000);
+    console.log('browser response:', q(await page.text('res-body')));
 
     assert(pageErrors.length === 0, 'page exceptions: ' + pageErrors.join('\n'));
     ok = true;

@@ -99,7 +99,7 @@ func (m *sessionManager) open(ctx context.Context, app string, d debug.StreamDeb
 	s := &streamSession{
 		id: id, app: app, sess: ds, mgr: m,
 		actionID: req.ActionID, protocol: d.Protocol(),
-		method: req.Method, target: req.URL,
+		method: req.Method, target: redactTarget(req.URL),
 		events:  make(chan debug.Event, maxSessionQueue),
 		done:    make(chan struct{}),
 		started: time.Now(),
@@ -230,6 +230,13 @@ type debugCloseReq struct {
 
 // debugOpen starts one streaming session for a registered action.
 func (h *apiHandler) debugOpen(w http.ResponseWriter, r *http.Request) {
+	select {
+	case h.sem <- struct{}{}:
+		defer func() { <-h.sem }()
+	default:
+		errJSON(w, http.StatusTooManyRequests, "too many concurrent debug requests")
+		return
+	}
 	var req debugExecReq
 	if !decodeDebugJSON(w, r, &req) || !checkDebugCaps(w, &req) {
 		return
@@ -269,7 +276,7 @@ func (h *apiHandler) debugOpen(w http.ResponseWriter, r *http.Request) {
 	defer cancel()
 	start := time.Now()
 	ev := debug.AuditEvent{
-		ActionID: a.ID, App: a.App, Protocol: a.Protocol, Method: method, Target: target,
+		ActionID: a.ID, App: a.App, Protocol: a.Protocol, Method: method, Target: redactTarget(target),
 	}
 	if err := h.policyErr(ctx, target); err != nil {
 		errJSON(w, http.StatusForbidden, err.Error())

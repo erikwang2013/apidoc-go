@@ -23,6 +23,7 @@ const (
 	maxDebugParams      = 256
 	maxDebugParamValue  = 64 << 10
 	maxDebugHeaders     = 64
+	maxDebugHeaderKey   = 256
 	maxDebugHeaderValue = 8 << 10
 	maxDebugOptions     = 64
 	// File fields are base64-encoded: 256 KiB raw expands to ~342 KiB.
@@ -97,7 +98,7 @@ func (h *apiHandler) debugExec(w http.ResponseWriter, r *http.Request) {
 	defer cancel()
 	start := time.Now()
 	ev := debug.AuditEvent{
-		ActionID: a.ID, App: a.App, Protocol: a.Protocol, Method: method, Target: target,
+		ActionID: a.ID, App: a.App, Protocol: a.Protocol, Method: method, Target: redactTarget(target),
 	}
 	if err := h.policyErr(ctx, target); err != nil {
 		errJSON(w, http.StatusForbidden, err.Error())
@@ -151,6 +152,10 @@ func (h *apiHandler) debugExec(w http.ResponseWriter, r *http.Request) {
 			if len(headers) >= maxDebugHeaders {
 				truncated = true
 				break
+			}
+			if len(k) > maxDebugHeaderKey {
+				truncated = true
+				continue
 			}
 			hv, cut := capUTF8(v, maxDebugHeaderValue)
 			truncated = truncated || cut
