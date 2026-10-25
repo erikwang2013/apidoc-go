@@ -22,7 +22,7 @@
 | 8 | JSON / TypeScript 내보내기 | 인터페이스 타입 원클릭 내보내기, 프런트·백엔드 연동이 더 원활 |
 | 9 | 보안 | 비밀번호 인증 · CORS 화이트리스트 제한 · XSS 방지 · 경로 탐색 방지 |
 | 10 | 어노테이션 자동 파싱 | go/ast가 주석에서 문서를 생성, `@apidoc` 마커만 있으면 됨 |
-| 11 | HTTP 캐싱 | ETag + 304, 문서 응답이 즉시 열림 |
+| 11 | HTTP 캐싱 | 버전별 응답 캐시 + ETag/304, 문서 API가 밀리초 단위로 응답 |
 | 12 | 파라미터 자동 완성 | reflect가 핸들러 시그니처에서 요청 파라미터를 추론 |
 | 13 | 임의 프로토콜 어노테이션 | `@protocol`는 전체 프로토콜 레지스트리와 별칭으로 프로토콜을 지정합니다(`GET /api/protocols`). detail이 protocol/protocol_info/method/url/params/responses/mock 반환, 외부 UI가 패널 렌더링과 테스트 요청 담당 |
 
@@ -209,9 +209,9 @@ for _, r := range results {
 
 `Doc.Params`가 비어 있으면 Register가 핸들러 시그니처에서 reflect로 파라미터를 추론합니다. struct 인자는 본문 필드로 확장되고(json 태그를 따름), 프레임워크 컨텍스트(gin.Context / echo.Context / fiber.Ctx)는 자동으로 건너뜁니다.
 
-### HTTP 캐싱 (ETag)
+### HTTP 캐싱 (응답 캐시 + ETag)
 
-모든 문서 엔드포인트에 `ETag` + `Cache-Control: private, max-age=300`가 자동으로 적용되어, 재방문 시 304를 반환합니다. 설정이 필요 없습니다.
+`/api/menus`, `/api/protocols`, `/api/export` 응답은 문서 버전마다 한 번 직렬화되어 프로세스 내에 캐시됩니다. `Handler` 생성 시 예열되고 `Register` / `SetAppMeta` 후 자동으로 무효화됩니다. 응답에는 여전히 `ETag` + `Cache-Control: private, max-age=300`가 적용되어 재방문 시 304를 반환합니다. 설정이 필요 없습니다.
 
 ### 내보내기
 

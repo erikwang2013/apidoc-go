@@ -22,7 +22,7 @@
 | 8 | Ekspor JSON / TypeScript | Ekspor tipe antarmuka sekali klik, integrasi frontend-backend lebih lancar |
 | 9 | Perlindungan keamanan | Autentikasi kata sandi · CORS dibatasi daftar putih · cegah XSS · cegah path traversal |
 | 10 | Parsing anotasi otomatis | go/ast menghasilkan dokumentasi dari komentar; penanda `@apidoc` sudah cukup |
-| 11 | Cache HTTP | ETag + 304, respons dokumentasi terbuka seketika |
+| 11 | Cache HTTP | Cache respons berversi + ETag/304, endpoint dokumentasi merespons dalam milidetik |
 | 12 | Pelengkapan parameter otomatis | reflect menyimpulkan parameter permintaan dari tanda tangan handler |
 | 13 | Anotasi protokol apa pun | `@protocol` menandai protokol dari registri protokol lengkap dan aliasnya (`GET /api/protocols`); detail mengembalikan protocol/protocol_info/method/url/params/responses/mock; UI eksternal merender panel dan mengirim permintaan uji |
 
@@ -209,9 +209,9 @@ for _, r := range results {
 
 Saat `Doc.Params` kosong, Register menyimpulkannya dengan reflect dari tanda tangan handler: argumen struct diperluas menjadi kolom body (mengikuti tag json), konteks kerangka (gin.Context / echo.Context / fiber.Ctx) dilewati secara otomatis.
 
-### Cache HTTP (ETag)
+### Cache HTTP (cache respons + ETag)
 
-Semua endpoint dokumentasi membawa `ETag` + `Cache-Control: private, max-age=300` secara otomatis; kunjungan berulang langsung mendapat 304. Tidak perlu konfigurasi apa pun.
+Respons `/api/menus`, `/api/protocols`, dan `/api/export` diserialisasi sekali per versi dokumen dan di-cache di dalam proses. Cache dipanaskan saat `Handler` dibuat dan otomatis dibatalkan oleh `Register` / `SetAppMeta`. Respons tetap membawa `ETag` + `Cache-Control: private, max-age=300`, sehingga kunjungan berulang mendapat 304. Tidak perlu konfigurasi apa pun.
 
 ### Ekspor
 

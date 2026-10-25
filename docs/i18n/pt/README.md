@@ -22,7 +22,7 @@
 | 8 | Exportação JSON / TypeScript | Exporte os tipos das interfaces com um clique, integração frontend-backend mais fluida |
 | 9 | Proteção de segurança | Autenticação por senha · CORS restrito por lista de permissões · proteção anti-XSS · proteção contra path traversal |
 | 10 | Parsing automático de anotações | go/ast gera a documentação a partir de comentários; basta o marcador `@apidoc` |
-| 11 | Cache HTTP | ETag + 304, as respostas da documentação abrem instantaneamente |
+| 11 | Cache HTTP | Cache de respostas versionado + ETag/304, endpoints de documentação respondem em milissegundos |
 | 12 | Preenchimento automático de parâmetros | reflect infere os parâmetros da solicitação a partir da assinatura do handler |
 | 13 | Anotações para qualquer protocolo | `@protocol` indica o protocolo a partir do registro completo de protocolos e seus aliases (`GET /api/protocols`); detail retorna protocol/protocol_info/method/url/params/responses/mock; a interface externa renderiza o painel e envia a requisição de teste |
 
@@ -209,9 +209,9 @@ for _, r := range results {
 
 Quando `Doc.Params` está vazio, o Register infere os parâmetros com reflect a partir da assinatura do handler: argumentos struct são expandidos em campos do corpo (seguindo as tags json) e contextos de framework (gin.Context / echo.Context / fiber.Ctx) são ignorados automaticamente.
 
-### Cache HTTP (ETag)
+### Cache HTTP (cache de respostas + ETag)
 
-Todos os endpoints da documentação enviam `ETag` + `Cache-Control: private, max-age=300` automaticamente; visitas repetidas recebem 304. Nenhuma configuração é necessária.
+As respostas de `/api/menus`, `/api/protocols` e `/api/export` são serializadas uma vez por versão do documento e armazenadas em cache no processo. O cache é pré-aquecido na criação do `Handler` e invalidado automaticamente por `Register` / `SetAppMeta`. As respostas continuam carregando `ETag` + `Cache-Control: private, max-age=300`, então visitas repetidas recebem 304. Nenhuma configuração é necessária.
 
 ### Exportação
 

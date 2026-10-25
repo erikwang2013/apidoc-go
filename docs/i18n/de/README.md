@@ -22,7 +22,7 @@
 | 8 | JSON-/TypeScript-Export | Schnittstellentypen mit einem Klick exportieren, reibungslosere Frontend-Backend-Integration |
 | 9 | Sicherheitsschutz | Passwort-Authentifizierung · CORS-Whitelist-Einschränkung · XSS-Schutz · Schutz vor Pfad-Traversal |
 | 10 | Annotation-Auto-Parsing | go/ast erzeugt die Dokumentation aus Kommentaren; der Marker `@apidoc` genügt |
-| 11 | HTTP-Caching | ETag + 304, Doc-Antworten öffnen sofort |
+| 11 | HTTP-Caching | Versionsbezogener Response-Cache + ETag/304, Doc-Endpunkte antworten in Millisekunden |
 | 12 | Automatische Parametervervollständigung | reflect leitet die Request-Parameter aus der Handler-Signatur ab |
 | 13 | Annotationen für beliebige Protokolle | `@protocol` legt das Protokoll aus der vollständigen Protokoll-Registry und ihren Aliasen fest (`GET /api/protocols`); detail liefert protocol/protocol_info/method/url/params/responses/mock; die externe UI rendert das Panel und führt die Testanfrage aus |
 
@@ -207,8 +207,8 @@ for _, r := range results {
 ### Automatische Parametervervollständigung (reflect)
 Wenn `Doc.Params` leer ist, leitet Register die Parameter per reflect aus der Handler-Signatur ab: Struktur-Argumente werden zu Body-Feldern (gemäß json-Tags), Framework-Kontexte (gin.Context / echo.Context / fiber.Ctx) werden automatisch übersprungen.
 
-### HTTP-Caching (ETag)
-Alle Doc-Endpunkte senden automatisch `ETag` + `Cache-Control: private, max-age=300`; wiederholte Aufrufe erhalten 304. Keine Konfiguration erforderlich.
+### HTTP-Caching (Response-Cache + ETag)
+Antworten für `/api/menus`, `/api/protocols` und `/api/export` werden pro Dokumentversion einmal serialisiert und im Prozess zwischengespeichert. Der Cache wird beim Erstellen des `Handler` vorgewärmt und durch `Register` / `SetAppMeta` automatisch invalidiert. Antworten tragen weiterhin `ETag` + `Cache-Control: private, max-age=300`; wiederholte Aufrufe erhalten 304. Keine Konfiguration erforderlich.
 
 ### Export
 | Format | Endpunkt | Beschreibung |

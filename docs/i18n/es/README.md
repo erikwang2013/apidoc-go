@@ -22,7 +22,7 @@
 | 8 | Exportación JSON / TypeScript | Exporta los tipos de las interfaces con un clic, integración frontend-backend más fluida |
 | 9 | Protección de seguridad | Autenticación por contraseña · CORS restringido por lista blanca · protección anti-XSS · protección contra path traversal |
 | 10 | Análisis automático de anotaciones | go/ast genera la documentación a partir de los comentarios; basta con el marcador `@apidoc` |
-| 11 | Caché HTTP | ETag + 304, las respuestas de la documentación abren al instante |
+| 11 | Caché HTTP | Caché de respuestas versionado + ETag/304, los endpoints de documentación responden en milisegundos |
 | 12 | Autocompletado automático de parámetros | reflect deduce los parámetros de la petición a partir de la firma del handler |
 | 13 | Anotaciones para cualquier protocolo | `@protocol` indica el protocolo según el registro completo de protocolos y sus alias (`GET /api/protocols`); detail devuelve protocol/protocol_info/method/url/params/responses/mock; la interfaz externa renderiza el panel y envía la petición de prueba |
 
@@ -207,8 +207,8 @@ for _, r := range results {
 ### Autocompletado automático de parámetros (reflect)
 Cuando `Doc.Params` está vacío, Register los deduce con reflect a partir de la firma del handler: los argumentos de tipo struct se expanden como campos del body (según las json tags), y los contextos de los frameworks (gin.Context / echo.Context / fiber.Ctx) se omiten automáticamente.
 
-### Caché HTTP (ETag)
-Todos los endpoints de documentación llevan automáticamente `ETag` + `Cache-Control: private, max-age=300`; las visitas repetidas reciben 304. No se necesita configuración.
+### Caché HTTP (caché de respuestas + ETag)
+Las respuestas de `/api/menus`, `/api/protocols` y `/api/export` se serializan una vez por versión del documento y se cachean en el proceso. La caché se precalienta al crear `Handler` y se invalida automáticamente con `Register` / `SetAppMeta`. Las respuestas siguen llevando `ETag` + `Cache-Control: private, max-age=300`, por lo que las visitas repetidas reciben 304. No se necesita configuración.
 
 ### Exportación
 | Formato | Endpoint | Descripción |

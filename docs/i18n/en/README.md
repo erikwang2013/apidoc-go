@@ -22,7 +22,7 @@
 | 8 | JSON / TypeScript export | One-click export of interface types, smoother frontend-backend integration |
 | 9 | Security protection | Password authentication · CORS whitelist restriction · XSS protection · path traversal protection |
 | 10 | Annotation auto-parsing | go/ast generates docs from comments; the `@apidoc` marker is all it takes |
-| 11 | HTTP caching | ETag + 304, doc responses open instantly |
+| 11 | HTTP caching | Versioned response cache + ETag/304, doc endpoints respond in milliseconds |
 | 12 | Automatic param completion | reflect infers request params from the handler signature |
 | 13 | Any-protocol annotations | `@protocol` marks the protocol using the complete protocol registry and aliases (`GET /api/protocols`); detail returns protocol/protocol_info/method/url/params/responses/mock; the external UI renders the panel and makes the test request |
 
@@ -209,9 +209,9 @@ for _, r := range results {
 
 When `Doc.Params` is empty, Register infers them with reflect from the handler signature: struct args expand into body fields (following json tags), framework contexts (gin.Context / echo.Context / fiber.Ctx) are skipped automatically.
 
-### HTTP Caching (ETag)
+### HTTP Caching (Response Cache + ETag)
 
-All doc endpoints carry `ETag` + `Cache-Control: private, max-age=300` automatically; repeat visits hit 304. No configuration needed.
+Responses for `/api/menus`, `/api/protocols`, and `/api/export` are serialized once per document version and cached in-process. The cache is warmed when `Handler` is created and invalidated automatically by `Register` / `SetAppMeta`. Responses still carry `ETag` + `Cache-Control: private, max-age=300`, so repeat visits hit 304. No configuration needed.
 
 ### Export
 

@@ -79,8 +79,8 @@
   <circle cx="450" cy="588" r="14" fill="#f59e0b"/>
   <text x="450" y="594" text-anchor="middle" font-size="15" font-weight="700" fill="#ffffff">11</text>
   <text x="450" y="626" text-anchor="middle" font-size="15" font-weight="600" fill="#1a1a2e">接口缓存</text>
-  <text x="450" y="650" text-anchor="middle" font-size="12" fill="#555">ETag + 304 秒开</text>
-  <text x="450" y="668" text-anchor="middle" font-size="12" fill="#555">无需额外配置</text>
+  <text x="450" y="650" text-anchor="middle" font-size="12" fill="#555">版本化预序列化缓存</text>
+  <text x="450" y="668" text-anchor="middle" font-size="12" fill="#555">ETag + 304 · 毫秒级返回</text>
 
   <rect x="594" y="550" width="246" height="130" rx="12" fill="#faf5ff" stroke="#a855f7"/>
   <circle cx="717" cy="588" r="14" fill="#a855f7"/>

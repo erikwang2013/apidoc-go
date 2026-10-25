@@ -5,6 +5,17 @@
 
 ## [Unreleased]
 
+## [v1.0.14] - 2026-10-25
+
+### Changed
+
+- 文档 API 响应缓存：`/api/menus`、`/api/protocols`、`/api/export`（JSON / TypeScript）
+  的响应字节与 ETag 按 store 版本缓存，`Handler` 创建时预热，`Register` / `SetAppMeta`
+  后自动失效。5000 个 action 的本机基准中 `/api/menus` 由约 84ms 降至 0.8ms，
+  `/api/export` 由约 109ms 降至约 8ms（剩余成本为响应体写出）。
+- `store.Store` 新增 `Version()`，写入时自增；缓存响应复用预计算 ETag。
+- README、多语言 README 与架构/功能/生命周期/社交预览图同步响应缓存说明。
+
 ## [v1.0.13] - 2026-10-25
 
 ### Added

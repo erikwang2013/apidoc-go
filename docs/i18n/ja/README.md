@@ -22,7 +22,7 @@
 | 8 | JSON / TypeScript エクスポート | インターフェース型をワンクリックでエクスポート。フロントエンドとの連携がよりスムーズに |
 | 9 | セキュリティ対策 | パスワード認証・CORS ホワイトリスト制限・XSS 対策・パストラバーサル対策 |
 | 10 | アノテーション自動パース | go/ast がコメントからドキュメントを生成。`@apidoc` マーカーだけで完了 |
-| 11 | HTTP キャッシュ | ETag + 304 で、ドキュメントレスポンスが即座に開く |
+| 11 | HTTP キャッシュ | バージョン管理されたレスポンスキャッシュ + ETag/304、ドキュメント API はミリ秒で応答 |
 | 12 | パラメータ自動補完 | reflect がハンドラーシグネチャからリクエストパラメータを推論 |
 | 13 | 任意プロトコルのアノテーション | `@protocol` は完全なプロトコルレジストリとエイリアスからプロトコルを指定します（`GET /api/protocols`）。detail が protocol/protocol_info/method/url/params/responses/mock を返し、外部 UI がパネルのレンダリングとテストリクエストを担当 |
 
@@ -209,9 +209,9 @@ for _, r := range results {
 
 `Doc.Params` が空の場合、Register はハンドラーのシグネチャから reflect でパラメータを推論します。struct 引数は本文フィールドに展開され（json タグに従う）、フレームワークのコンテキスト（gin.Context / echo.Context / fiber.Ctx）は自動的にスキップされます。
 
-### HTTP キャッシュ (ETag)
+### HTTP キャッシュ (レスポンスキャッシュ + ETag)
 
-すべてのドキュメントエンドポイントに `ETag` + `Cache-Control: private, max-age=300` が自動で付与され、再訪時は 304 になります。設定は不要です。
+`/api/menus`、`/api/protocols`、`/api/export` のレスポンスはドキュメントのバージョンごとに一度だけシリアライズされ、プロセス内にキャッシュされます。`Handler` の作成時にウォームアップされ、`Register` / `SetAppMeta` で自動的に無効化されます。レスポンスには引き続き `ETag` + `Cache-Control: private, max-age=300` が付与され、再訪時は 304 になります。設定は不要です。
 
 ### エクスポート
 

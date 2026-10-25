@@ -28,7 +28,7 @@
   <rect x="490" y="110" width="120" height="86" rx="10" fill="#fdf2f8" stroke="#ec4899"/>
   <text x="550" y="144" text-anchor="middle" font-size="14" font-weight="600" fill="#1a1a2e">4. 服务</text>
   <text x="550" y="166" text-anchor="middle" font-size="11" fill="#555">Server JSON API</text>
-  <text x="550" y="184" text-anchor="middle" font-size="11" fill="#555">鉴权 · CORS</text>
+  <text x="550" y="184" text-anchor="middle" font-size="11" fill="#555">鉴权 · CORS · 缓存</text>
 
   <rect x="640" y="110" width="120" height="86" rx="10" fill="#ecfeff" stroke="#06b6d4"/>
   <text x="700" y="144" text-anchor="middle" font-size="14" font-weight="600" fill="#1a1a2e">5. 展示 / 测试</text>

@@ -24,7 +24,7 @@
 | 8 | JSON / TypeScript 导出 | 接口类型一键导出，前后端联调更顺畅 |
 | 9 | 安全防护 | 密码鉴权 · CORS 白名单限定 · 防 XSS · 防路径穿越 |
 | 10 | 注释自动解析 | go/ast 从注释自动生成文档，`@apidoc` 标记即注册 |
-| 11 | 接口缓存 | ETag + 304，文档响应秒开 |
+| 11 | 接口缓存 | 版本化响应缓存 + ETag/304，文档接口毫秒级返回 |
 | 12 | 参数自动补全 | reflect 从 handler 签名自动推断请求参数 |
 | 13 | 任意协议注解 | `@protocol` 标注协议；detail 返回 protocol/method/url/params/responses/mock，外部 UI 负责面板与测试请求 |
 
@@ -222,9 +222,9 @@ for _, r := range results {
 
 `Register` 时若 `Doc.Params` 为空，插件用 reflect 从 handler 签名自动推断：结构体参数展开为 body 字段（遵循 json tag），框架 Context（gin.Context / echo.Context / fiber.Ctx）自动跳过。
 
-### 接口缓存（ETag）
+### 接口缓存（响应缓存 + ETag）
 
-所有文档接口自动携带 `ETag` + `Cache-Control: private, max-age=300`，浏览器再次访问命中 304，无需额外配置。
+`/api/menus`、`/api/protocols`、`/api/export` 的响应按文档版本在进程内预序列化缓存，`Handler` 创建时预热，`Register` / `SetAppMeta` 后自动失效。响应仍携带 `ETag` + `Cache-Control: private, max-age=300`，浏览器再次访问命中 304，无需额外配置。
 
 ### 导出
 
@@ -268,43 +268,6 @@ for _, r := range results {
   <p>微信支付（左） · 支付宝（右）</p>
 </div>
 
-### 全球转账打赏
-
-**【收款人信息】**
-收款人姓名：WANG KEXUN
-收款账户号码：881015918251
-
-**【收款银行】**
-ZA Bank
-SWIFT Code：AABLHKHHXXX
-银行名称：ZA Bank Limited
-银行编号：387
-银行地址：Core F, Cyberport 3, 100 Cyberport Road, Hong Kong
-
-**【跨境汇款代理银行（如需）】**
-
-请留意，此为跨境汇款代理银行（中转银行）信息，非收款银行信息。请向汇款银行查询是否需要提供跨境汇款代理银行信息。
-
-汇入港元、人民币及美元的代理银行为 Citibank ——
-
-银行名称：Citibank N.A. Hong Kong
-SWIFT Code：CITIHKHXXXX
-银行编号：006
-分行名称：Hong Kong Branch
-分行编号：391
-银行地址：Citibank Tower, Citibank Plaza, 3 Garden Road, Central, Hong Kong
-
-汇入其他币种时的代理银行为 BNY Mellon ——
-
-银行名称：THE BANK OF NEW YORK MELLON
-SWIFT Code：IRVTUS3NXXX
-银行地址：THE BANK OF NEW YORK MELLON, 240 GREENWICH STREET, NEW YORK, United States
-
----
-
-<div align="center">Made with ❤️ by <a href="https://erik.xyz">erik.xyz</a></div>
-
-<!-- pet-expressions:start -->
 ## 项目宠物表情形态 · Apidoc
 
 <table align="center">
@@ -325,4 +288,3 @@ SVG / PNG）**不是开源资产**，版权归作者所有。未经书面许可�
 
 > 代码部分仍遵循仓库原有 `LICENSE`；第三方素材（如明确标注的 Go Gopher 等）仍遵循其原许可证。
 <!-- assets-license:end -->
-
