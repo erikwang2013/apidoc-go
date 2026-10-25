@@ -141,12 +141,16 @@ func (h *handler) menus(w http.ResponseWriter, r *http.Request) {
 		sort.SliceStable(actions, func(i, j int) bool { return actions[i].Sort < actions[j].Sort })
 		children := []map[string]any{}
 		for _, action := range actions {
+			url := action.URL
+			if url == "" {
+				url = channelAddress(action)
+			}
 			item := map[string]any{
 				"name":       action.Title,
 				"title":      action.Title,
 				"menuKey":    action.ID,
 				"method":     action.Method,
-				"url":        action.URL,
+				"url":        url,
 				"controller": action.Controller,
 				"author":     action.Author,
 				"notDebug":   false,
