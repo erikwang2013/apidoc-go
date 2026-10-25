@@ -16,6 +16,7 @@ type Store struct {
 	mu   sync.RWMutex
 	proj *model.Project
 	byID map[string]*model.Action
+	gen  uint64
 }
 
 // New returns an empty store for the named project.
@@ -31,6 +32,14 @@ func ActionID(app, version, method, u string) string {
 	return base64.RawURLEncoding.EncodeToString([]byte(key))
 }
 
+// Version reports the current mutation generation. It changes on every
+// Register, SetAppMeta and UnmarshalJSON, so response caches can invalidate.
+func (s *Store) Version() uint64 {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.gen
+}
+
 // SetAppMeta creates or updates the app node's title.
 func (s *Store) SetAppMeta(key, title string) {
 	s.mu.Lock()
@@ -38,6 +47,7 @@ func (s *Store) SetAppMeta(key, title string) {
 	if title != "" {
 		s.app(key).Title = title
 	}
+	s.gen++
 }
 
 // Register records (or replaces, if the same endpoint was already
@@ -59,6 +69,7 @@ func (s *Store) Register(method, u string, d model.Doc) {
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	s.gen++
 	id := ActionID(d.App, d.Version, method, u)
 	a := &model.Action{
 		ID: id, App: d.App, Version: d.Version, Controller: d.Controller,
@@ -141,6 +152,7 @@ func (s *Store) UnmarshalJSON(b []byte) error {
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	s.gen++
 	s.proj = &p
 	s.byID = map[string]*model.Action{}
 	for _, app := range p.Apps {

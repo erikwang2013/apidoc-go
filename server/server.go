@@ -11,6 +11,7 @@ import (
 	"slices"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/erikwang2013/apidoc-go/auth"
@@ -44,18 +45,71 @@ func Handler(o Opts) http.Handler {
 		o.Auth.Expire = 24 * time.Hour
 	}
 	mux := http.NewServeMux()
-	h := &apiHandler{o: o}
+	h := &apiHandler{o: o, cache: map[string]cachedResp{}}
 	mux.HandleFunc("GET /api/menus", h.menus)
 	mux.HandleFunc("GET /api/protocols", h.protocols)
 	mux.HandleFunc("GET /api/detail", h.detail)
 	mux.HandleFunc("GET /api/export", h.export)
 	mux.HandleFunc("POST /api/login", h.login)
 	mux.HandleFunc("POST /api/app-login", h.appLogin)
+	h.warm()
 	// CORS outermost so even 401s carry the headers the browser needs.
 	return withCORS(o, withAuth(o, mux))
 }
 
-type apiHandler struct{ o Opts }
+type apiHandler struct {
+	o     Opts
+	mu    sync.Mutex
+	cache map[string]cachedResp
+}
+
+// cachedResp is one marshaled response; version invalidates it when the
+// store changes.
+type cachedResp struct {
+	version uint64
+	body    []byte
+	etag    string
+}
+
+// jsonFor returns the cached JSON for key, rebuilding it when the store
+// version changed. build must read the store once and must not use the
+// request, so responses can be warmed before the first request.
+func (h *apiHandler) jsonFor(key string, build func() (any, error)) (cachedResp, error) {
+	v := h.o.Store.Version()
+	h.mu.Lock()
+	c, ok := h.cache[key]
+	h.mu.Unlock()
+	if ok && c.version == v {
+		return c, nil
+	}
+	data, err := build()
+	if err != nil {
+		return cachedResp{}, err
+	}
+	body, err := json.Marshal(data)
+	if err != nil {
+		return cachedResp{}, err
+	}
+	c = cachedResp{version: v, body: body, etag: etagOf(body)}
+	h.mu.Lock()
+	if h.o.Store.Version() == v {
+		h.cache[key] = c
+	}
+	h.mu.Unlock()
+	return c, nil
+}
+
+// warm precomputes the static payloads so the first request is also fast.
+// Registrations made after Handler creation bump the store version and
+// rebuild the affected payload on the next request (once).
+func (h *apiHandler) warm() {
+	_, _ = h.jsonFor("protocols", func() (any, error) {
+		return map[string]any{"code": 0, "msg": "ok", "data": model.Protocols()}, nil
+	})
+	_, _ = h.jsonFor("menus", func() (any, error) { return h.menusPayload(), nil })
+	_, _ = h.jsonFor("export:json", h.exportPayload)
+	_, _ = h.jsonFor("export:typescript", h.exportTSPayload)
+}
 
 // login issues the global session cookie.
 func (h *apiHandler) login(w http.ResponseWriter, r *http.Request) {
@@ -113,6 +167,15 @@ func (h *apiHandler) appLogin(w http.ResponseWriter, r *http.Request) {
 
 // menus returns the app tree with id/title/sort per action.
 func (h *apiHandler) menus(w http.ResponseWriter, r *http.Request) {
+	c, err := h.jsonFor("menus", func() (any, error) { return h.menusPayload(), nil })
+	if err != nil {
+		errJSON(w, http.StatusInternalServerError, "encode failed")
+		return
+	}
+	writeCached(w, r, c)
+}
+
+func (h *apiHandler) menusPayload() any {
 	apps := h.o.Store.Menus()
 	out := make([]mApp, 0, len(apps))
 	for _, app := range apps {
@@ -131,12 +194,19 @@ func (h *apiHandler) menus(w http.ResponseWriter, r *http.Request) {
 		}
 		out = append(out, ma)
 	}
-	writeJSON(w, r, http.StatusOK, map[string]any{"code": 0, "msg": "ok", "data": out})
+	return map[string]any{"code": 0, "msg": "ok", "data": out}
 }
 
 // protocols returns the annotation protocol registry for the external UI.
 func (h *apiHandler) protocols(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, r, http.StatusOK, map[string]any{"code": 0, "msg": "ok", "data": model.Protocols()})
+	c, err := h.jsonFor("protocols", func() (any, error) {
+		return map[string]any{"code": 0, "msg": "ok", "data": model.Protocols()}, nil
+	})
+	if err != nil {
+		errJSON(w, http.StatusInternalServerError, "encode failed")
+		return
+	}
+	writeCached(w, r, c)
 }
 
 // detail returns one full action. Actions of password-protected apps
@@ -188,22 +258,42 @@ func (h *apiHandler) export(w http.ResponseWriter, r *http.Request) {
 		errJSON(w, http.StatusUnauthorized, "login required")
 		return
 	}
-	p, err := h.o.Store.Project()
-	if err != nil {
-		errJSON(w, http.StatusInternalServerError, "export failed")
-		return
-	}
 	switch r.URL.Query().Get("format") {
 	case "", "json":
-		writeJSON(w, r, http.StatusOK, map[string]any{"code": 0, "msg": "ok", "data": p})
+		c, err := h.jsonFor("export:json", h.exportPayload)
+		if err != nil {
+			errJSON(w, http.StatusInternalServerError, "export failed")
+			return
+		}
+		writeCached(w, r, c)
 	case "typescript":
-		b, _ := json.Marshal(map[string]any{"code": 0, "msg": "ok", "data": export.Typescript(p)})
+		c, err := h.jsonFor("export:typescript", h.exportTSPayload)
+		if err != nil {
+			errJSON(w, http.StatusInternalServerError, "export failed")
+			return
+		}
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write(b)
+		_, _ = w.Write(c.body)
 	default:
 		errJSON(w, http.StatusBadRequest, "unknown format")
 	}
+}
+
+func (h *apiHandler) exportPayload() (any, error) {
+	p, err := h.o.Store.Project()
+	if err != nil {
+		return nil, err
+	}
+	return map[string]any{"code": 0, "msg": "ok", "data": p}, nil
+}
+
+func (h *apiHandler) exportTSPayload() (any, error) {
+	p, err := h.o.Store.Project()
+	if err != nil {
+		return nil, err
+	}
+	return map[string]any{"code": 0, "msg": "ok", "data": export.Typescript(p)}, nil
 }
 
 // actionMock returns the action's own mock string, or generated example
@@ -243,20 +333,31 @@ func writeJSON(w http.ResponseWriter, r *http.Request, status int, v any) {
 		status = http.StatusInternalServerError
 	}
 	if status < 300 && r != nil && (r.Method == http.MethodGet || r.Method == http.MethodHead) {
-		// ETag lets browsers skip refetching. private: detail of
-		// token-protected apps must not land in a shared cache.
-		sum := sha256.Sum256(body)
-		etag := `"` + hex.EncodeToString(sum[:]) + `"`
-		w.Header().Set("ETag", etag)
-		w.Header().Set("Cache-Control", "private, max-age=300")
-		if r.Header.Get("If-None-Match") == etag {
-			w.WriteHeader(http.StatusNotModified)
-			return
-		}
+		writeCached(w, r, cachedResp{body: body, etag: etagOf(body)})
+		return
 	}
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.WriteHeader(status)
 	_, _ = w.Write(body)
+}
+
+// writeCached writes a 200 JSON response with its precomputed ETag.
+// private: detail of token-protected apps must not land in a shared cache.
+func writeCached(w http.ResponseWriter, r *http.Request, c cachedResp) {
+	w.Header().Set("ETag", c.etag)
+	w.Header().Set("Cache-Control", "private, max-age=300")
+	if r.Header.Get("If-None-Match") == c.etag {
+		w.WriteHeader(http.StatusNotModified)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write(c.body)
+}
+
+func etagOf(body []byte) string {
+	sum := sha256.Sum256(body)
+	return `"` + hex.EncodeToString(sum[:]) + `"`
 }
 
 func errJSON(w http.ResponseWriter, status int, msg string) {

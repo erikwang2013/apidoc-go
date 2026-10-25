@@ -263,6 +263,46 @@ func TestDetailProtocol(t *testing.T) {
 	}
 }
 
+// Cached payloads must follow store mutations.
+func TestResponseCacheInvalidatesOnRegister(t *testing.T) {
+	s := newTestStore()
+	h := Handler(Opts{Prefix: "/apidoc", Store: s})
+
+	first := req(t, h, http.MethodGet, "/api/menus", "")
+	firstETag := first.Header().Get("ETag")
+
+	s.Register("GET", "/users/new", model.Doc{App: "users", Version: "v1", Title: "new", Sort: 3})
+
+	second := req(t, h, http.MethodGet, "/api/menus", "")
+	if second.Header().Get("ETag") == firstETag {
+		t.Fatal("menus ETag did not change after Register")
+	}
+	var b menusResp
+	if err := json.Unmarshal(second.Body.Bytes(), &b); err != nil {
+		t.Fatal(err)
+	}
+	acts := b.Data[0].Versions[0].Controllers[0].Actions
+	if len(acts) != 4 || acts[3].Title != "new" {
+		t.Fatalf("menus did not include new action: %+v", acts)
+	}
+	if exp := req(t, h, http.MethodGet, "/api/export", ""); !strings.Contains(exp.Body.String(), "/users/new") {
+		t.Fatalf("export cache stale: %s", exp.Body.String())
+	}
+
+	// Detail is not cached, but must reflect a replaced doc immediately.
+	s.Register("GET", "/users", model.Doc{App: "users", Version: "v1", Title: "replaced"})
+	rec := req(t, h, http.MethodGet, "/api/detail?id="+store.ActionID("users", "v1", "GET", "/users"), "")
+	var d struct {
+		Data struct{ Title string }
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &d); err != nil {
+		t.Fatal(err)
+	}
+	if d.Data.Title != "replaced" {
+		t.Fatalf("detail stale: %+v", d.Data)
+	}
+}
+
 func TestProtocolsEndpoint(t *testing.T) {
 	h := Handler(Opts{Prefix: "/apidoc", Store: newTestStore()})
 	rec := req(t, h, http.MethodGet, "/api/protocols", "")
