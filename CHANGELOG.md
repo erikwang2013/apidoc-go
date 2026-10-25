@@ -5,6 +5,13 @@
 
 ## [Unreleased]
 
+## [v1.0.15] - 2026-10-25
+
+### Changed
+
+- 多语言 README 的项目结构补齐 `model/protocol.go` 与 `model/protocols.go`。
+- README 恢复 `pet-expressions:start` 标记，宠物区块可再次由脚本生成。
+
 ## [v1.0.14] - 2026-10-25
 
 ### Changed

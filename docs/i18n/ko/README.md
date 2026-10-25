@@ -41,7 +41,9 @@ apidoc-go/
 ├── apidoc.go            # 핵심 진입점: New / Register / Mount / Handler
 ├── doc.go               # Route / Doc / Param / Response 타입
 ├── model/               # 데이터 모델
-│   └── model.go         #   Project / App / Version / Controller / Action
+│   ├── model.go         #   Project / App / Version / Controller / Action
+│   ├── protocol.go      #   URL 스킴 → 프로토콜
+│   └── protocols.go     #   프로토콜 레지스트리 / 별칭 / 기본 포트
 ├── store/               # 저장 및 중복 제거
 │   └── store.go         #   (app, version, method, url) 중복 제거, 나중에 등록된 것이 덮어씀
 ├── auth/                # 인증

@@ -41,7 +41,9 @@ apidoc-go/
 ├── apidoc.go            # 中核エントリポイント: New / Register / Mount / Handler
 ├── doc.go               # Route / Doc / Param / Response 型
 ├── model/               # データモデル
-│   └── model.go         #   Project / App / Version / Controller / Action
+│   ├── model.go         #   Project / App / Version / Controller / Action
+│   ├── protocol.go      #   URL スキーム → プロトコル
+│   └── protocols.go     #   プロトコルレジストリ / エイリアス / デフォルトポート
 ├── store/               # 保存と重複排除
 │   └── store.go         #   (app, version, method, url) の重複は後勝ちで上書き
 ├── auth/                # 認証

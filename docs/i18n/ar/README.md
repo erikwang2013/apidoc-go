@@ -41,7 +41,9 @@ apidoc-go/
 ├── apidoc.go            # نقطة الدخول الأساسية: New / Register / Mount / Handler
 ├── doc.go               # أنواع Route / Doc / Param / Response
 ├── model/               # نموذج البيانات
-│   └── model.go         #   Project / App / Version / Controller / Action
+│   ├── model.go         #   Project / App / Version / Controller / Action
+│   ├── protocol.go      #   مخطط URL → البروتوكول
+│   └── protocols.go     #   سجل البروتوكولات / الأسماء البديلة / المنافذ الافتراضية
 ├── store/               # التخزين وإزالة التكرار
 │   └── store.go         #   إزالة التكرار حسب (app, version, method, url)، والأخير يحل محل السابق
 ├── auth/                # المصادقة

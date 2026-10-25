@@ -41,7 +41,9 @@ apidoc-go/
 ├── apidoc.go            # Pintu masuk inti: New / Register / Mount / Handler
 ├── doc.go               # Tipe Route / Doc / Param / Response
 ├── model/               # Model data
-│   └── model.go         #   Project / App / Version / Controller / Action
+│   ├── model.go         #   Project / App / Version / Controller / Action
+│   ├── protocol.go      #   skema URL → protokol
+│   └── protocols.go     #   registri protokol / alias / port default
 ├── store/               # Penyimpanan dan deduplikasi
 │   └── store.go         #   Deduplikasi berdasarkan (app, version, method, url), yang terakhir menimpa
 ├── auth/                # Autentikasi

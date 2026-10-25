@@ -41,7 +41,9 @@ apidoc-go/
 ├── apidoc.go            # Core entry points: New / Register / Mount / Handler
 ├── doc.go               # Route / Doc / Param / Response types
 ├── model/               # Data models
-│   └── model.go         #   Project / App / Version / Controller / Action
+│   ├── model.go         #   Project / App / Version / Controller / Action
+│   ├── protocol.go      #   URL scheme → protocol
+│   └── protocols.go     #   protocol registry / aliases / default ports
 ├── store/               # Storage and deduplication
 │   └── store.go         #   (app, version, method, url) deduplication, later ones overwrite
 ├── auth/                # Authentication

@@ -268,6 +268,7 @@ for _, r := range results {
   <p>微信支付（左） · 支付宝（右）</p>
 </div>
 
+<!-- pet-expressions:start -->
 ## 项目宠物表情形态 · Apidoc
 
 <table align="center">

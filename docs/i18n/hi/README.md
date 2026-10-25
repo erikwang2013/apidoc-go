@@ -41,7 +41,9 @@ apidoc-go/
 ├── apidoc.go            # मुख्य प्रवेश बिंदु: New / Register / Mount / Handler
 ├── doc.go               # Route / Doc / Param / Response प्रकार
 ├── model/               # डेटा मॉडल
-│   └── model.go         #   Project / App / Version / Controller / Action
+│   ├── model.go         #   Project / App / Version / Controller / Action
+│   ├── protocol.go      #   URL स्कीम → प्रोटोकॉल
+│   └── protocols.go     #   प्रोटोकॉल रजिस्ट्री / उपनाम / डिफ़ॉल्ट पोर्ट
 ├── store/               # भंडारण और डी-डुप्लिकेशन
 │   └── store.go         #   (app, version, method, url) डी-डुप्लिकेशन, बाद वाला पिछले को ओवरराइड करता है
 ├── auth/                # प्रमाणीकरण

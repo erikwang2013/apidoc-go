@@ -41,7 +41,9 @@ apidoc-go/
 ├── apidoc.go            # মূল এন্ট্রি পয়েন্ট: New / Register / Mount / Handler
 ├── doc.go               # Route / Doc / Param / Response টাইপ
 ├── model/               # ডেটা মডেল
-│   └── model.go         #   Project / App / Version / Controller / Action
+│   ├── model.go         #   Project / App / Version / Controller / Action
+│   ├── protocol.go      #   URL স্কিম → প্রোটোকল
+│   └── protocols.go     #   প্রোটোকল রেজিস্ট্রি / উপনাম / ডিফল্ট পোর্ট
 ├── store/               # স্টোরেজ ও ডি-ডুপ্লিকেশন
 │   └── store.go         #   (app, version, method, url) ডি-ডুপ্লিকেশন, পরেরটি আগেরটিকে ওভাররাইট করে
 ├── auth/                # অথেনটিকেশন
