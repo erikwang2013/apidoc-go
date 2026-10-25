@@ -30,21 +30,32 @@ type Controller struct {
 
 // Action is one documented endpoint.
 type Action struct {
-	ID         string     `json:"id"`
-	App        string     `json:"app"`
-	Version    string     `json:"version"`
-	Controller string     `json:"controller"`
-	Method     string     `json:"method"`
-	URL        string     `json:"url"`
-	Protocol   string     `json:"protocol,omitempty"`
-	Title      string     `json:"title"`
-	Desc       string     `json:"desc"`
-	Author     string     `json:"author"`
-	Params     []Param    `json:"params"`
-	Responses  []Response `json:"responses"`
-	Markdown   string     `json:"markdown,omitempty"`
-	Mock       string     `json:"mock,omitempty"`
-	Sort       int        `json:"sort"`
+	ID           string            `json:"id"`
+	App          string            `json:"app"`
+	Version      string            `json:"version"`
+	Controller   string            `json:"controller"`
+	Method       string            `json:"method"`
+	URL          string            `json:"url"`
+	Protocol     string            `json:"protocol,omitempty"`
+	Title        string            `json:"title"`
+	Desc         string            `json:"desc"`
+	Author       string            `json:"author"`
+	Params       []Param           `json:"params"`
+	Responses    []Response        `json:"responses"`
+	Markdown     string            `json:"markdown,omitempty"`
+	Mock         string            `json:"mock,omitempty"`
+	Sort         int               `json:"sort"`
+	ProtocolOpts map[string]string `json:"protocol_opts,omitempty"`
+	Events       []DocEvent        `json:"events,omitempty"`
+}
+
+// DocEvent describes one message of a streaming protocol.
+type DocEvent struct {
+	Direction string `json:"direction"` // in (server -> client) | out (client -> server)
+	Name      string `json:"name"`
+	Type      string `json:"type"`
+	Desc      string `json:"desc,omitempty"`
+	Mock      string `json:"mock,omitempty"`
 }
 
 // Param describes one input of an action.
@@ -79,4 +90,6 @@ type Doc struct {
 	Markdown                 string
 	Mock                     string
 	Sort                     int
+	ProtocolOpts             map[string]string
+	Events                   []DocEvent
 }

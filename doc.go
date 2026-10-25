@@ -23,3 +23,6 @@ type Param = model.Param
 
 // Response describes one possible response of an endpoint.
 type Response = model.Response
+
+// Event describes one message of a streaming protocol.
+type Event = model.DocEvent

@@ -163,6 +163,27 @@ func parseTags(fset *token.FileSet, f *ast.File, fn *ast.FuncDecl, r *Result) er
 			} else {
 				r.Doc.Protocol = model.NormalizeProtocol(strings.Join(toks, " "))
 			}
+		case "protocol-opt":
+			if len(toks) == 0 {
+				err = fmt.Errorf("@protocol-opt wants key=value")
+				break
+			}
+			if r.Doc.ProtocolOpts == nil {
+				r.Doc.ProtocolOpts = map[string]string{}
+			}
+			for _, tok := range toks {
+				key, val, ok := strings.Cut(tok, "=")
+				if !ok || key == "" {
+					err = fmt.Errorf("bad @protocol-opt %q", tok)
+					break
+				}
+				r.Doc.ProtocolOpts[key] = val
+			}
+		case "event":
+			var ev model.DocEvent
+			if ev, err = parseEvent(toks); err == nil {
+				r.Doc.Events = append(r.Doc.Events, ev)
+			}
 		case "app":
 			r.Doc.App = strings.Join(toks, " ")
 		case "version":
@@ -248,6 +269,38 @@ func parseParam(f *ast.File, kw string, toks []string) (model.Param, error) {
 		}
 	}
 	return p, nil
+}
+
+// parseEvent parses "@event direction=in|out name=... type=... [desc=...] [mock=...]".
+func parseEvent(toks []string) (model.DocEvent, error) {
+	ev := model.DocEvent{Type: "string"}
+	for _, tok := range toks {
+		key, val, ok := strings.Cut(tok, "=")
+		if !ok {
+			return ev, fmt.Errorf("bad event token %q", tok)
+		}
+		switch key {
+		case "direction":
+			ev.Direction = strings.ToLower(val)
+		case "name":
+			ev.Name = val
+		case "type":
+			ev.Type = val
+		case "desc":
+			ev.Desc = val
+		case "mock":
+			ev.Mock = val
+		default:
+			return ev, fmt.Errorf("unknown event key %q", key)
+		}
+	}
+	if ev.Direction != "in" && ev.Direction != "out" {
+		return ev, fmt.Errorf("event direction must be in or out")
+	}
+	if ev.Name == "" {
+		return ev, fmt.Errorf("event wants name")
+	}
+	return ev, nil
 }
 
 // parseResponse parses "@success [name] type [desc]". A leading token

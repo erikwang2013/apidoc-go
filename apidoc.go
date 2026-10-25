@@ -26,6 +26,9 @@ type Config struct {
 	Auth         AuthConfig
 	Apps         []AppConfig
 	DebugOrigins []string // origins allowed CORS access (default none)
+	// PublicHost is the fallback absolute base URL used by the external UI
+	// for browser debugging. Empty means same-origin.
+	PublicHost string
 }
 
 // AuthConfig is the auth configuration.
@@ -36,6 +39,8 @@ type AuthConfig = auth.Config
 // app's detail data with a scoped token.
 type AppConfig struct {
 	Key, Title, Password string
+	// PublicHost is this app's absolute debug base URL; falls back to Config.PublicHost.
+	PublicHost string
 }
 
 // Server is one doc server instance. Create with New; register routes
@@ -134,6 +139,12 @@ func (s *Server) Mount(a adapter.Framework) error {
 // Handler returns the doc server's JSON API handler.
 func (s *Server) Handler() http.Handler {
 	s.once.Do(func() {
+		appHosts := map[string]string{}
+		for _, app := range s.cfg.Apps {
+			if app.PublicHost != "" {
+				appHosts[app.Key] = app.PublicHost
+			}
+		}
 		s.handler = server.Handler(server.Opts{
 			Prefix:       s.cfg.Prefix,
 			Store:        s.st,
@@ -141,6 +152,8 @@ func (s *Server) Handler() http.Handler {
 			AppPWs:       s.appPw,
 			DebugOrigins: s.cfg.DebugOrigins,
 			GlobalParams: s.cfg.GlobalParams,
+			PublicHost:   s.cfg.PublicHost,
+			AppHosts:     appHosts,
 		})
 	})
 	return s.handler

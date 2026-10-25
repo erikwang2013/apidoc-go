@@ -372,3 +372,32 @@ func TestProtocolAliasesAndMultiword(t *testing.T) {
 		}
 	}
 }
+
+func TestProtocolOptsAndEvents(t *testing.T) {
+	res, err := parse.ParseSource("events.go", []byte(src(
+		"package p",
+		"// @apidoc",
+		"// @protocol mqtt",
+		"// @method SUBSCRIBE",
+		"// @url mqtt://broker:1883/sensors/+",
+		"// @protocol-opt target=mqtt://broker:1883",
+		"// @protocol-opt topic=sensors/+",
+		`// @event direction=in name=temperature type=json desc=temp mock={"v":1}`,
+		"func Subscribe() {}",
+	)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(res) != 1 {
+		t.Fatalf("want 1 result, got %d", len(res))
+	}
+	d := res[0].Doc
+	if d.ProtocolOpts["target"] != "mqtt://broker:1883" || d.ProtocolOpts["topic"] != "sensors/+" {
+		t.Fatalf("protocol opts mismatch: %+v", d.ProtocolOpts)
+	}
+	if len(d.Events) != 1 || d.Events[0].Direction != "in" ||
+		d.Events[0].Name != "temperature" || d.Events[0].Type != "json" ||
+		d.Events[0].Desc != "temp" || d.Events[0].Mock != `{"v":1}` {
+		t.Fatalf("events mismatch: %+v", d.Events)
+	}
+}
