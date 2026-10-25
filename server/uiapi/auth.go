@@ -63,11 +63,12 @@ func (h *handler) verifyAuth(w http.ResponseWriter, r *http.Request) {
 }
 
 // canAccess authorizes UIC-1 reads. A protected app requires its scoped app
-// token; a global session can read unprotected apps. An empty appKey only
-// reaches here for the config bootstrap, which is public while global auth is
-// off, and never grants an app token access to app data.
+// token; a global session can read unprotected apps. With global auth off the
+// app list and unprotected apps are public, so mixed deployments still serve
+// apps that have no password.
 func (h *handler) canAccess(r *http.Request, appKey string) bool {
-	if !h.o.Auth.Enable && (appKey == "" || len(h.o.AppPWs) == 0) {
+	app, _ := splitAppKey(appKey)
+	if !h.o.Auth.Enable && (appKey == "" || h.o.AppPWs[app] == "") {
 		return true
 	}
 	token := bearerToken(r)
@@ -78,7 +79,6 @@ func (h *handler) canAccess(r *http.Request, appKey string) bool {
 	if !valid {
 		return false
 	}
-	app, _ := splitAppKey(appKey)
 	if app != "" && h.o.AppPWs[app] != "" {
 		return scope == app
 	}

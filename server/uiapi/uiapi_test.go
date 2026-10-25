@@ -268,6 +268,53 @@ func TestAppPasswordOnlyBootstrap(t *testing.T) {
 	}
 }
 
+// Mixed deployment: global auth off, one app protected and one not. The app
+// list and the unprotected app stay public; only the protected app needs its
+// token.
+func TestMixedAppPasswordPublicApp(t *testing.T) {
+	h := newHandlerWith(t, Options{
+		Store:  newMultiAppStore(),
+		Auth:   auth.Config{Secret: "secret"},
+		AppPWs: map[string]string{"default": "pw1"},
+	})
+
+	rec := do(t, h, "GET", "/ui/v1/config", "", "")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("public config: %d %s", rec.Code, rec.Body.String())
+	}
+	if apps, _ := decodeData(t, rec)["apps"].([]any); len(apps) != 2 {
+		t.Fatalf("apps: %+v", apps)
+	}
+
+	rec = do(t, h, "POST", "/ui/v1/menus", `{"appKey":"b|v1"}`, "")
+	if data := decodeData(t, rec); len(data["data"].([]any)) != 1 {
+		t.Fatalf("public app menus: %+v", data["data"])
+	}
+	rec = do(t, h, "POST", "/ui/v1/docMenus", `{"appKey":"b|v1"}`, "")
+	if len(decodeDataArray(t, rec)) == 0 {
+		t.Fatalf("public app doc menus: %s", rec.Body.String())
+	}
+	idB := store.ActionID("b", "v1", "GET", "/b-items")
+	rec = do(t, h, "POST", "/ui/v1/docDetail", `{"appKey":"b|v1","path":"`+idB+`"}`, "")
+	if !strings.Contains(decodeData(t, rec)["content"].(string), "# B") {
+		t.Fatalf("public app doc detail: %s", rec.Body.String())
+	}
+
+	rec = do(t, h, "POST", "/ui/v1/menus", `{"appKey":"default|v1"}`, "")
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("protected app without token: %d", rec.Code)
+	}
+	token := loginApp(t, h, "default|v1", "pw1")
+	rec = do(t, h, "POST", "/ui/v1/menus", `{"appKey":"default|v1"}`, token)
+	if data := decodeData(t, rec); len(data["data"].([]any)) != 2 {
+		t.Fatalf("protected app menus: %+v", data["data"])
+	}
+	rec = do(t, h, "POST", "/ui/v1/menus", `{}`, token)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("empty appKey menus with app token: %d", rec.Code)
+	}
+}
+
 func decodeDataArray(t *testing.T, rec *httptest.ResponseRecorder) []any {
 	t.Helper()
 	var envelope struct {
