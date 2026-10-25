@@ -121,6 +121,9 @@ func (h *handler) menus(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, 400, "invalid body")
 		return
 	}
+	if !requireAppKey(w, body.AppKey) {
+		return
+	}
 	if !h.canAccess(r, body.AppKey) {
 		writeError(w, http.StatusUnauthorized, 401, "token error")
 		return
@@ -307,6 +310,9 @@ func (h *handler) docMenus(w http.ResponseWriter, r *http.Request) {
 			appKey = body.AppKey
 		}
 	}
+	if !requireAppKey(w, appKey) {
+		return
+	}
 	if !h.canAccess(r, appKey) {
 		writeError(w, http.StatusUnauthorized, 401, "token error")
 		return
@@ -356,6 +362,9 @@ func (h *handler) docDetail(w http.ResponseWriter, r *http.Request) {
 	}](r)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, 400, "invalid body")
+		return
+	}
+	if !requireAppKey(w, body.AppKey) {
 		return
 	}
 	action, found := h.o.Store.Action(body.Path)

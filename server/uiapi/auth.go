@@ -18,6 +18,10 @@ func (h *handler) verifyAuth(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, 400, "invalid body")
 		return
 	}
+	if body.ShareKey != "" {
+		writeError(w, http.StatusNotImplemented, 501, "share tokens are not supported")
+		return
+	}
 	app, _ := splitAppKey(body.AppKey)
 	if app != "" {
 		if password, found := h.o.AppPWs[app]; found && password != "" {
@@ -59,9 +63,11 @@ func (h *handler) verifyAuth(w http.ResponseWriter, r *http.Request) {
 }
 
 // canAccess authorizes UIC-1 reads. A protected app requires its scoped app
-// token; a global session can read unprotected apps.
+// token; a global session can read unprotected apps. An empty appKey only
+// reaches here for the config bootstrap, which is public while global auth is
+// off, and never grants an app token access to app data.
 func (h *handler) canAccess(r *http.Request, appKey string) bool {
-	if !h.o.Auth.Enable && len(h.o.AppPWs) == 0 {
+	if !h.o.Auth.Enable && (appKey == "" || len(h.o.AppPWs) == 0) {
 		return true
 	}
 	token := bearerToken(r)
@@ -79,10 +85,17 @@ func (h *handler) canAccess(r *http.Request, appKey string) bool {
 	if scope == "session" {
 		return true
 	}
-	if app != "" && scope == app {
-		return true
+	return app != "" && scope == app
+}
+
+// requireAppKey rejects app-data requests that do not name an app. Empty
+// appKey is only a bootstrap concept (config), not a wildcard.
+func requireAppKey(w http.ResponseWriter, appKey string) bool {
+	if appKey == "" {
+		writeError(w, http.StatusBadRequest, 400, "appKey required")
+		return false
 	}
-	return appKey == "" && scope != ""
+	return true
 }
 
 func bearerToken(r *http.Request) string {
