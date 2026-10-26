@@ -223,6 +223,15 @@ func TestCapabilitiesMatchGoFixture(t *testing.T) {
 		CacheClear:   func() {},
 		CacheWarm:    func() {},
 	}), http.MethodGet, "/ui/v1/capabilities", "", ""))["features"]
+	if liveFeatures, ok := live.(map[string]any); ok {
+		if liveDebug, ok := liveFeatures["debug"].(map[string]any); ok {
+			if wantDebug, ok := want.(map[string]any)["debug"].(map[string]any); ok {
+				// The shared fixture pins the default-build relay surface;
+				// tagged builds compare against their compiled registry.
+				wantDebug["relay"] = fixtureRelay(liveDebug["relay"], wantDebug["relay"])
+			}
+		}
+	}
 	if !reflect.DeepEqual(jsonRoundTrip(t, live), jsonRoundTrip(t, want)) {
 		t.Fatalf("capabilities drift:\nlive %#v\nwant %#v", live, want)
 	}
