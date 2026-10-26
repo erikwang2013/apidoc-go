@@ -152,3 +152,17 @@ func TestExportAuthGating(t *testing.T) {
 		t.Fatalf("export with cookie: want 200 got %d", rec.Code)
 	}
 }
+
+func TestExportJSONOmitsDefinitionInputs(t *testing.T) {
+	s := store.New("p")
+	s.Register("GET", "/users", model.Doc{App: "users", Version: "v1", Title: "list",
+		Definitions: []model.Definition{{File: "json-schema/user.json", Format: "json-schema"}}})
+	h := Handler(Opts{Prefix: "/apidoc", Store: s})
+	rec := req(t, h, http.MethodGet, "/api/export", "")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("export status %d: %s", rec.Code, rec.Body.String())
+	}
+	if strings.Contains(rec.Body.String(), `"definitions"`) {
+		t.Fatalf("definition annotations leaked into the legacy export: %s", rec.Body.String())
+	}
+}

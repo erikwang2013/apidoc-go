@@ -1,0 +1,11 @@
+Id:
+  type: integer
+UserInput:
+  content:
+    application/json:
+      schema:
+        type: object
+        required: [id]
+        properties:
+          id: {$ref: './more.yaml#/Id'}
+          name: {type: string}

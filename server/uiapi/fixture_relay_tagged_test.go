@@ -1,0 +1,11 @@
+//go:build apidoc_debug_http || apidoc_debug_sockets || apidoc_debug_rpc || apidoc_debug_grpc || apidoc_debug_http3 || apidoc_debug_messaging || apidoc_debug_mqtt || apidoc_debug_stomp || apidoc_debug_amqp || apidoc_debug_kafka || apidoc_debug_xmpp || apidoc_debug_iot || apidoc_debug_industrial || apidoc_debug_media || apidoc_debug_all
+
+package uiapi
+
+// fixtureRelay accepts the live compiled relay list; TestDebugCapabilitiesTagged
+// asserts the exact ids for the aggregate build.
+func fixtureRelay(live, _ any) any { return live }
+
+// fixtureModes accepts the compiled build's relay modes; the tagged
+// capability test pins their exact values.
+func fixtureModes(live, _ any) any { return live }

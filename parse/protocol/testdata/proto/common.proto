@@ -1,0 +1,3 @@
+syntax = "proto3";
+package common;
+message Meta { string trace_id = 1; }

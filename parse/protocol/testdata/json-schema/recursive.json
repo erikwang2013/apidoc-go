@@ -1,0 +1,5 @@
+{
+  "title": "Recursive",
+  "type": "object",
+  "properties": {"next": {"$ref": "#"}}
+}

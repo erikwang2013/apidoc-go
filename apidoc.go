@@ -33,12 +33,22 @@ type Config struct {
 	// ShareDir stores UIC-1 share records; empty means a directory under
 	// os.TempDir().
 	ShareDir string
+	// DefinitionRoot confines @definition files; empty means the process
+	// working directory.
+	DefinitionRoot string
 	// Generator and CodeTemplates are the declarative UIC-1 generator
 	// descriptors; rendering is side-effect free.
 	Generator     []GeneratorSpec
 	CodeTemplates []CodeTemplateSpec
 	// ShareActions declares the actions handleApiShareAction may return.
 	ShareActions []ShareActionSpec
+	// Debug enables server-side relay execution; the zero value fails closed.
+	Debug DebugConfig
+	// UIPath points at a packaged UIC-1 Vue build (the dist/uic1-ui/
+	// directory printed by apidoc-ui's scripts/package-ui.sh). When set, the
+	// UI is served under Prefix; empty — the library default — leaves the
+	// bundled UI off and serves only the JSON API.
+	UIPath string
 }
 
 // UIC-1 management types; see server/uiapi.
@@ -47,6 +57,7 @@ type (
 	GeneratorFile    = uiapi.GeneratorFile
 	CodeTemplateSpec = uiapi.CodeTemplateSpec
 	ShareActionSpec  = uiapi.ShareActionSpec
+	DebugConfig      = uiapi.DebugConfig
 )
 
 // AuthConfig is the auth configuration.
@@ -164,18 +175,21 @@ func (s *Server) Handler() http.Handler {
 			}
 		}
 		s.handler = server.Handler(server.Opts{
-			Prefix:        s.cfg.Prefix,
-			Store:         s.st,
-			Auth:          s.cfg.Auth,
-			AppPWs:        s.appPw,
-			DebugOrigins:  s.cfg.DebugOrigins,
-			GlobalParams:  s.cfg.GlobalParams,
-			PublicHost:    s.cfg.PublicHost,
-			AppHosts:      appHosts,
-			ShareDir:      s.cfg.ShareDir,
-			Generator:     s.cfg.Generator,
-			CodeTemplates: s.cfg.CodeTemplates,
-			ShareActions:  s.cfg.ShareActions,
+			Prefix:         s.cfg.Prefix,
+			Store:          s.st,
+			Auth:           s.cfg.Auth,
+			AppPWs:         s.appPw,
+			DebugOrigins:   s.cfg.DebugOrigins,
+			GlobalParams:   s.cfg.GlobalParams,
+			PublicHost:     s.cfg.PublicHost,
+			AppHosts:       appHosts,
+			ShareDir:       s.cfg.ShareDir,
+			DefinitionRoot: s.cfg.DefinitionRoot,
+			Generator:      s.cfg.Generator,
+			CodeTemplates:  s.cfg.CodeTemplates,
+			ShareActions:   s.cfg.ShareActions,
+			Debug:          s.cfg.Debug,
+			UIPath:         s.cfg.UIPath,
 		})
 	})
 	return s.handler

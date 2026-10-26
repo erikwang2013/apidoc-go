@@ -1,0 +1,4 @@
+#import "user.graphql"
+type Query {
+  user(id: ID!): User
+}

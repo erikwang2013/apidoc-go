@@ -1,0 +1,16 @@
+{
+  "definitions": {
+    "Inner": {
+      "type": "object",
+      "required": ["label"],
+      "properties": {"label": {"type": "string"}}
+    },
+    "Deep": {
+      "type": "object",
+      "properties": {
+        "inner": {"$ref": "#/definitions/Inner"},
+        "sibling": {"$ref": "./sibling.json#/Item"}
+      }
+    }
+  }
+}

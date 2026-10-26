@@ -1,0 +1,12 @@
+<edmx:Edmx xmlns:edmx="http://docs.oasis-open.org/odata/ns/edmx" Version="4.0">
+  <edmx:DataServices>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="Demo">
+      <EntityType Name="Product"><Key><PropertyRef Name="ID"/></Key>
+        <Property Name="ID" Type="Edm.Int32" Nullable="false"/>
+        <Property Name="Name" Type="Edm.String"/>
+        <Property Name="Price" Type="Edm.Decimal"/>
+      </EntityType>
+      <EntityContainer Name="Container"><EntitySet Name="Products" EntityType="Demo.Product"/></EntityContainer>
+    </Schema>
+  </edmx:DataServices>
+</edmx:Edmx>

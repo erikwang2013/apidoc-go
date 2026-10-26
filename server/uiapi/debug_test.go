@@ -1,0 +1,274 @@
+package uiapi
+
+import (
+	"net/http"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/erikwang2013/apidoc-go/auth"
+	"github.com/erikwang2013/apidoc-go/model"
+	debug "github.com/erikwang2013/apidoc-go/server/uiapi/debug"
+	"github.com/erikwang2013/apidoc-go/store"
+)
+
+func debugActionFixture() *model.Action {
+	return &model.Action{
+		App: "default", Version: "v1", Method: "SUBSCRIBE",
+		URL:      "ws://example.com/chat",
+		Protocol: "ws",
+		ProtocolOpts: map[string]string{
+			"target": "wss://configured.example/ws",
+			"room":   "lobby",
+		},
+		Params: []model.Param{
+			{Name: "user", Type: "string", Field: "1"},
+		},
+		Responses: []model.Response{
+			{Name: "ok", Fields: []model.Param{{Name: "id", Type: "i32", Field: "1"}}},
+		},
+	}
+}
+
+func TestDebugSendDisabledFailsClosed(t *testing.T) {
+	h := newHandler(t)
+	token := login(t, h)
+	itemsID := store.ActionID("default", "v1", "GET", "/items")
+	rec := do(t, h, "POST", "/ui/v1/debugSend",
+		`{"appKey":"default|v1","path":"`+itemsID+`","input":{"payload":"","encoding":"text","timeout":5}}`, token)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("debugSend: %d %s", rec.Code, rec.Body.String())
+	}
+	data := decodeData(t, rec)
+	if data["ok"] != false || data["error"] != "server-side debug is disabled" {
+		t.Fatalf("disabled debug must fail closed: %+v", data)
+	}
+
+	rec = do(t, h, "POST", "/ui/v1/debugStart",
+		`{"appKey":"default|v1","path":"`+itemsID+`","input":{}}`, token)
+	data = decodeData(t, rec)
+	if data["ok"] != false || data["sessionId"] != nil {
+		t.Fatalf("debugStart must not create a session when disabled: %+v", data)
+	}
+}
+
+func TestDebugSendScope(t *testing.T) {
+	h := newHandlerWith(t, Options{
+		Store:  newMultiAppStore(),
+		Auth:   auth.Config{Enable: true, Password: "pw", Secret: "secret", Expire: time.Hour},
+		AppPWs: map[string]string{"b": "bpw"},
+	})
+	itemsID := store.ActionID("default", "v1", "GET", "/items")
+	body := `{"appKey":"default|v1","path":"` + itemsID + `","input":{}}`
+
+	// An app token for B cannot execute an endpoint owned by default.
+	bToken := loginApp(t, h, "b|v1", "bpw")
+	if rec := do(t, h, "POST", "/ui/v1/debugSend", body, bToken); rec.Code != http.StatusUnauthorized {
+		t.Fatalf("cross-app token: %d %s", rec.Code, rec.Body.String())
+	}
+	// A client-supplied appKey naming another app is a 404, never a redirect.
+	session := login(t, h)
+	mismatch := `{"appKey":"b|v1","path":"` + itemsID + `","input":{}}`
+	if rec := do(t, h, "POST", "/ui/v1/debugSend", mismatch, session); rec.Code != http.StatusNotFound {
+		t.Fatalf("appKey mismatch: %d %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestDebugShareScope(t *testing.T) {
+	h := newHandlerWith(t, Options{
+		Store: newMultiAppStore(),
+		Auth:  auth.Config{Enable: true, Password: "pw", Secret: "secret", Expire: time.Hour},
+	})
+	admin := login(t, h)
+	itemsID := store.ActionID("default", "v1", "GET", "/items")
+	wsID := store.ActionID("default", "v1", "SUBSCRIBE", "ws://example.com/chat")
+	rec := do(t, h, "POST", "/ui/v1/addApiShare",
+		`{"key":"s2","name":"One API","type":"api","appKeys":["default"],"apiKeys":["`+itemsID+`"],"password":"sp"}`, admin)
+	if !decodeDataOf[bool](t, rec) {
+		t.Fatalf("add share: %s", rec.Body.String())
+	}
+	token := decodeData(t, do(t, h, "POST", "/ui/v1/verifyAuth", `{"shareKey":"s2","password":"sp"}`, ""))["token"].(string)
+
+	inside := `{"appKey":"default|v1","path":"` + itemsID + `","shareKey":"s2","input":{}}`
+	data := decodeData(t, do(t, h, "POST", "/ui/v1/debugSend", inside, token))
+	if data["ok"] != false || data["error"] != "server-side debug is disabled" {
+		t.Fatalf("share inside scope should reach the disabled gate: %+v", data)
+	}
+	outside := `{"appKey":"default|v1","path":"` + wsID + `","shareKey":"s2","input":{}}`
+	if rec := do(t, h, "POST", "/ui/v1/debugSend", outside, token); rec.Code != http.StatusNotFound {
+		t.Fatalf("share outside scope: %d %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestDebugPayloadDecode(t *testing.T) {
+	cases := []struct {
+		payload debug.Payload
+		want    string
+	}{
+		{debug.Payload{Encoding: "text", Data: "hello"}, "hello"},
+		{debug.Payload{Encoding: "hex", Data: "00ff10"}, "\x00\xff\x10"},
+		{debug.Payload{Encoding: "base64", Data: "AP8Q"}, "\x00\xff\x10"},
+	}
+	for _, tc := range cases {
+		got, err := tc.payload.Decode()
+		if err != nil || string(got) != tc.want {
+			t.Fatalf("%s: %q %v", tc.payload.Encoding, got, err)
+		}
+	}
+	if _, err := (&debug.Payload{Encoding: "ascii", Data: "x"}).Decode(); err == nil {
+		t.Fatal("unknown encoding must fail")
+	}
+	if _, err := (&debug.Payload{Encoding: "hex", Data: "zz"}).Decode(); err == nil {
+		t.Fatal("invalid hex must fail")
+	}
+}
+
+func TestDebugPayloadCap(t *testing.T) {
+	h := newHandler(t)
+	token := login(t, h)
+	itemsID := store.ActionID("default", "v1", "GET", "/items")
+	payload := strings.Repeat("x", debug.MaxMessageBytes+1)
+	body := `{"appKey":"default|v1","path":"` + itemsID + `","input":{"payload":"` + payload + `"}}`
+	rec := do(t, h, "POST", "/ui/v1/debugSend", body, token)
+	if rec.Code != http.StatusRequestEntityTooLarge {
+		t.Fatalf("oversize payload: %d %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestDebugRequestTargetOnlyFromServerConfig(t *testing.T) {
+	h := &handler{o: Options{}}
+	action := debugActionFixture()
+	req := h.debugRequest(action, debugInput{
+		Fields: map[string]any{"target": "http://169.254.169.254/", "room": "b"},
+	})
+	if req.Target != "wss://configured.example/ws" {
+		t.Fatalf("client target must be ignored: %q", req.Target)
+	}
+	if req.Opts["room"] != "b" || req.Opts["target"] != "" {
+		t.Fatalf("reserved opts leaked into executors: %+v", req.Opts)
+	}
+}
+
+func TestDebugExecuteUncompiledFailsClosed(t *testing.T) {
+	if _, err := debug.Execute(debug.Config{}, &debug.Request{Kind: "socketio"}); err == nil ||
+		!strings.Contains(err.Error(), "not compiled in this build") {
+		t.Fatalf("execute: %v", err)
+	}
+	if _, err := debug.OpenStream(debug.Config{}, &debug.Request{Kind: "socketio"}); err == nil ||
+		!strings.Contains(err.Error(), "not compiled in this build") {
+		t.Fatalf("open stream: %v", err)
+	}
+}
+
+func TestDebugSessionTTLStaleCallbackKeepsRefreshedSession(t *testing.T) {
+	s := newDebugSessionStore(time.Minute)
+	id, ok := s.reserve("scope", "default|v1", "")
+	if !ok {
+		t.Fatal("reserve failed")
+	}
+	s.mu.Lock()
+	s.sessions[id].deadline = time.Now().Add(time.Hour)
+	s.mu.Unlock()
+	s.expire(id) // simulate a timer callback queued before poll refreshed the TTL
+	if _, _, found := s.bindings(id); !found {
+		t.Fatal("stale expiry removed a refreshed session")
+	}
+	s.mu.Lock()
+	s.sessions[id].deadline = time.Now().Add(-time.Second)
+	s.mu.Unlock()
+	s.expire(id)
+	if _, _, found := s.bindings(id); found {
+		t.Fatal("expired session survived")
+	}
+}
+
+func TestDebugSessionStoreQuotaAndTTL(t *testing.T) {
+	s := newDebugSessionStore(20 * time.Millisecond)
+	for i := 0; i < debugMaxSessions; i++ {
+		if _, ok := s.reserve("scope-a", "default|v1", ""); !ok {
+			t.Fatalf("reserve %d failed", i)
+		}
+	}
+	if _, ok := s.reserve("scope-a", "default|v1", ""); ok {
+		t.Fatal("fifth session in one scope must be rejected")
+	}
+	if _, ok := s.reserve("scope-b", "default|v1", ""); !ok {
+		t.Fatal("other scope must get its own session budget")
+	}
+	time.Sleep(60 * time.Millisecond)
+	if got := s.count("scope-a"); got != 0 {
+		t.Fatalf("idle sessions not reaped: %d", got)
+	}
+}
+
+func TestDebugSessionStoreCapsAndDrain(t *testing.T) {
+	s := newDebugSessionStore(time.Minute)
+	id, ok := s.reserve("scope", "default|v1", "")
+	if !ok {
+		t.Fatal("reserve failed")
+	}
+	closed := 0
+	if !s.attach(id, func() error { closed++; return nil }) {
+		t.Fatal("attach failed")
+	}
+	for i := 0; i < debugFrameCap; i++ {
+		if !s.appendMessage(id, map[string]any{"type": "frame"}) {
+			t.Fatalf("append %d failed before cap", i)
+		}
+	}
+	if s.appendMessage(id, map[string]any{"type": "frame"}) {
+		t.Fatal("append past the frame cap must fail")
+	}
+	reached := false
+	for i := 0; i < debugFrameCap/debugPollDrain; i++ {
+		messages, closeUp, capped, found := s.poll(id)
+		if !found {
+			t.Fatalf("session vanished in poll %d", i)
+		}
+		if len(messages) != debugPollDrain {
+			t.Fatalf("poll %d drained %d messages", i, len(messages))
+		}
+		if capped {
+			reached = true
+			if closeUp != nil {
+				_ = closeUp()
+			}
+		}
+	}
+	if !reached || closed != 1 {
+		t.Fatalf("frame cap not enforced: reached=%v closed=%d", reached, closed)
+	}
+	if _, _, _, found := s.poll(id); found {
+		t.Fatal("session must be removed at the frame cap")
+	}
+}
+
+func TestDebugRequestRTSPURLOnlyFromServerConfig(t *testing.T) {
+	h := &handler{o: Options{}}
+	action := debugActionFixture()
+	action.Protocol = "rtsp"
+	action.ProtocolOpts = map[string]string{
+		"target": "rtsp://configured.example/live",
+		"url":    "rtsp://annotated.example/live",
+	}
+	req := h.debugRequest(action, debugInput{
+		Fields: map[string]any{"url": "rtsp://169.254.169.254/live", "method": "DESCRIBE"},
+	})
+	if req.Opts["url"] != "rtsp://annotated.example/live" {
+		t.Fatalf("client url must not override the server annotation: %q", req.Opts["url"])
+	}
+	if req.Opts["method"] != "DESCRIBE" {
+		t.Fatalf("non-reserved opts must pass through: %+v", req.Opts)
+	}
+}
+
+func TestHLSStaysBrowserMode(t *testing.T) {
+	h := &handler{o: Options{}}
+	mode, debuggable, reason := h.protocolMode("hls", "GET")
+	if mode != "browser-http" || !debuggable || reason != "" {
+		t.Fatalf("hls mode = %s %v %q", mode, debuggable, reason)
+	}
+	if !isHTTPProtocol("hls") || protocolTransport("hls") != "http" {
+		t.Fatalf("hls transport = %q", protocolTransport("hls"))
+	}
+}

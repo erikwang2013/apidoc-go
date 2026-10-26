@@ -47,6 +47,7 @@ type Action struct {
 	Sort         int               `json:"sort"`
 	ProtocolOpts map[string]string `json:"protocol_opts,omitempty"`
 	Events       []DocEvent        `json:"events,omitempty"`
+	Definitions  []Definition      `json:"definitions,omitempty"`
 }
 
 // DocEvent describes one message of a streaming protocol.
@@ -60,13 +61,16 @@ type DocEvent struct {
 
 // Param describes one input of an action.
 type Param struct {
-	Name     string  `json:"name"`
-	In       string  `json:"in"` // header|query|body|path
-	Type     string  `json:"type"`
-	Desc     string  `json:"desc"`
-	Required bool    `json:"required"`
-	Default  string  `json:"default,omitempty"`
-	Mock     string  `json:"mock,omitempty"`
+	Name     string `json:"name"`
+	In       string `json:"in"` // header|query|body|path
+	Type     string `json:"type"`
+	Desc     string `json:"desc"`
+	Required bool   `json:"required"`
+	Default  string `json:"default,omitempty"`
+	Mock     string `json:"mock,omitempty"`
+	// Field is the wire field id for binary protocols (Thrift field id,
+	// ISO 8583 field number). It is server-side schema, never client input.
+	Field    string  `json:"field,omitempty"`
 	Children []Param `json:"children,omitempty"`
 }
 
@@ -92,4 +96,5 @@ type Doc struct {
 	Sort                     int
 	ProtocolOpts             map[string]string
 	Events                   []DocEvent
+	Definitions              []Definition
 }

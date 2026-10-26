@@ -30,18 +30,25 @@ const (
 
 // Opts wires the server to a store and configuration.
 type Opts struct {
-	Prefix        string
-	Store         *store.Store
-	Auth          auth.Config
-	AppPWs        map[string]string // app key -> per-app password (overrides global)
-	DebugOrigins  []string          // origins allowed CORS access; empty = none
-	GlobalParams  []model.Param     // merged into every action's params
-	PublicHost    string            // fallback absolute debug base URL
-	AppHosts      map[string]string // app key -> absolute debug base URL
-	ShareDir      string            // UIC-1 share records directory
-	Generator     []uiapi.GeneratorSpec
-	CodeTemplates []uiapi.CodeTemplateSpec
-	ShareActions  []uiapi.ShareActionSpec
+	Prefix       string
+	Store        *store.Store
+	Auth         auth.Config
+	AppPWs       map[string]string // app key -> per-app password (overrides global)
+	DebugOrigins []string          // origins allowed CORS access; empty = none
+	GlobalParams []model.Param     // merged into every action's params
+	PublicHost   string            // fallback absolute debug base URL
+	AppHosts     map[string]string // app key -> absolute debug base URL
+	ShareDir     string            // UIC-1 share records directory
+	// DefinitionRoot confines @definition files; empty means the working
+	// directory.
+	DefinitionRoot string
+	Generator      []uiapi.GeneratorSpec
+	CodeTemplates  []uiapi.CodeTemplateSpec
+	ShareActions   []uiapi.ShareActionSpec
+	Debug          uiapi.DebugConfig
+	// UIPath points at a packaged UIC-1 Vue build (index.html, config.js,
+	// assets/); empty disables the bundled UI and serves only the JSON API.
+	UIPath string
 }
 
 // Handler builds the doc JSON API handler: auth middleware, CORS and the
@@ -60,22 +67,31 @@ func Handler(o Opts) http.Handler {
 	mux.HandleFunc("POST /api/login", h.login)
 	mux.HandleFunc("POST /api/app-login", h.appLogin)
 	uiapi.Register(mux, uiapi.Options{
-		Store:         o.Store,
-		Auth:          o.Auth,
-		AppPWs:        o.AppPWs,
-		GlobalParams:  o.GlobalParams,
-		PublicHost:    o.PublicHost,
-		AppHosts:      o.AppHosts,
-		ShareDir:      o.ShareDir,
-		Generator:     o.Generator,
-		CodeTemplates: o.CodeTemplates,
-		ShareActions:  o.ShareActions,
-		CacheClear:    h.clearCache,
-		CacheWarm:     h.warm,
+		Store:          o.Store,
+		Auth:           o.Auth,
+		AppPWs:         o.AppPWs,
+		GlobalParams:   o.GlobalParams,
+		PublicHost:     o.PublicHost,
+		AppHosts:       o.AppHosts,
+		ShareDir:       o.ShareDir,
+		DefinitionRoot: o.DefinitionRoot,
+		Generator:      o.Generator,
+		CodeTemplates:  o.CodeTemplates,
+		ShareActions:   o.ShareActions,
+		Debug:          o.Debug,
+		CacheClear:     h.clearCache,
+		CacheWarm:      h.warm,
 	})
 	h.warm()
+	// Registered routes are more specific than "/", so the API always wins;
+	// unknown API paths are rejected by the UI handler instead of the SPA.
+	var root http.Handler = mux
+	if o.UIPath != "" {
+		mux.Handle("/", newUI(o.UIPath))
+		root = prefixEntry{next: mux, prefix: o.Prefix}
+	}
 	// CORS outermost so even 401s carry the headers the browser needs.
-	return withCORS(o, withAuth(o, mux))
+	return withCORS(o, withAuth(o, root))
 }
 
 type apiHandler struct {
@@ -312,6 +328,17 @@ func (h *apiHandler) exportPayload() (any, error) {
 	p, err := h.o.Store.Project()
 	if err != nil {
 		return nil, err
+	}
+	// Definition annotations are UIC-1 input; the legacy /api export shape must
+	// not change when they are present.
+	for _, app := range p.Apps {
+		for _, version := range app.Versions {
+			for _, controller := range version.Controllers {
+				for _, action := range controller.Actions {
+					action.Definitions = nil
+				}
+			}
+		}
 	}
 	return map[string]any{"code": 0, "msg": "ok", "data": p}, nil
 }

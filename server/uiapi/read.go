@@ -6,6 +6,8 @@ import (
 	"strings"
 
 	"github.com/erikwang2013/apidoc-go/model"
+	protocolparser "github.com/erikwang2013/apidoc-go/parse/protocol"
+	"github.com/erikwang2013/apidoc-go/server/uiapi/debug"
 )
 
 func splitAppKey(key string) (string, string) {
@@ -270,9 +272,10 @@ func (h *handler) detailData(action *model.Action) map[string]any {
 		protocol = "http"
 	}
 	httpProtocol := isHTTPProtocol(protocol)
-	mode, debuggable, reason := protocolMode(protocol)
+	mode, debuggable, reason := h.protocolMode(protocol, action.Method)
 	address := channelAddress(action)
 	fields, defaults := debugFields(action, address, httpProtocol)
+	parsedDefinitions, parsedValidation := protocolparser.Definitions(action, newDefinitionResolver(h.o.DefinitionRoot))
 	data := map[string]any{
 		"name":            action.Title,
 		"title":           action.Title,
@@ -311,17 +314,17 @@ func (h *handler) detailData(action *model.Action) map[string]any {
 		"debug": map[string]any{
 			"mode":             mode,
 			"driver":           protocol,
-			"relayEnabled":     false,
+			"relayEnabled":     strings.HasPrefix(mode, "relay-") && debuggable,
 			"debuggable":       debuggable,
 			"debugReason":      reason,
 			"fields":           fields,
 			"defaults":         defaults,
 			"meta":             map[string]any{},
-			"responseEncoding": responseEncoding(httpProtocol),
+			"responseEncoding": responseEncoding(protocol, httpProtocol),
 			"hints":            "",
 		},
-		"definitions": definitions(action),
-		"validation":  okValidation(),
+		"definitions": parsedDefinitions,
+		"validation":  parsedValidation,
 	}
 	if action.Mock != "" {
 		data["mock"] = action.Mock
@@ -492,7 +495,7 @@ func responseItems(responses []model.Response) ([]map[string]any, []map[string]a
 
 func isHTTPProtocol(protocol string) bool {
 	switch protocol {
-	case "", "http", "http2", "http3":
+	case "", "http", "http2", "http3", "hls":
 		return true
 	}
 	return false
@@ -507,7 +510,7 @@ func protocolLabel(protocol string) string {
 
 func protocolTransport(protocol string) string {
 	switch protocol {
-	case "", "http", "http2", "http3":
+	case "", "http", "http2", "http3", "hls", "soap", "graphql", "jsonrpc", "xmlrpc", "odata", "mcp", "a2a", "webhook":
 		return "http"
 	case "ws", "websocket":
 		return "ws"
@@ -518,23 +521,62 @@ func protocolTransport(protocol string) string {
 	}
 }
 
-func protocolMode(protocol string) (string, bool, string) {
+// protocolMode advertises a relay mode only when this build has the executor
+// and the deployment enabled server-side debug.
+func (h *handler) protocolMode(protocol, method string) (string, bool, string) {
 	switch protocol {
 	case "", "http", "http2", "http3":
+		// HTTP ids stay browser modes (Rust/plan parity); tagged builds also
+		// expose http3 through the relay capability.
+		return "browser-http", true, ""
+	case "hls":
 		return "browser-http", true, ""
 	case "ws", "websocket":
 		return "browser-websocket", true, ""
 	case "sse":
 		return "browser-sse", true, ""
-	case "mqtt", "stomp", "kafka":
-		return "relay-stream", false, "server-side debug is not available in this backend version"
-	default:
-		return "relay-unary", false, "server-side debug is not available in this backend version"
 	}
+	kind := protocol
+	if kind == "rawsocket" {
+		kind = "raw"
+	}
+	hasUnary := debug.HasExecutor(kind)
+	hasStream := debug.HasStream(kind)
+	if !hasUnary && !hasStream {
+		return "relay-unary", false, "server executor for `" + protocol + "` is not compiled in this build"
+	}
+	// Messaging ids default to a stream session; publish/send actions stay
+	// unary like PHP, and kafka/xmpp are stream per the 3G.4 plan.
+	mode := "relay-unary"
+	switch kind {
+	case "mqtt", "stomp", "amqp":
+		action := strings.ToLower(method)
+		if action != "publish" && action != "send" {
+			mode = "relay-stream"
+		}
+	case "kafka", "xmpp":
+		mode = "relay-stream"
+	}
+	if mode == "relay-unary" && !hasUnary {
+		mode = "relay-stream"
+	}
+	if mode == "relay-stream" && !hasStream {
+		mode = "relay-unary"
+	}
+	if !h.o.Debug.EnableServerSide {
+		return mode, false, "server-side debug is disabled"
+	}
+	return mode, true, ""
 }
 
-func responseEncoding(httpProtocol bool) string {
+// responseEncoding matches Rust/PHP: HTTP-compatible relay ids decode JSON
+// even though they stay relay-unary because they execute via debugSend.
+func responseEncoding(protocol string, httpProtocol bool) string {
 	if httpProtocol {
+		return "json"
+	}
+	switch protocol {
+	case "soap", "graphql", "jsonrpc", "xmlrpc", "odata", "mcp", "a2a", "webhook":
 		return "json"
 	}
 	return "text"
@@ -572,41 +614,4 @@ func debugFields(action *model.Action, address string, httpProtocol bool) ([]map
 		defaults[key] = value
 	}
 	return fields, defaults
-}
-
-func definitions(action *model.Action) []map[string]any {
-	if len(action.Events) == 0 {
-		return []map[string]any{}
-	}
-	messages := make([]map[string]any, 0, len(action.Events))
-	for _, event := range action.Events {
-		direction := "request"
-		if event.Direction == "in" {
-			direction = "response"
-		}
-		message := map[string]any{
-			"name":      event.Name,
-			"direction": direction,
-			"fields": []map[string]any{{
-				"name": "body", "type": event.Type, "desc": event.Desc, "require": true,
-			}},
-			"sampleValidation": okValidation(),
-		}
-		if event.Mock != "" {
-			message["sample"] = event.Mock
-		}
-		messages = append(messages, message)
-	}
-	return []map[string]any{{
-		"format":     "asyncapi",
-		"source":     "inline",
-		"operation":  action.Method,
-		"meta":       map[string]any{"protocol": action.Protocol},
-		"messages":   messages,
-		"validation": okValidation(),
-	}}
-}
-
-func okValidation() map[string]any {
-	return map[string]any{"ok": true, "errors": []any{}, "warnings": []any{}}
 }

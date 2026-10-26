@@ -77,6 +77,7 @@ func (s *Store) Register(method, u string, d model.Doc) {
 		Title: d.Title, Desc: d.Desc, Author: d.Author,
 		Params: d.Params, Responses: d.Responses, Markdown: d.Markdown,
 		Mock: d.Mock, Sort: d.Sort, ProtocolOpts: d.ProtocolOpts, Events: d.Events,
+		Definitions: d.Definitions,
 	}
 	if old, ok := s.byID[id]; ok {
 		*old = *a // keep tree position, replace content
