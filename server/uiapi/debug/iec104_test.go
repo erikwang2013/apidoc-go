@@ -92,6 +92,17 @@ func TestIEC104InterrogationGolden(t *testing.T) {
 	}
 }
 
+func TestIEC104RowCap(t *testing.T) {
+	data := []byte{}
+	for i := 0; i < 80; i++ {
+		data = append(data, 102, 0xff, 0x14, 0, 1, 0, 1, 0, 0)
+	}
+	_, err := iec104ParseASDUs(data)
+	if err == nil || !strings.Contains(err.Error(), "exceeds 10000 rows") {
+		t.Fatalf("err = %v", err)
+	}
+}
+
 func TestIEC104SinglePointRead(t *testing.T) {
 	address := iec104TestServer(t,
 		[]byte{102, 0x01, 0x05, 0x00, 0x01, 0x00, 0x05, 0x00, 0x00},

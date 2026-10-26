@@ -214,6 +214,8 @@ func iec104Collect(cfg Config, conn net.Conn, deadline time.Time) ([]any, uint16
 	return rows, receivedSeq, nil
 }
 
+const iec104MaxRows = 10000
+
 func iec104ParseASDUs(data []byte) ([]any, error) {
 	rows := []any{}
 	for len(data) > 0 {
@@ -248,6 +250,9 @@ func iec104ParseASDUs(data []byte) ([]any, error) {
 				return nil, fmt.Errorf("truncated iec104 value")
 			}
 			data = data[used:]
+			if len(rows) >= iec104MaxRows {
+				return nil, fmt.Errorf("iec104 response exceeds %d rows", iec104MaxRows)
+			}
 			rows = append(rows, map[string]any{
 				"type_id": typeID,
 				"cause":   cause,
