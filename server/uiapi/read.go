@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/erikwang2013/apidoc-go/model"
+	protocolparser "github.com/erikwang2013/apidoc-go/parse/protocol"
 	"github.com/erikwang2013/apidoc-go/server/uiapi/debug"
 )
 
@@ -274,6 +275,7 @@ func (h *handler) detailData(action *model.Action) map[string]any {
 	mode, debuggable, reason := h.protocolMode(protocol, action.Method)
 	address := channelAddress(action)
 	fields, defaults := debugFields(action, address, httpProtocol)
+	parsedDefinitions, parsedValidation := protocolparser.Definitions(action, newDefinitionResolver(h.o.DefinitionRoot))
 	data := map[string]any{
 		"name":            action.Title,
 		"title":           action.Title,
@@ -321,8 +323,8 @@ func (h *handler) detailData(action *model.Action) map[string]any {
 			"responseEncoding": responseEncoding(protocol, httpProtocol),
 			"hints":            "",
 		},
-		"definitions": definitions(action),
-		"validation":  okValidation(),
+		"definitions": parsedDefinitions,
+		"validation":  parsedValidation,
 	}
 	if action.Mock != "" {
 		data["mock"] = action.Mock
@@ -610,41 +612,4 @@ func debugFields(action *model.Action, address string, httpProtocol bool) ([]map
 		defaults[key] = value
 	}
 	return fields, defaults
-}
-
-func definitions(action *model.Action) []map[string]any {
-	if len(action.Events) == 0 {
-		return []map[string]any{}
-	}
-	messages := make([]map[string]any, 0, len(action.Events))
-	for _, event := range action.Events {
-		direction := "request"
-		if event.Direction == "in" {
-			direction = "response"
-		}
-		message := map[string]any{
-			"name":      event.Name,
-			"direction": direction,
-			"fields": []map[string]any{{
-				"name": "body", "type": event.Type, "desc": event.Desc, "require": true,
-			}},
-			"sampleValidation": okValidation(),
-		}
-		if event.Mock != "" {
-			message["sample"] = event.Mock
-		}
-		messages = append(messages, message)
-	}
-	return []map[string]any{{
-		"format":     "asyncapi",
-		"source":     "inline",
-		"operation":  action.Method,
-		"meta":       map[string]any{"protocol": action.Protocol},
-		"messages":   messages,
-		"validation": okValidation(),
-	}}
-}
-
-func okValidation() map[string]any {
-	return map[string]any{"ok": true, "errors": []any{}, "warnings": []any{}}
 }

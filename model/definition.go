@@ -1,8 +1,8 @@
 package model
 
 // Definition declares an external protocol definition (OpenAPI, GraphQL, proto,
-// ...). It is input metadata only; `/api` output is unchanged when no action
-// declares one.
+// ...). It is input metadata only: the legacy `/api` export strips it, while the
+// UIC detail endpoint renders it.
 type Definition struct {
 	File           string `json:"file,omitempty"`
 	Inline         string `json:"inline,omitempty"`

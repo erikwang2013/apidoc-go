@@ -27,10 +27,13 @@ type Options struct {
 	AppHosts     map[string]string
 	// ShareDir is where share records live; empty means a directory under
 	// os.TempDir().
-	ShareDir      string
-	Generator     []GeneratorSpec
-	CodeTemplates []CodeTemplateSpec
-	ShareActions  []ShareActionSpec
+	ShareDir string
+	// DefinitionRoot confines @definition files. Empty means the process
+	// working directory.
+	DefinitionRoot string
+	Generator      []GeneratorSpec
+	CodeTemplates  []CodeTemplateSpec
+	ShareActions   []ShareActionSpec
 	// CacheClear/CacheWarm are wired by server.Handler to the response cache;
 	// nil means cache management is unavailable.
 	CacheClear func()
