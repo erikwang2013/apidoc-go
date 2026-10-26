@@ -1,6 +1,7 @@
 package protocol
 
 import (
+	"strconv"
 	"strings"
 )
 
@@ -16,7 +17,7 @@ func parseJSONRPC(ctx *Context, content string) (Parsed, *ParseError) {
 	if methods == nil || !methods.IsArrayLike() {
 		methods = Object()
 	}
-	names := methods.Keys()
+	names := jsonRPCKeys(methods)
 	if len(names) == 0 {
 		ctx.Error("JSON-RPC methods are missing", 0, 0)
 		return emptyParsed(), nil
@@ -30,7 +31,7 @@ func parseJSONRPC(ctx *Context, content string) (Parsed, *ParseError) {
 			return emptyParsed(), nil
 		}
 	}
-	method := methods.Get(wanted)
+	method := jsonRPCGet(methods, wanted)
 	if method == nil || !method.IsArrayLike() {
 		ctx.Error("operation not found: "+wanted+"; candidates: "+strings.Join(names, ", "), 0, 0)
 		return emptyParsed(), nil
@@ -55,6 +56,36 @@ func parseJSONRPC(ctx *Context, content string) (Parsed, *ParseError) {
 		validateJSONRPCSample(sample, wanted, paramsSchema, resultSchema, messages, refs, ctx)
 	}
 	return Parsed{Operation: wanted, Messages: messages, Meta: map[string]any{}}, nil
+}
+
+// jsonRPCKeys/jsonRPCGet accept PHP arrays: `methods` may be a JSON list, whose
+// PHP keys are the numeric indices.
+func jsonRPCKeys(methods *Node) []string {
+	if methods == nil {
+		return nil
+	}
+	if methods.Kind == arrayNode {
+		keys := make([]string, len(methods.Arr))
+		for i := range methods.Arr {
+			keys[i] = strconv.Itoa(i)
+		}
+		return keys
+	}
+	return methods.Keys()
+}
+
+func jsonRPCGet(methods *Node, key string) *Node {
+	if methods == nil {
+		return nil
+	}
+	if methods.Kind == arrayNode {
+		index, err := strconv.Atoi(key)
+		if err != nil || index < 0 || index >= len(methods.Arr) {
+			return nil
+		}
+		return methods.Arr[index]
+	}
+	return methods.Get(key)
 }
 
 func validateJSONRPCSample(sample, method string, paramsSchema, resultSchema *Node, messages []map[string]any, refs *RefCtx, ctx *Context) {

@@ -148,6 +148,9 @@ func parseGraphQLDocument(ctx *Context, content string, types *Node) *ParseError
 			skipGraphQLDefinition(ts)
 		}
 	}
+	if err := ts.TriviaError(); err != nil {
+		return err
+	}
 	return nil
 }
 

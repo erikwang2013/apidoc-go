@@ -96,8 +96,9 @@ func parseWSDL(ctx *Context, content string) (Parsed, *ParseError) {
 	if selected == nil {
 		return emptyParsed(), nil
 	}
-	requestFields := wsdlMessageFields(selected.operation.input, messages, elements, complexTypes, simpleTypes)
-	responseFields := wsdlMessageFields(selected.operation.output, messages, elements, complexTypes, simpleTypes)
+	budget := newExpansionBudget()
+	requestFields := wsdlMessageFields(selected.operation.input, messages, elements, complexTypes, simpleTypes, ctx, budget)
+	responseFields := wsdlMessageFields(selected.operation.output, messages, elements, complexTypes, simpleTypes, ctx, budget)
 	requestName := selected.operation.input
 	if requestName == "" {
 		requestName = "Request"
@@ -269,7 +270,7 @@ func wsdlSimpleType(simpleType *XMLNode) *Node {
 	return values
 }
 
-func wsdlMessageFields(messageName string, messages, elements, complexTypes, simpleTypes *Node) []map[string]any {
+func wsdlMessageFields(messageName string, messages, elements, complexTypes, simpleTypes *Node, ctx *Context, budget *expansionBudget) []map[string]any {
 	if messageName == "" {
 		return nil
 	}
@@ -287,7 +288,7 @@ func wsdlMessageFields(messageName string, messages, elements, complexTypes, sim
 				if elementFields == nil {
 					elementFields = ArrayNode()
 				}
-				for _, field := range wsdlResolveFields(elementFields, elements, complexTypes, simpleTypes, nil) {
+				for _, field := range wsdlResolveFields(elementFields, elements, complexTypes, simpleTypes, nil, ctx, budget) {
 					fields = append(fields, field.ToAny().(map[string]any))
 				}
 				continue
@@ -304,20 +305,25 @@ func wsdlMessageFields(messageName string, messages, elements, complexTypes, sim
 	return fields
 }
 
-func wsdlResolveFields(fields, elements, complexTypes, simpleTypes *Node, visited []string) []*Node {
+func wsdlResolveFields(fields, elements, complexTypes, simpleTypes *Node, visited []string, ctx *Context, budget *expansionBudget) []*Node {
 	result := []*Node{}
 	for _, entry := range entries(fields) {
+		if !budget.take(ctx) {
+			break
+		}
 		field := entry.Value
 		typeName := field.Get("typeName").ScalarString()
 		if typeName != "" && complexTypes.Get(typeName) != nil && !containsString(visited, typeName) {
-			nextVisited := append(append([]string{}, visited...), typeName)
+			// PHP appends to its copy-on-write local, so later siblings see it
+			// and the re-resolution below keeps the cycle guard.
+			visited = append(visited, typeName)
 			field.Set("type", StringNode("object"))
-			children := wsdlResolveFields(complexTypes.Get(typeName), elements, complexTypes, simpleTypes, nextVisited)
+			children := wsdlResolveFields(complexTypes.Get(typeName), elements, complexTypes, simpleTypes, visited, ctx, budget)
 			field.Set("children", arrayFromNodes(children))
 		} else if typeName != "" {
 			if element := elements.Get(typeName); element != nil {
 				field.Set("type", StringNode("object"))
-				children := wsdlResolveFields(element.Get("fields"), elements, complexTypes, simpleTypes, visited)
+				children := wsdlResolveFields(element.Get("fields"), elements, complexTypes, simpleTypes, visited, ctx, budget)
 				field.Set("children", arrayFromNodes(children))
 			}
 		}
@@ -326,7 +332,7 @@ func wsdlResolveFields(fields, elements, complexTypes, simpleTypes *Node, visite
 			if children == nil {
 				children = ArrayNode()
 			}
-			field.Set("children", arrayFromNodes(wsdlResolveFields(children, elements, complexTypes, simpleTypes, visited)))
+			field.Set("children", arrayFromNodes(wsdlResolveFields(children, elements, complexTypes, simpleTypes, visited, ctx, budget)))
 		}
 		result = append(result, field)
 	}

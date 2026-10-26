@@ -452,3 +452,155 @@ func quoteJSON(value string) string {
 	replacer := strings.NewReplacer(`\`, `\\`, `"`, `\"`, "\x00", `\u0000`)
 	return `"` + replacer.Replace(value) + `"`
 }
+
+func TestTruncatedXMLDoesNotPanic(t *testing.T) {
+	for _, format := range []string{"edmx", "wsdl", "xml-rpc"} {
+		definition := Parse(format, "x.xml", "<a>", Options{}, DefaultLimits(), NoResolver{})
+		if definition.Validation.OK || len(definition.Validation.Errors) == 0 {
+			t.Fatalf("%s: expected an XML parse error: %#v", format, definition.Validation)
+		}
+		if message := definition.Validation.Errors[0].Message; !strings.Contains(message, "XML parse error") ||
+			!strings.Contains(message, "unexpected EOF") {
+			t.Fatalf("%s: error = %q", format, message)
+		}
+	}
+}
+
+const recursiveWSDL = `<definitions xmlns="http://schemas.xmlsoap.org/wsdl/" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:tns="urn:t">
+  <types><xsd:schema targetNamespace="urn:t">
+    <xsd:element name="Start"><xsd:complexType><xsd:sequence>
+      <xsd:element name="root" type="tns:Child"/>
+    </xsd:sequence></xsd:complexType></xsd:element>
+    <xsd:complexType name="Child"><xsd:sequence>
+      <xsd:element name="self" type="tns:Child"/>
+      <xsd:element name="other" type="tns:Other"/>
+    </xsd:sequence></xsd:complexType>
+    <xsd:complexType name="Other"><xsd:sequence>
+      <xsd:element name="back" type="tns:Child"/>
+    </xsd:sequence></xsd:complexType>
+  </xsd:schema></types>
+  <message name="Req"><part name="p" element="tns:Start"/></message>
+  <message name="Res"><part name="p" element="tns:Start"/></message>
+  <portType name="PortType"><operation name="Op"><input message="tns:Req"/><output message="tns:Res"/></operation></portType>
+  <binding name="Binding" type="tns:PortType"/>
+  <service name="Svc"><port name="Port" binding="tns:Binding"/></service>
+</definitions>`
+
+func TestWSDLRecursiveComplexTypeTerminates(t *testing.T) {
+	definition := Parse("wsdl", "x.wsdl", recursiveWSDL, Options{Operation: "Svc/Port/Op"}, DefaultLimits(), NoResolver{})
+	if !definition.Validation.OK || len(definition.Messages) != 2 {
+		t.Fatalf("definition: %#v", definition)
+	}
+	root := field(t, definition.Messages[0], 0)
+	if root["name"] != "root" || root["type"] != "object" {
+		t.Fatalf("root field: %#v", root)
+	}
+	children, _ := root["children"].([]any)
+	if len(children) != 2 {
+		t.Fatalf("children: %#v", root["children"])
+	}
+	self := children[0].(map[string]any)
+	other := children[1].(map[string]any)
+	if self["name"] != "self" || other["name"] != "other" {
+		t.Fatalf("children: %#v", root["children"])
+	}
+	if _, expanded := self["children"]; expanded {
+		t.Fatalf("recursive self reference must stay ref-only: %#v", self)
+	}
+}
+
+const duplicateSiblingEDMX = `<edmx:Edmx xmlns:edmx="http://docs.oasis-open.org/odata/ns/edmx" Version="4.0">
+  <edmx:DataServices><Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="Demo">
+    <EntityType Name="E0">
+      <Property Name="id" Type="Edm.Int32"/>
+      <NavigationProperty Name="p1" Type="Demo.E1"/>
+      <NavigationProperty Name="p2" Type="Demo.E1"/>
+    </EntityType>
+    <EntityType Name="E1"><Property Name="name" Type="Edm.String"/></EntityType>
+    <EntityContainer Name="C"><EntitySet Name="Root" EntityType="Demo.E0"/></EntityContainer>
+  </Schema></edmx:DataServices>
+</edmx:Edmx>`
+
+func TestEDMXSiblingVisitedMatchesPHP(t *testing.T) {
+	definition := Parse("edmx", "x.xml", duplicateSiblingEDMX, Options{Operation: "Root"}, DefaultLimits(), NoResolver{})
+	if !definition.Validation.OK {
+		t.Fatalf("definition: %#v", definition.Validation)
+	}
+	p1 := field(t, definition.Messages[0], 1)
+	p2 := field(t, definition.Messages[0], 2)
+	if children, _ := p1["children"].([]any); len(children) != 1 {
+		t.Fatalf("first sibling must expand: %#v", p1)
+	}
+	if _, expanded := p2["children"]; expanded {
+		t.Fatalf("second reference to the same type must stay ref-only: %#v", p2)
+	}
+}
+
+func TestExpansionBudgetCapsOutput(t *testing.T) {
+	previous := maxResolvedFields
+	maxResolvedFields = 1
+	defer func() { maxResolvedFields = previous }()
+	definition := Parse("edmx", "x.xml", duplicateSiblingEDMX, Options{Operation: "Root"}, DefaultLimits(), NoResolver{})
+	if fields := definition.Messages[0]["fields"].([]map[string]any); len(fields) != 1 {
+		t.Fatalf("fields: %#v", fields)
+	}
+	assertError(t, definition.Validation, "definition expansion exceeds max_fields")
+}
+
+func TestAsyncAPIEmptyMessageNameWins(t *testing.T) {
+	content := `{"asyncapi":"2.6.0","channels":{"c":{"publish":{"message":` +
+		`{"name":"","payload":{"title":"FromTitle","type":"object","properties":{"a":{"type":"string"}}}}}}}}`
+	definition := Parse("asyncapi", "x.json", content, Options{Operation: "c:publish"}, DefaultLimits(), NoResolver{})
+	if !definition.Validation.OK || definition.Messages[0]["name"] != "" {
+		t.Fatalf("definition: %#v", definition)
+	}
+}
+
+func TestJSONSchemaNullTitleAndSignatureMeta(t *testing.T) {
+	nullTitle := Parse("json-schema", "x.json", `{"title":null,"type":"object"}`, Options{}, DefaultLimits(), NoResolver{})
+	if nullTitle.Messages[0]["name"] != "Body" {
+		t.Fatalf("null title name: %#v", nullTitle.Messages[0]["name"])
+	}
+	listSignature := Parse("json-schema", "x.json", `{"type":"object","x-webhook-signature":["a","b"]}`, Options{}, DefaultLimits(), NoResolver{})
+	if len(listSignature.Meta) != 0 {
+		t.Fatalf("list signature must stay an object per the contract: %#v", listSignature.Meta)
+	}
+	objectSignature := Parse("json-schema", "x.json", `{"type":"object","x-webhook-signature":{"a":"b"}}`, Options{}, DefaultLimits(), NoResolver{})
+	if objectSignature.Meta["a"] != "b" {
+		t.Fatalf("object signature: %#v", objectSignature.Meta)
+	}
+}
+
+func TestGraphQLUnterminatedBlockComment(t *testing.T) {
+	definition := Parse("graphql", "x.graphql", "type Query { user: String }\n/*", Options{}, DefaultLimits(), NoResolver{})
+	assertError(t, definition.Validation, "unterminated block comment")
+}
+
+func TestJSONRPCListMethods(t *testing.T) {
+	content := `{"methods":[{"params":{"type":"object","properties":{"id":{"type":"integer"}}},` +
+		`"result":{"type":"object","properties":{"name":{"type":"string"}}}}]}`
+	definition := Parse("json-rpc", "methods.json", content, Options{Operation: "0"}, DefaultLimits(), NoResolver{})
+	if !definition.Validation.OK || definition.Operation != "0" {
+		t.Fatalf("definition: %#v", definition)
+	}
+	if got := field(t, definition.Messages[0], 0); got["name"] != "id" {
+		t.Fatalf("params field: %#v", got)
+	}
+}
+
+func TestWSDLElementCycleIsBounded(t *testing.T) {
+	content := `<definitions xmlns="http://schemas.xmlsoap.org/wsdl/" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:tns="urn:t">
+  <types><xsd:schema targetNamespace="urn:t">
+    <xsd:element name="Loop"><xsd:complexType><xsd:sequence>
+      <xsd:element name="next" type="tns:Loop"/>
+    </xsd:sequence></xsd:complexType></xsd:element>
+  </xsd:schema></types>
+  <message name="Req"><part name="p" element="tns:Loop"/></message>
+  <message name="Res"><part name="p" element="tns:Loop"/></message>
+  <portType name="PortType"><operation name="Op"><input message="tns:Req"/><output message="tns:Res"/></operation></portType>
+  <binding name="Binding" type="tns:PortType"/>
+  <service name="Svc"><port name="Port" binding="tns:Binding"/></service>
+</definitions>`
+	definition := Parse("wsdl", "x.wsdl", content, Options{Operation: "Svc/Port/Op"}, DefaultLimits(), NoResolver{})
+	assertError(t, definition.Validation, "definition expansion exceeds max_fields")
+}

@@ -10,6 +10,7 @@ type TokenStream struct {
 	pos    int
 	line   int64
 	column int64
+	err    *ParseError
 }
 
 func NewTokenStream(source string) *TokenStream {
@@ -60,6 +61,9 @@ func (t *TokenStream) Consume(chars string) (rune, bool) {
 
 func (t *TokenStream) Expect(expected rune) *ParseError {
 	t.skipTrivia()
+	if t.err != nil {
+		return t.err
+	}
 	if t.pos >= len(t.source) || t.source[t.pos] != expected {
 		return t.Errorf("expected \"" + string(expected) + "\"")
 	}
@@ -77,6 +81,9 @@ func (t *TokenStream) PeekIdentifier() string {
 
 func (t *TokenStream) Identifier() (string, *ParseError) {
 	t.skipTrivia()
+	if t.err != nil {
+		return "", t.err
+	}
 	value := t.scanIdentifier()
 	if value == "" {
 		return "", t.Errorf("expected identifier")
@@ -89,6 +96,9 @@ func (t *TokenStream) Identifier() (string, *ParseError) {
 
 func (t *TokenStream) Number() (string, *ParseError) {
 	t.skipTrivia()
+	if t.err != nil {
+		return "", t.err
+	}
 	start := t.pos
 	length := len(t.source)
 	if t.pos < length && t.source[t.pos] == '-' {
@@ -127,6 +137,9 @@ func (t *TokenStream) Number() (string, *ParseError) {
 
 func (t *TokenStream) String() (string, *ParseError) {
 	t.skipTrivia()
+	if t.err != nil {
+		return "", t.err
+	}
 	if t.pos >= len(t.source) {
 		return "", t.Errorf("expected string")
 	}
@@ -177,7 +190,11 @@ func (t *TokenStream) skipTrivia() {
 				t.advance()
 			}
 			if t.pos >= len(t.source) {
-				// Truncated block comment: the next token call reports EOF.
+				// Truncated block comment: EOF() cannot report an error, so keep
+				// it for the caller to check after the parse loop.
+				if t.err == nil {
+					t.err = t.Errorf("unterminated block comment")
+				}
 				return
 			}
 			t.advance()
@@ -187,6 +204,8 @@ func (t *TokenStream) skipTrivia() {
 		break
 	}
 }
+
+func (t *TokenStream) TriviaError() *ParseError { return t.err }
 
 func (t *TokenStream) Line() int64   { return t.line }
 func (t *TokenStream) Column() int64 { return t.column }

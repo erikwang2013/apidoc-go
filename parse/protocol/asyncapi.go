@@ -68,17 +68,17 @@ func parseAsyncAPI(ctx *Context, content string) (Parsed, *ParseError) {
 		}
 		payload = expandSchema(payload, messageRoot, ctx, LoaderJSONOrYAML, messageFile)
 		fields := SchemaFields(payload, ctx, refs, 0)
-		name := ""
+		// PHP isset(): a present empty name wins; only absent/null falls back.
+		name, hasName := "", false
 		if node := messageNode.Get("name"); node != nil && node.Kind != nullNode {
-			name = node.ScalarString()
+			name, hasName = node.ScalarString(), true
 		}
-		if name == "" {
+		if !hasName {
 			if node := payload.Get("title"); node != nil && node.Kind != nullNode {
 				name = node.ScalarString()
+			} else {
+				name = "Message"
 			}
-		}
-		if name == "" {
-			name = "Message"
 		}
 		message := newMessage(name, direction, fields)
 		if sample != "" {

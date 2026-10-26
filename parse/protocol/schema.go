@@ -543,6 +543,33 @@ func cloneSet(set map[string]bool) map[string]bool {
 	return out
 }
 
+// maxResolvedFields bounds recursive EDMX/WSDL field expansion. It is a var so
+// tests can exercise the cap with tiny graphs.
+var maxResolvedFields = 10_000
+
+// expansionBudget is shared by the request and response of one definition so a
+// malicious schema cannot multiply output beyond the input cap.
+type expansionBudget struct {
+	remaining int
+	reported  bool
+}
+
+func newExpansionBudget() *expansionBudget {
+	return &expansionBudget{remaining: maxResolvedFields}
+}
+
+func (b *expansionBudget) take(ctx *Context) bool {
+	if b.remaining > 0 {
+		b.remaining--
+		return true
+	}
+	if !b.reported {
+		b.reported = true
+		ctx.Error("definition expansion exceeds max_fields", 0, 0)
+	}
+	return false
+}
+
 func containsString(list []string, value string) bool {
 	for _, item := range list {
 		if item == value {

@@ -25,7 +25,7 @@ func parseJSONSchema(ctx *Context, content string) (Parsed, *ParseError) {
 	expanded := expandSchema(schema, root, ctx, LoaderJSON, "")
 	name := messageName
 	if name == "" {
-		if title := schema.Get("title"); title != nil {
+		if title := schema.Get("title"); title != nil && title.Kind != nullNode {
 			name = title.ScalarString()
 		} else {
 			name = "Body"
@@ -45,6 +45,8 @@ func parseJSONSchema(ctx *Context, content string) (Parsed, *ParseError) {
 	}
 	meta := map[string]any{}
 	if signature := schema.Get("x-webhook-signature"); signature != nil && signature.IsArrayLike() {
+		// Divergence from PHP: it returns any array here, but the UIC contract
+		// requires Definition.meta to be an object, so list signatures are ignored.
 		if object, ok := signature.ToAny().(map[string]any); ok {
 			meta = object
 		}

@@ -47,6 +47,12 @@ func TestSharedFixturesMatchPHPReference(t *testing.T) {
 	decodeJSONFile(t, "parity/cases.json", &cases)
 	var expected map[string]map[string]any
 	decodeJSONFile(t, "parity/php.json", &expected)
+	// php.json is a checked-in static snapshot of the PHP adapters (there is no
+	// portable regeneration script, matching the Rust suite); the case list and
+	// oracle must stay in lockstep.
+	if len(expected) != len(cases) {
+		t.Fatalf("oracle has %d entries for %d cases", len(expected), len(cases))
+	}
 
 	for _, c := range cases {
 		name := c["name"].(string)
@@ -77,21 +83,35 @@ func TestSharedFixturesMatchPHPReference(t *testing.T) {
 		definition := Parse(format, source, content, options, DefaultLimits(), resolver)
 
 		actual := toGeneric(t, map[string]any{
+			"format":    definition.Format,
+			"source":    definition.Source,
 			"operation": definition.Operation,
 			"messages":  definition.Messages,
 			"meta":      definition.Meta,
+			"ok":        definition.Validation.OK,
 			"errors":    definition.Validation.Errors,
 			"warnings":  definition.Validation.Warnings,
 		})
-		want := expected[name]
+		want, exists := expected[name]
+		if !exists {
+			t.Fatalf("%s missing from php.json", name)
+		}
 		wantMeta := want["meta"]
 		if list, ok := wantMeta.([]any); ok && len(list) == 0 {
+			// PHP empty meta is []; the UIC contract requires an object, so the
+			// intentional divergence is normalized here (see json_schema.go).
 			wantMeta = map[string]any{}
 		}
+		wantErrors, _ := want["errors"].([]any)
 		want = map[string]any{
+			// format/source/ok are not in the legacy oracle; derive them from
+			// the case inputs and the PHP error list.
+			"format":    format,
+			"source":    source,
 			"operation": want["operation"],
 			"messages":  want["messages"],
 			"meta":      wantMeta,
+			"ok":        len(wantErrors) == 0,
 			"errors":    want["errors"],
 			"warnings":  want["warnings"],
 		}

@@ -71,7 +71,7 @@ func parseEDMX(ctx *Context, content string) (Parsed, *ParseError) {
 		if source == nil {
 			source = ArrayNode()
 		}
-		fields = edmxResolveFields(source, entities, complexTypes, nil)
+		fields = edmxResolveFields(source, entities, complexTypes, nil, ctx, newExpansionBudget())
 		direction = "response"
 	} else {
 		source := functions.Get(wanted)
@@ -118,13 +118,17 @@ func edmxProperties(node *XMLNode) *Node {
 	return fields
 }
 
-func edmxResolveFields(fields, entities, complexTypes *Node, visited []string) []*Node {
+func edmxResolveFields(fields, entities, complexTypes *Node, visited []string, ctx *Context, budget *expansionBudget) []*Node {
 	result := []*Node{}
 	for _, entry := range entries(fields) {
+		if !budget.take(ctx) {
+			break
+		}
 		field := entry.Value
 		reference := field.Get("ref").ScalarString()
 		if reference != "" && !containsString(visited, reference) {
-			nextVisited := append(append([]string{}, visited...), reference)
+			// PHP appends to its copy-on-write local, so later siblings see it.
+			visited = append(visited, reference)
 			target := entities.Get(reference)
 			if target == nil {
 				target = complexTypes.Get(reference)
@@ -132,7 +136,7 @@ func edmxResolveFields(fields, entities, complexTypes *Node, visited []string) [
 			if target == nil {
 				target = ArrayNode()
 			}
-			field.Set("children", arrayFromNodes(edmxResolveFields(target, entities, complexTypes, nextVisited)))
+			field.Set("children", arrayFromNodes(edmxResolveFields(target, entities, complexTypes, visited, ctx, budget)))
 		}
 		result = append(result, field)
 	}

@@ -156,11 +156,14 @@ func xmlElement(start xml.StartElement) *XMLNode {
 
 func xmlError(content string, offset int64, message string) *ParseError {
 	index := int(offset)
-	if index > len(content) {
+	if index >= len(content) {
+		// InputOffset is exactly len(content) for an unexpected EOF; index the
+		// whole prefix instead of content[len(content)].
 		index = len(content)
-	}
-	for index > 0 && !utf8.RuneStart(content[index]) {
-		index--
+	} else {
+		for index > 0 && !utf8.RuneStart(content[index]) {
+			index--
+		}
 	}
 	prefix := content[:index]
 	line := int64(strings.Count(prefix, "\n")) + 1
