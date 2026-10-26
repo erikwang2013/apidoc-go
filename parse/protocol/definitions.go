@@ -1,6 +1,8 @@
 package protocol
 
 import (
+	"strings"
+
 	"github.com/erikwang2013/apidoc-go/model"
 )
 
@@ -32,24 +34,39 @@ func Definitions(action *model.Action, resolver Resolver) ([]Definition, Validat
 }
 
 func renderDefinition(action *model.Action, declaration model.Definition, resolver Resolver) Definition {
-	if declaration.File == "" && declaration.Inline == "" {
-		return inlineDefinition(action)
-	}
 	source := declaration.File
 	if source == "" {
 		source = "inline"
 	}
 	content := declaration.Inline
-	if content == "" {
-		_, read, ok := resolver.Read(declaration.File)
-		if !ok {
-			message := resolver.Failure()
+	if declaration.File == "" && content == "" {
+		// PHP: an inline format (or a protocol without a default format) renders
+		// the annotation params/responses; anything else waits for a file.
+		format := declaration.Format
+		if format == "" {
+			format = "auto"
+		}
+		if format == "inline" || defaultDefinitionFormat(action.Protocol) == "" {
+			return inlineDefinition(action)
+		}
+		return pendingDefinition(action.Protocol)
+	}
+	if declaration.File != "" && content == "" {
+		normalized, valid := normalizeDefinitionPath(declaration.File)
+		var message string
+		var ok bool
+		if valid {
+			content, message, ok = readDefinitionFile(resolver, normalized)
+		}
+		if !valid || !ok {
 			if message == "" {
 				message = "definition file not found or outside allowed roots"
 			}
-			return failedDefinition(definitionFormat(action, declaration, ""), source, declaration.Operation, message)
+			if isReadFailure(message) {
+				return failedDefinition(definitionFormat(action, declaration, ""), source, declaration.Operation, message)
+			}
+			return failedDefinition(resolveFailureFormat(action, declaration), source, "", message)
 		}
-		content = read
 	}
 	format := definitionFormat(action, declaration, content)
 	options := Options{
@@ -62,15 +79,20 @@ func renderDefinition(action *model.Action, declaration model.Definition, resolv
 	}
 	var sampleErrors []Diagnostic
 	if declaration.SampleFile != "" {
-		_, sample, ok := resolver.Read(declaration.SampleFile)
-		if !ok {
-			message := resolver.Failure()
-			if message == "" {
-				message = "sample file not found or outside allowed roots"
+		if normalized, valid := normalizeDefinitionPath(declaration.SampleFile); valid {
+			sample, message, ok := readDefinitionFile(resolver, normalized)
+			if ok {
+				options.Sample = sample
+			} else {
+				if message == "" {
+					message = "sample file not found or outside allowed roots"
+				}
+				sampleErrors = append(sampleErrors, Diagnostic{Severity: "error", Message: message})
 			}
-			sampleErrors = append(sampleErrors, Diagnostic{Severity: "error", Message: message})
 		} else {
-			options.Sample = sample
+			sampleErrors = append(sampleErrors, Diagnostic{
+				Severity: "error", Message: "sample file not found or outside allowed roots",
+			})
 		}
 	}
 	definition := Parse(format, source, content, options, DefaultLimits(), resolver)
@@ -81,19 +103,84 @@ func renderDefinition(action *model.Action, declaration model.Definition, resolv
 	return definition
 }
 
-func definitionFormat(action *model.Action, declaration model.Definition, content string) string {
-	if declaration.Format != "" {
-		return declaration.Format
+// readDefinitionFile applies ProtocolContext's limits to resolver content; the
+// resolver only returns bytes, so stat/read caps are enforced here.
+var readFailureMessages = map[string]bool{
+	"unable to stat file":         true,
+	"file exceeds max_file_bytes": true,
+	"unable to read file":         true,
+	"file exceeds max_lines":      true,
+}
+
+func isReadFailure(message string) bool { return readFailureMessages[message] }
+
+func readDefinitionFile(resolver Resolver, path string) (string, string, bool) {
+	if resolver == nil {
+		resolver = NoResolver{}
 	}
-	format := Detect(declaration.File, content)
-	if format == "" {
-		format = defaultDefinitionFormat(action.Protocol)
+	_, content, ok := resolver.Read(path)
+	if !ok {
+		return "", resolver.Failure(), false
+	}
+	limits := DefaultLimits()
+	if len(content) > limits.MaxFileBytes {
+		return "", "file exceeds max_file_bytes", false
+	}
+	if strings.Count(content, "\n")+1 > limits.MaxLines {
+		return "", "file exceeds max_lines", false
+	}
+	return content, "", true
+}
+
+// normalizeDefinitionPath mirrors ProtocolPaths::resolve: definitions are
+// root-relative, so absolute paths and any ".." segment are rejected before the
+// resolver (which owns root/symlink confinement) sees them.
+func normalizeDefinitionPath(path string) (string, bool) {
+	if path == "" || strings.ContainsRune(path, '\x00') {
+		return "", false
+	}
+	if strings.HasPrefix(path, "/") {
+		return "", false
+	}
+	if len(path) >= 3 && isASCIIAlpha(path[0]) && path[1] == ':' && (path[2] == '\\' || path[2] == '/') {
+		return "", false
+	}
+	slashed := strings.ReplaceAll(path, "\\", "/")
+	for _, segment := range strings.Split(slashed, "/") {
+		if segment == ".." {
+			return "", false
+		}
+	}
+	return normalizePath(slashed)
+}
+
+func definitionFormat(action *model.Action, declaration model.Definition, content string) string {
+	format := declaration.Format
+	if format == "" || format == "auto" {
+		format = Detect(declaration.File, content)
+		if format == "" {
+			format = defaultDefinitionFormat(action.Protocol)
+		}
 	}
 	return format
 }
 
+// resolveFailureFormat mirrors PHP's not-found branch: auto falls back to the
+// catalog default, keeping the literal "auto" when there is none.
+func resolveFailureFormat(action *model.Action, declaration model.Definition) string {
+	if declaration.Format != "" && declaration.Format != "auto" {
+		return declaration.Format
+	}
+	if format := defaultDefinitionFormat(action.Protocol); format != "" {
+		return format
+	}
+	return "auto"
+}
+
 func defaultDefinitionFormat(protocol string) string {
 	switch protocol {
+	case "http", "rest":
+		return "openapi"
 	case "soap":
 		return "wsdl"
 	case "graphql":
@@ -104,9 +191,9 @@ func defaultDefinitionFormat(protocol string) string {
 		return "thrift"
 	case "hessian":
 		return "hessian"
-	case "jsonrpc":
+	case "jsonrpc", "json-rpc":
 		return "json-rpc"
-	case "xmlrpc":
+	case "xmlrpc", "xml-rpc":
 		return "xml-rpc"
 	case "webhook", "webhooks", "mcp", "a2a":
 		return "json-schema"
@@ -114,6 +201,23 @@ func defaultDefinitionFormat(protocol string) string {
 		return "edmx"
 	}
 	return ""
+}
+
+func pendingDefinition(protocol string) Definition {
+	return Definition{
+		Format:    "pending",
+		Source:    "",
+		Operation: "",
+		Meta:      map[string]any{},
+		Messages:  []map[string]any{},
+		Validation: Validation{
+			OK:     true,
+			Errors: []Diagnostic{},
+			Warnings: []Diagnostic{{
+				Severity: "warning", Message: "definition file required for " + protocol,
+			}},
+		},
+	}
 }
 
 func failedDefinition(format, source, operation, message string) Definition {
