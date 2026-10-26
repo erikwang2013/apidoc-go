@@ -100,6 +100,29 @@ func TestDebugShareScope(t *testing.T) {
 	}
 }
 
+func TestDebugPayloadDecode(t *testing.T) {
+	cases := []struct {
+		payload debug.Payload
+		want    string
+	}{
+		{debug.Payload{Encoding: "text", Data: "hello"}, "hello"},
+		{debug.Payload{Encoding: "hex", Data: "00ff10"}, "\x00\xff\x10"},
+		{debug.Payload{Encoding: "base64", Data: "AP8Q"}, "\x00\xff\x10"},
+	}
+	for _, tc := range cases {
+		got, err := tc.payload.Decode()
+		if err != nil || string(got) != tc.want {
+			t.Fatalf("%s: %q %v", tc.payload.Encoding, got, err)
+		}
+	}
+	if _, err := (&debug.Payload{Encoding: "ascii", Data: "x"}).Decode(); err == nil {
+		t.Fatal("unknown encoding must fail")
+	}
+	if _, err := (&debug.Payload{Encoding: "hex", Data: "zz"}).Decode(); err == nil {
+		t.Fatal("invalid hex must fail")
+	}
+}
+
 func TestDebugPayloadCap(t *testing.T) {
 	h := newHandler(t)
 	token := login(t, h)
