@@ -18,7 +18,8 @@ func TestDebugCapabilitiesTagged(t *testing.T) {
 	debug := features["debug"].(map[string]any)
 	wantRelay := []any{
 		"http", "http2", "http3", "soap", "graphql", "jsonrpc", "xmlrpc", "odata", "mcp", "a2a", "webhook",
-		"tcp", "udp", "raw", "unix", "grpc", "thrift", "dubbo", "hessian", "iso8583",
+		"tcp", "udp", "raw", "unix", "mqtt", "stomp", "amqp", "kafka", "xmpp",
+		"grpc", "thrift", "dubbo", "hessian", "iso8583",
 	}
 	if !reflect.DeepEqual(debug["relay"], wantRelay) {
 		t.Fatalf("relay = %#v", debug["relay"])
@@ -100,5 +101,47 @@ func TestDebugDetailRelayModesTagged(t *testing.T) {
 	protocol = data["protocol"].(map[string]any)
 	if protocol["debuggable"] != false || protocol["debugReason"] != "server-side debug is disabled" {
 		t.Fatalf("disabled tcp: %+v", protocol)
+	}
+}
+
+func TestDebugDetailMessagingModesTagged(t *testing.T) {
+	st := store.New("Debug")
+	st.SetAppMeta("default", "Default")
+	ids := map[string]string{}
+	for _, entry := range [][2]string{
+		{"mqtt", "PUBLISH"}, {"mqtt", "SUBSCRIBE"},
+		{"stomp", "SEND"}, {"stomp", "SUBSCRIBE"},
+		{"amqp", "PUBLISH"}, {"kafka", "CONSUME"}, {"xmpp", "MESSAGE"},
+	} {
+		protocol, method := entry[0], entry[1]
+		target := protocol + "://example.com:9000/" + strings.ToLower(method)
+		st.Register(method, target, model.Doc{
+			App: "default", Version: "v1", Controller: "debug", Title: protocol + " " + method,
+			Protocol:     protocol,
+			ProtocolOpts: map[string]string{"target": protocol + "://example.com:9000"},
+		})
+		ids[protocol+"/"+method] = store.ActionID("default", "v1", method, target)
+	}
+	h := newHandlerWith(t, Options{Store: st, Debug: DebugConfig{EnableServerSide: true}})
+	want := map[string]string{
+		"mqtt/PUBLISH":    "relay-unary",
+		"mqtt/SUBSCRIBE":  "relay-stream",
+		"stomp/SEND":      "relay-unary",
+		"stomp/SUBSCRIBE": "relay-stream",
+		"amqp/PUBLISH":    "relay-stream",
+		"kafka/CONSUME":   "relay-stream",
+		"xmpp/MESSAGE":    "relay-stream",
+	}
+	for key, mode := range want {
+		protocol := debugDetail(t, h, ids[key])["protocol"].(map[string]any)
+		if protocol["mode"] != mode || protocol["debuggable"] != true || protocol["debugReason"] != "" {
+			t.Fatalf("%s protocol: %+v", key, protocol)
+		}
+	}
+	disabled := newHandlerWith(t, Options{Store: st})
+	protocol := debugDetail(t, disabled, ids["mqtt/PUBLISH"])["protocol"].(map[string]any)
+	if protocol["mode"] != "relay-unary" || protocol["debuggable"] != false ||
+		protocol["debugReason"] != "server-side debug is disabled" {
+		t.Fatalf("disabled mqtt: %+v", protocol)
 	}
 }

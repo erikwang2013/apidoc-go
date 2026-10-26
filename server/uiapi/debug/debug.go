@@ -155,7 +155,8 @@ var (
 // relayOrder keeps capability output deterministic.
 var relayOrder = []string{
 	"http", "http2", "http3", "soap", "graphql", "jsonrpc", "xmlrpc", "odata", "mcp", "a2a", "webhook",
-	"tcp", "udp", "raw", "unix", "grpc", "thrift", "dubbo", "hessian", "iso8583",
+	"tcp", "udp", "raw", "unix", "mqtt", "stomp", "amqp", "kafka", "xmpp",
+	"grpc", "thrift", "dubbo", "hessian", "iso8583",
 }
 
 // RegisterExecutor is called from protocol-family init functions.

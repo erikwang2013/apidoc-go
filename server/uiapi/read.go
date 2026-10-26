@@ -271,7 +271,7 @@ func (h *handler) detailData(action *model.Action) map[string]any {
 		protocol = "http"
 	}
 	httpProtocol := isHTTPProtocol(protocol)
-	mode, debuggable, reason := h.protocolMode(protocol)
+	mode, debuggable, reason := h.protocolMode(protocol, action.Method)
 	address := channelAddress(action)
 	fields, defaults := debugFields(action, address, httpProtocol)
 	data := map[string]any{
@@ -521,7 +521,7 @@ func protocolTransport(protocol string) string {
 
 // protocolMode advertises a relay mode only when this build has the executor
 // and the deployment enabled server-side debug.
-func (h *handler) protocolMode(protocol string) (string, bool, string) {
+func (h *handler) protocolMode(protocol, method string) (string, bool, string) {
 	switch protocol {
 	case "", "http", "http2", "http3":
 		// HTTP ids stay browser modes (Rust/plan parity); tagged builds also
@@ -536,13 +536,33 @@ func (h *handler) protocolMode(protocol string) (string, bool, string) {
 	if kind == "rawsocket" {
 		kind = "raw"
 	}
-	if !debug.HasExecutor(kind) && !debug.HasStream(kind) {
+	hasUnary := debug.HasExecutor(kind)
+	hasStream := debug.HasStream(kind)
+	if !hasUnary && !hasStream {
 		return "relay-unary", false, "server executor for `" + protocol + "` is not compiled in this build"
 	}
-	if !h.o.Debug.EnableServerSide {
-		return "relay-unary", false, "server-side debug is disabled"
+	// Messaging ids default to a stream session; publish/send actions stay
+	// unary like PHP, and amqp/kafka/xmpp are stream per the 3G.4 plan.
+	mode := "relay-unary"
+	switch kind {
+	case "mqtt", "stomp":
+		action := strings.ToLower(method)
+		if action != "publish" && action != "send" {
+			mode = "relay-stream"
+		}
+	case "amqp", "kafka", "xmpp":
+		mode = "relay-stream"
 	}
-	return "relay-unary", true, ""
+	if mode == "relay-unary" && !hasUnary {
+		mode = "relay-stream"
+	}
+	if mode == "relay-stream" && !hasStream {
+		mode = "relay-unary"
+	}
+	if !h.o.Debug.EnableServerSide {
+		return mode, false, "server-side debug is disabled"
+	}
+	return mode, true, ""
 }
 
 // responseEncoding matches Rust/PHP: HTTP-compatible relay ids decode JSON
