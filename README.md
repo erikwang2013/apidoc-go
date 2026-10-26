@@ -182,6 +182,37 @@ Echo / Chi / Fiber 仅需替换适配器构造器：`adapter.NewEcho(e)`、`adap
 | `Auth` | — | 鉴权配置：`Enable` / `Password` / `Secret` / `Expire` / `Secure` |
 | `Apps` | — | 应用配置：`Key` / `Title` / `Password`（应用级独立密码） |
 | `DebugOrigins` | — | 允许跨域读取文档 API 的来源（外部 UI，默认无） |
+| `UIPath` | —（不内置 UI） | UIC-1 Vue 打包产物目录；非空时在 `{Prefix}/` 下同进程提供静态 UI |
+
+### 内置静态 UI（UIC-1 Vue）
+
+库默认只提供 JSON 文档 API，由外部 UI 消费。把 `apidoc-ui` 的打包产物交给
+`Config.UIPath` 后，同一进程会在 `{Prefix}/` 下直接提供 Vue UI：
+
+```go
+s := apidoc.New(apidoc.Config{
+	Prefix: "/apidoc",
+	UIPath: "/srv/myapp/dist/uic1-ui", // scripts/package-ui.sh 的产物目录
+})
+```
+
+库本身不内嵌前端资源，所以没有构建期依赖；内置 UI 的发布包应在启动配置中默认
+把 `UIPath` 指向随包分发的 `dist/uic1-ui/` 目录，上面即为推荐接线。部署步骤：
+
+1. 在 UI 仓库构建并打包：`npm run package:ui`（产物 `dist/uic1-ui/`）。
+2. 部署到目标目录（必须是已存在且为空、或上一次的 uic1-ui 包）：
+   `npm run package:ui -- --dest /srv/myapp/dist/uic1-ui`。
+3. 启动时设置 `UIPath`；留空并重启即回滚为纯文档 API 模式。
+
+行为：
+
+- `{Prefix}/`、`{Prefix}/index.html`、`{Prefix}/config.js`、`{Prefix}/assets/*` 直接返回静态文件，MIME 由扩展名决定；
+- 未知的无扩展名路径回退 `index.html`（SPA 兜底）；缺失的 `.js` / `.css` 等资源返回 404；
+- `{Prefix}`（无尾斜杠）307 到 `{Prefix}/`，保证相对资源路径正确；
+- `{Prefix}/api/*`、`{Prefix}/ui/v1/*` 优先；未知 API 路径返回 404，不会回退 UI；
+- 文件访问被限制在 `UIPath` 内（拒绝 `..` 与越界符号链接），不做目录列表；目录或 `index.html` 缺失时 UI 路由返回 500，文档 API 不受影响；
+- go-zero 适配器只注册固定的 API 路由、不转发前缀下的任意路径，因此该适配器下内置 UI 不可用（其余适配器均支持）；
+- 仍使用外部 UI 的部署无需改动；只要 `config.js` 的 `HTTP.API_PREFIX` 与服务端 `Prefix` 一致即可。
 
 ### 框架适配器
 
