@@ -10,33 +10,7 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
-
-	"github.com/erikwang2013/apidoc-go/model"
-	"github.com/erikwang2013/apidoc-go/store"
 )
-
-func debugStoreHandler(t *testing.T, protocol, method, target string, cfg DebugConfig) (http.Handler, string) {
-	t.Helper()
-	st := store.New("Debug")
-	st.SetAppMeta("default", "Default")
-	st.Register(method, target, model.Doc{
-		App: "default", Version: "v1", Controller: "debug", Title: "Debug",
-		Protocol:     protocol,
-		ProtocolOpts: map[string]string{"target": target},
-		Params:       []model.Param{{Name: "message", In: "body", Type: "string", Field: "1"}},
-	})
-	return newHandlerWith(t, Options{Store: st, Debug: cfg}), store.ActionID("default", "v1", method, target)
-}
-
-func debugSendData(t *testing.T, h http.Handler, actionID, input string) map[string]any {
-	t.Helper()
-	rec := do(t, h, "POST", "/ui/v1/debugSend",
-		`{"appKey":"default|v1","path":"`+actionID+`","input":`+input+`}`, "")
-	if rec.Code != http.StatusOK {
-		t.Fatalf("debugSend: %d %s", rec.Code, rec.Body.String())
-	}
-	return decodeData(t, rec)
-}
 
 func TestRelayHTTPUnary(t *testing.T) {
 	var gotMethod, gotBody, gotHeader string
