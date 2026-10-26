@@ -226,9 +226,10 @@ func TestCapabilitiesMatchGoFixture(t *testing.T) {
 	if liveFeatures, ok := live.(map[string]any); ok {
 		if liveDebug, ok := liveFeatures["debug"].(map[string]any); ok {
 			if wantDebug, ok := want.(map[string]any)["debug"].(map[string]any); ok {
-				// The shared fixture pins the default-build relay surface;
-				// tagged builds compare against their compiled registry.
+				// The shared fixture pins the default-build surface; tagged
+				// builds compare against their compiled registry and modes.
 				wantDebug["relay"] = fixtureRelay(liveDebug["relay"], wantDebug["relay"])
+				wantDebug["modes"] = fixtureModes(liveDebug["modes"], wantDebug["modes"])
 			}
 		}
 	}
@@ -248,6 +249,22 @@ func jsonRoundTrip(t *testing.T, v any) any {
 		t.Fatal(err)
 	}
 	return out
+}
+
+func TestHTTPRelayResponseEncoding(t *testing.T) {
+	st := store.New("Debug")
+	st.SetAppMeta("default", "Default")
+	st.Register("POST", "https://example.com/graphql", model.Doc{
+		App: "default", Version: "v1", Controller: "debug", Title: "GraphQL",
+		Protocol: "graphql",
+	})
+	id := store.ActionID("default", "v1", "POST", "https://example.com/graphql")
+	h := newHandlerWith(t, Options{Store: st})
+	data := decodeData(t, do(t, h, "POST", "/ui/v1/detail", `{"path":"`+id+`"}`, ""))
+	debug := data["debug"].(map[string]any)
+	if debug["responseEncoding"] != "json" || data["protocol"].(map[string]any)["http"] != false {
+		t.Fatalf("graphql debug metadata: %+v", debug)
+	}
 }
 
 func TestAuthAndConfig(t *testing.T) {

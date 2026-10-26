@@ -116,15 +116,30 @@ func hessianWriteString(out *[]byte, value string) error {
 	return nil
 }
 
+const (
+	hessianMaxDepth = 64
+	hessianMaxItems = 1 << 20
+)
+
 func hessianDecode(input *[]byte) (any, error) {
+	return hessianDecodeAt(input, 0)
+}
+
+func hessianDecodeAt(input *[]byte, depth int) (any, error) {
+	if depth > hessianMaxDepth {
+		return nil, fmt.Errorf("hessian: nesting exceeds %d levels", hessianMaxDepth)
+	}
 	tag, err := hessianReadU8(input)
 	if err != nil {
 		return nil, err
 	}
-	return hessianDecodeTag(input, tag)
+	return hessianDecodeTag(input, tag, depth)
 }
 
-func hessianDecodeTag(input *[]byte, tag byte) (any, error) {
+func hessianDecodeTag(input *[]byte, tag byte, depth int) (any, error) {
+	if depth > hessianMaxDepth {
+		return nil, fmt.Errorf("hessian: nesting exceeds %d levels", hessianMaxDepth)
+	}
 	switch {
 	case tag == 'N':
 		return nil, nil
@@ -219,42 +234,42 @@ func hessianDecodeTag(input *[]byte, tag byte) (any, error) {
 		return float64(math.Float32frombits(value)), nil
 	// list
 	case tag == 0x57:
-		return hessianReadListUntilEnd(input)
+		return hessianReadListUntilEnd(input, depth+1)
 	case tag == 0x58:
 		length, err := hessianReadI32(input)
 		if err != nil {
 			return nil, err
 		}
-		return hessianReadListItems(input, length)
+		return hessianReadListItems(input, length, depth+1)
 	case tag == 0x55:
-		if _, err := hessianDecode(input); err != nil {
+		if _, err := hessianDecodeAt(input, depth+1); err != nil {
 			return nil, err
 		}
-		return hessianReadListUntilEnd(input)
+		return hessianReadListUntilEnd(input, depth+1)
 	case tag == 0x56:
-		if _, err := hessianDecode(input); err != nil {
+		if _, err := hessianDecodeAt(input, depth+1); err != nil {
 			return nil, err
 		}
 		length, err := hessianReadI32(input)
 		if err != nil {
 			return nil, err
 		}
-		return hessianReadListItems(input, length)
+		return hessianReadListItems(input, length, depth+1)
 	case tag >= 0x70 && tag <= 0x77:
-		if _, err := hessianDecode(input); err != nil {
+		if _, err := hessianDecodeAt(input, depth+1); err != nil {
 			return nil, err
 		}
-		return hessianReadListItems(input, int32(tag-0x70))
+		return hessianReadListItems(input, int32(tag-0x70), depth+1)
 	case tag >= 0x78 && tag <= 0x7f:
-		return hessianReadListItems(input, int32(tag-0x78))
+		return hessianReadListItems(input, int32(tag-0x78), depth+1)
 	// map
 	case tag == 'H':
-		return hessianReadMap(input)
+		return hessianReadMap(input, depth+1)
 	case tag == 'M':
-		if _, err := hessianDecode(input); err != nil {
+		if _, err := hessianDecodeAt(input, depth+1); err != nil {
 			return nil, err
 		}
-		return hessianReadMap(input)
+		return hessianReadMap(input, depth+1)
 	case tag == 'C' || tag == 'O':
 		return nil, fmt.Errorf("hessian: class definitions/object instances are not supported; send maps/lists/scalars")
 	default:
@@ -262,7 +277,7 @@ func hessianDecodeTag(input *[]byte, tag byte) (any, error) {
 	}
 }
 
-func hessianReadListUntilEnd(input *[]byte) (any, error) {
+func hessianReadListUntilEnd(input *[]byte, depth int) (any, error) {
 	items := []any{}
 	for {
 		tag, err := hessianReadU8(input)
@@ -272,7 +287,7 @@ func hessianReadListUntilEnd(input *[]byte) (any, error) {
 		if tag == 'Z' {
 			return items, nil
 		}
-		item, err := hessianDecodeTag(input, tag)
+		item, err := hessianDecodeTag(input, tag, depth)
 		if err != nil {
 			return nil, err
 		}
@@ -280,10 +295,13 @@ func hessianReadListUntilEnd(input *[]byte) (any, error) {
 	}
 }
 
-func hessianReadListItems(input *[]byte, length int32) (any, error) {
+func hessianReadListItems(input *[]byte, length int32, depth int) (any, error) {
+	if length < 0 || length > hessianMaxItems || int64(length) > int64(len(*input)) {
+		return nil, fmt.Errorf("hessian: invalid list length %d", length)
+	}
 	items := []any{}
 	for i := int32(0); i < length; i++ {
-		item, err := hessianDecode(input)
+		item, err := hessianDecodeAt(input, depth+1)
 		if err != nil {
 			return nil, err
 		}
@@ -292,7 +310,7 @@ func hessianReadListItems(input *[]byte, length int32) (any, error) {
 	return items, nil
 }
 
-func hessianReadMap(input *[]byte) (any, error) {
+func hessianReadMap(input *[]byte, depth int) (any, error) {
 	out := map[string]any{}
 	for {
 		tag, err := hessianReadU8(input)
@@ -302,11 +320,11 @@ func hessianReadMap(input *[]byte) (any, error) {
 		if tag == 'Z' {
 			return out, nil
 		}
-		key, err := hessianDecodeTag(input, tag)
+		key, err := hessianDecodeTag(input, tag, depth)
 		if err != nil {
 			return nil, err
 		}
-		value, err := hessianDecode(input)
+		value, err := hessianDecodeAt(input, depth+1)
 		if err != nil {
 			return nil, err
 		}

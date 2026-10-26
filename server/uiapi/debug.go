@@ -376,6 +376,7 @@ type debugSession struct {
 	shareKey  string
 	messages  []map[string]any
 	delivered int
+	deadline  time.Time
 	timer     *time.Timer
 	closeUp   func() error
 }
@@ -408,15 +409,27 @@ func (s *debugSessionStore) reserve(scope, appKey, shareKey string) (string, boo
 	if id == "" {
 		return "", false
 	}
-	session := &debugSession{scope: scope, appKey: appKey, shareKey: shareKey}
-	session.timer = time.AfterFunc(s.ttl, func() {
-		if closeUp := s.remove(id); closeUp != nil {
-			_ = closeUp()
-		}
-	})
+	session := &debugSession{scope: scope, appKey: appKey, shareKey: shareKey, deadline: time.Now().Add(s.ttl)}
 	s.sessions[id] = session
 	s.perScope[scope]++
+	session.timer = time.AfterFunc(s.ttl, func() { s.expire(id) })
 	return id, true
+}
+
+// expire only removes the session when its deadline has actually passed: a
+// timer callback can already be queued while poll refreshes the deadline.
+func (s *debugSessionStore) expire(id string) {
+	s.mu.Lock()
+	session, found := s.sessions[id]
+	if !found || time.Now().Before(session.deadline) {
+		s.mu.Unlock()
+		return
+	}
+	closeUp := s.removeLocked(id)
+	s.mu.Unlock()
+	if closeUp != nil {
+		_ = closeUp()
+	}
 }
 
 func (s *debugSessionStore) attach(id string, closeUp func() error) bool {
@@ -463,6 +476,7 @@ func (s *debugSessionStore) poll(id string) ([]map[string]any, func() error, boo
 	if !found {
 		return nil, nil, false, false
 	}
+	session.deadline = time.Now().Add(s.ttl)
 	if session.timer != nil {
 		session.timer.Reset(s.ttl)
 	}
@@ -480,20 +494,17 @@ func (s *debugSessionStore) poll(id string) ([]map[string]any, func() error, boo
 	if session.delivered < debugFrameCap {
 		return messages, nil, false, true
 	}
-	delete(s.sessions, id)
-	if session.timer != nil {
-		session.timer.Stop()
-	}
-	s.perScope[sessionScope(session)]--
-	if s.perScope[sessionScope(session)] <= 0 {
-		delete(s.perScope, sessionScope(session))
-	}
-	return messages, session.closeUp, true, true
+	closeUp := s.removeLocked(id)
+	return messages, closeUp, true, true
 }
 
 func (s *debugSessionStore) remove(id string) func() error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	return s.removeLocked(id)
+}
+
+func (s *debugSessionStore) removeLocked(id string) func() error {
 	session, found := s.sessions[id]
 	if !found {
 		return nil

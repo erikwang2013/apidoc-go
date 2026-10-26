@@ -70,6 +70,22 @@ func TestThriftExceptionIsReported(t *testing.T) {
 	}
 }
 
+func TestThriftRequestByteCap(t *testing.T) {
+	req := &Request{
+		Kind:   "thrift",
+		Target: "tcp://127.0.0.1:9",
+		Body:   &Payload{Encoding: "utf8", Data: `{"name":"0123456789012345678901234567890123456789"}`},
+		Opts:   map[string]string{"method": "ping"},
+		Endpoint: &Endpoint{Params: []Param{{
+			Name: "name", Type: "string", Field: "1",
+		}}},
+	}
+	if _, err := executeThrift(Config{MaxBytes: 16}, req); err == nil ||
+		!strings.Contains(err.Error(), "max_bytes") {
+		t.Fatalf("request cap error = %v", err)
+	}
+}
+
 func TestThriftMissingSchemaAndMethod(t *testing.T) {
 	if _, err := executeThrift(Config{}, &Request{Opts: map[string]string{}}); err == nil ||
 		!strings.Contains(err.Error(), "method") {

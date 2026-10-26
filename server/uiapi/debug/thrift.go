@@ -174,6 +174,9 @@ func executeThrift(cfg Config, req *Request) (*Response, error) {
 	if err != nil {
 		return nil, err
 	}
+	if len(frame) > cfg.Limit() {
+		return nil, fmt.Errorf("request exceeds max_bytes (%d)", cfg.Limit())
+	}
 	transport := req.Opts["transport"]
 	var responseBytes []byte
 	switch transport {

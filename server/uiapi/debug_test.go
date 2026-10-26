@@ -149,6 +149,39 @@ func TestDebugRequestTargetOnlyFromServerConfig(t *testing.T) {
 	}
 }
 
+func TestDebugExecuteUncompiledFailsClosed(t *testing.T) {
+	if _, err := debug.Execute(debug.Config{}, &debug.Request{Kind: "modbus"}); err == nil ||
+		!strings.Contains(err.Error(), "not compiled in this build") {
+		t.Fatalf("execute: %v", err)
+	}
+	if _, err := debug.OpenStream(debug.Config{}, &debug.Request{Kind: "modbus"}); err == nil ||
+		!strings.Contains(err.Error(), "not compiled in this build") {
+		t.Fatalf("open stream: %v", err)
+	}
+}
+
+func TestDebugSessionTTLStaleCallbackKeepsRefreshedSession(t *testing.T) {
+	s := newDebugSessionStore(time.Minute)
+	id, ok := s.reserve("scope", "default|v1", "")
+	if !ok {
+		t.Fatal("reserve failed")
+	}
+	s.mu.Lock()
+	s.sessions[id].deadline = time.Now().Add(time.Hour)
+	s.mu.Unlock()
+	s.expire(id) // simulate a timer callback queued before poll refreshed the TTL
+	if _, _, found := s.bindings(id); !found {
+		t.Fatal("stale expiry removed a refreshed session")
+	}
+	s.mu.Lock()
+	s.sessions[id].deadline = time.Now().Add(-time.Second)
+	s.mu.Unlock()
+	s.expire(id)
+	if _, _, found := s.bindings(id); found {
+		t.Fatal("expired session survived")
+	}
+}
+
 func TestDebugSessionStoreQuotaAndTTL(t *testing.T) {
 	s := newDebugSessionStore(20 * time.Millisecond)
 	for i := 0; i < debugMaxSessions; i++ {

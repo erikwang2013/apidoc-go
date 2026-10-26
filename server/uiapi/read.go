@@ -318,7 +318,7 @@ func (h *handler) detailData(action *model.Action) map[string]any {
 			"fields":           fields,
 			"defaults":         defaults,
 			"meta":             map[string]any{},
-			"responseEncoding": responseEncoding(httpProtocol),
+			"responseEncoding": responseEncoding(protocol, httpProtocol),
 			"hints":            "",
 		},
 		"definitions": definitions(action),
@@ -524,6 +524,8 @@ func protocolTransport(protocol string) string {
 func (h *handler) protocolMode(protocol string) (string, bool, string) {
 	switch protocol {
 	case "", "http", "http2", "http3":
+		// HTTP ids stay browser modes (Rust/plan parity); tagged builds also
+		// expose http3 through the relay capability.
 		return "browser-http", true, ""
 	case "ws", "websocket":
 		return "browser-websocket", true, ""
@@ -543,8 +545,14 @@ func (h *handler) protocolMode(protocol string) (string, bool, string) {
 	return "relay-unary", true, ""
 }
 
-func responseEncoding(httpProtocol bool) string {
+// responseEncoding matches Rust/PHP: HTTP-compatible relay ids decode JSON
+// even though they stay relay-unary because they execute via debugSend.
+func responseEncoding(protocol string, httpProtocol bool) string {
 	if httpProtocol {
+		return "json"
+	}
+	switch protocol {
+	case "soap", "graphql", "jsonrpc", "xmlrpc", "odata", "mcp", "a2a", "webhook":
 		return "json"
 	}
 	return "text"

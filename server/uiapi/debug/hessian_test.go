@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -107,5 +108,20 @@ func TestHessianRejectsClassDefinitions(t *testing.T) {
 	input := []byte{'C', 0x00}
 	if _, err := hessianDecode(&input); err == nil {
 		t.Fatal("class definition must be rejected")
+	}
+}
+
+func TestHessianDepthAndLengthCaps(t *testing.T) {
+	nested := bytes.Repeat([]byte{0x57}, hessianMaxDepth+2)
+	if _, err := hessianDecode(&nested); err == nil || !strings.Contains(err.Error(), "nesting") {
+		t.Fatalf("deep nesting error = %v", err)
+	}
+	for _, declared := range [][]byte{
+		{'X', 0x7f, 0xff, 0xff, 0xff},
+		{'X', 0xff, 0xff, 0xff, 0xff},
+	} {
+		if _, err := hessianDecode(&declared); err == nil {
+			t.Fatalf("declared list length %x must be rejected", declared[1:])
+		}
 	}
 }
