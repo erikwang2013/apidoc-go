@@ -15,6 +15,9 @@ import (
 type amqpTestServer struct {
 	addr    string
 	deliver []string
+	// stall blocks the named setup exchange ("confirm", "declare", "consume").
+	stall     string
+	closeText string
 
 	mu        sync.Mutex
 	sasl      string
@@ -105,6 +108,11 @@ func (s *amqpTestServer) handle(conn net.Conn) {
 	s.sasl = response
 	s.mu.Unlock()
 
+	if s.closeText != "" {
+		_ = amqpTestWriteMethod(conn, 0, 10, 50,
+			[]byte{0, 200}, amqpShortString(s.closeText), []byte{0, 0}, []byte{0, 0})
+		return
+	}
 	_ = amqpTestWriteMethod(conn, 0, 10, 30, []byte{0, 0}, uint32Bytes(131072), []byte{0, 0})
 	if _, method, _, _, err = amqpTestReadMethod(conn); err != nil || method != 31 { // Tune-Ok
 		return
@@ -121,6 +129,12 @@ func (s *amqpTestServer) handle(conn net.Conn) {
 	for {
 		class, method, channel, args, err := amqpTestReadMethod(conn)
 		if err != nil {
+			return
+		}
+		if s.stall == "confirm" && class == 85 && method == 10 ||
+			s.stall == "declare" && class == 50 && method == 10 ||
+			s.stall == "consume" && class == 60 && method == 20 {
+			_, _ = io.Copy(io.Discard, conn) // accept the request, never reply
 			return
 		}
 		switch {
@@ -286,6 +300,66 @@ func TestAMQPWindowCapsSSRFAndValidation(t *testing.T) {
 		if _, err := Execute(messagingConfig(), req); err == nil {
 			t.Fatalf("%s was accepted", name)
 		}
+	}
+
+	long := strings.Repeat("x", 256)
+	for name, req := range map[string]*Request{
+		"long routing key": {Kind: "amqp", Target: "amqp://127.0.0.1:1", Opts: map[string]string{"routing_key": long}},
+		"long exchange":    {Kind: "amqp", Target: "amqp://127.0.0.1:1", Opts: map[string]string{"routing_key": "rk", "exchange": long}},
+		"long queue":       {Kind: "amqp", Target: "amqp://127.0.0.1:1", Opts: map[string]string{"consume": "true", "queue": long}},
+		"long vhost":       {Kind: "amqp", Target: "amqp://127.0.0.1:1", Opts: map[string]string{"routing_key": "rk", "vhost": long}},
+	} {
+		if _, err := Execute(messagingConfig(), req); err == nil || !strings.Contains(err.Error(), "255") {
+			t.Fatalf("%s err = %v", name, err)
+		}
+	}
+}
+
+func TestAMQPSetupTimeout(t *testing.T) {
+	cfg := messagingConfig()
+	cfg.TimeoutMS = 200
+	started := time.Now()
+	publish := newAMQPTestServer(t, nil)
+	publish.stall = "confirm"
+	if _, err := Execute(cfg, amqpTestRequest(publish.addr, map[string]string{"routing_key": "rk"}, "x")); err == nil {
+		t.Fatal("stalled publish confirmation was accepted")
+	}
+	if elapsed := time.Since(started); elapsed > 2*time.Second {
+		t.Fatalf("stalled publish took %v", elapsed)
+	}
+
+	consume := newAMQPTestServer(t, nil)
+	consume.stall = "consume"
+	started = time.Now()
+	if _, err := Execute(cfg, amqpTestRequest(consume.addr, map[string]string{"consume": "true", "queue": "q"}, "")); err == nil {
+		t.Fatal("stalled consume setup was accepted")
+	}
+	if elapsed := time.Since(started); elapsed > 2*time.Second {
+		t.Fatalf("stalled consume took %v", elapsed)
+	}
+
+	stream := newAMQPTestServer(t, nil)
+	stream.stall = "declare"
+	started = time.Now()
+	if _, err := OpenStream(cfg, amqpTestRequest(stream.addr, map[string]string{"consume": "true", "queue": "q", "declare": "true"}, "")); err == nil {
+		t.Fatal("stalled stream setup was accepted")
+	}
+	if elapsed := time.Since(started); elapsed > 2*time.Second {
+		t.Fatalf("stalled stream setup took %v", elapsed)
+	}
+}
+
+func TestAMQPErrorRedaction(t *testing.T) {
+	srv := newAMQPTestServer(t, nil)
+	srv.closeText = "access denied for pw-secret"
+	_, err := Execute(messagingConfig(), amqpTestRequest(srv.addr, map[string]string{
+		"routing_key": "rk", "password": "pw-secret",
+	}, "x"))
+	if err == nil || !strings.Contains(err.Error(), "***") {
+		t.Fatalf("close err = %v", err)
+	}
+	if strings.Contains(err.Error(), "pw-secret") {
+		t.Fatalf("close error leaked the password: %v", err)
 	}
 }
 

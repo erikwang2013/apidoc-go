@@ -76,13 +76,13 @@ func (k *kafkaConn) request(apiKey, version int16, body []byte) ([]byte, error) 
 	return response[4:], nil
 }
 
-func kafkaConnect(cfg Config, broker kafkaBroker, timeout time.Duration, username, password string) (*kafkaConn, error) {
+func kafkaConnect(cfg Config, broker kafkaBroker, timeout time.Duration, deadline time.Time, username, password string) (*kafkaConn, error) {
 	conn, err := dialMessaging(cfg, broker.host, broker.port, timeout)
 	if err != nil {
 		return nil, fmt.Errorf("kafka %v", err)
 	}
 	client := &kafkaConn{conn: conn, limit: cfg.Limit(), password: password}
-	if err := conn.SetDeadline(time.Now().Add(timeout)); err != nil {
+	if err := conn.SetDeadline(deadline); err != nil {
 		_ = conn.Close()
 		return nil, fmt.Errorf("kafka deadline failed: %v", err)
 	}
@@ -92,7 +92,6 @@ func kafkaConnect(cfg Config, broker kafkaBroker, timeout time.Duration, usernam
 			return nil, client.redact(err.Error())
 		}
 	}
-	_ = conn.SetDeadline(time.Time{})
 	return client, nil
 }
 
@@ -346,7 +345,7 @@ func kafkaBrokers(cfg Config, target string) ([]kafkaBroker, error) {
 // kafkaMetadata fetches broker metadata and returns the node id of the leader
 // for the requested partition. Every advertised broker is checked by the guard
 // before the leader connection is attempted (same residual TOCTOU as Rust).
-func kafkaMetadata(client *kafkaConn, topic string, partition int32, cfg Config) ([]kafkaBroker, int32, error) {
+func kafkaMetadata(client *kafkaConn, topic string, partition int32, cfg Config, deadline time.Time) ([]kafkaBroker, int32, error) {
 	request := make([]byte, 4)
 	binary.BigEndian.PutUint32(request, 1)
 	request = append(request, kafkaString(topic)...)
@@ -383,7 +382,16 @@ func kafkaMetadata(client *kafkaConn, topic string, partition int32, cfg Config)
 		if host == "" || port < 1 || port > 65535 {
 			return nil, 0, fmt.Errorf("invalid kafka broker address `%s:%d`", host, port)
 		}
-		if _, err := CheckHost(cfg, host, strconv.Itoa(int(port))); err != nil {
+		remaining := time.Until(deadline)
+		if remaining <= 0 {
+			return nil, 0, fmt.Errorf("kafka metadata timed out")
+		}
+		brokerCfg := cfg
+		brokerCfg.TimeoutMS = int(remaining.Milliseconds())
+		if brokerCfg.TimeoutMS < 1 {
+			brokerCfg.TimeoutMS = 1
+		}
+		if _, err := CheckHost(brokerCfg, host, strconv.Itoa(int(port))); err != nil {
 			return nil, 0, fmt.Errorf("kafka metadata broker `%s:%d` rejected: %v", host, port, err)
 		}
 		brokers = append(brokers, kafkaBroker{nodeID: nodeID, host: host, port: strconv.Itoa(int(port))})
@@ -796,11 +804,26 @@ func kafkaOpen(cfg Config, req *Request) (*kafkaClient, error) {
 	if err != nil {
 		return nil, err
 	}
-	bootstrap, err := kafkaConnect(cfg, brokers[0], req.Timeout(cfg), username, password)
-	if err != nil {
-		return nil, err
+	// The deadline covers bootstrap, metadata, leader connect and offset
+	// lookup; it is cleared only once the fetch session is ready.
+	deadline := time.Now().Add(req.Timeout(cfg))
+	var bootstrap *kafkaConn
+	var lastErr error
+	for _, broker := range brokers {
+		remaining := time.Until(deadline)
+		if remaining <= 0 {
+			lastErr = fmt.Errorf("kafka bootstrap timed out")
+			break
+		}
+		bootstrap, lastErr = kafkaConnect(cfg, broker, remaining, deadline, username, password)
+		if lastErr == nil {
+			break
+		}
 	}
-	metadataBrokers, leaderID, err := kafkaMetadata(bootstrap, topic, partition, cfg)
+	if bootstrap == nil {
+		return nil, lastErr
+	}
+	metadataBrokers, leaderID, err := kafkaMetadata(bootstrap, topic, partition, cfg, deadline)
 	_ = bootstrap.conn.Close()
 	if err != nil {
 		return nil, redactedError(err.Error(), password)
@@ -816,7 +839,11 @@ func kafkaOpen(cfg Config, req *Request) (*kafkaClient, error) {
 	if !found {
 		return nil, fmt.Errorf("kafka metadata leader %d is not in the broker list", leaderID)
 	}
-	conn, err := kafkaConnect(cfg, leader, req.Timeout(cfg), username, password)
+	remaining := time.Until(deadline)
+	if remaining <= 0 {
+		return nil, fmt.Errorf("kafka setup timed out")
+	}
+	conn, err := kafkaConnect(cfg, leader, remaining, deadline, username, password)
 	if err != nil {
 		return nil, err
 	}
@@ -831,6 +858,7 @@ func kafkaOpen(cfg Config, req *Request) (*kafkaClient, error) {
 	} else {
 		client.offset, _ = strconv.ParseInt(at, 10, 64)
 	}
+	_ = conn.conn.SetDeadline(time.Time{})
 	return client, nil
 }
 

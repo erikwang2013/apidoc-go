@@ -163,7 +163,7 @@ func (m *mqttConn) handshake(req *Request) error {
 		flags |= 0x40
 	}
 	body := mqttString("MQTT")
-	body = append(body, 0x04, flags, 0x00, 0x3c) // level 4, keepalive 60s
+	body = append(body, 0x04, flags, 0x00, 0x00) // level 4, keepalive disabled (no PINGREQ)
 	body = append(body, mqttString(clientID)...)
 	if username != "" || password != "" {
 		body = append(body, mqttString(username)...)

@@ -32,6 +32,8 @@ const (
 	xmppBindNS    = "urn:ietf:params:xml:ns:xmpp-bind"
 	xmppSessionNS = "urn:ietf:params:xml:ns:xmpp-session"
 	xmppStanzaNS  = "urn:ietf:params:xml:ns:xmpp-stanzas"
+
+	xmppMaxDepth = 64
 )
 
 // xmppRootCAs overrides the system roots for STARTTLS; tests inject a local CA
@@ -198,6 +200,9 @@ func (s *xmppSession) readElement(deadline time.Time) (*xmppNode, error) {
 			}
 			switch value := token.(type) {
 			case xml.StartElement:
+				if len(stack) >= xmppMaxDepth {
+					return nil, fmt.Errorf("xmpp stanza nesting exceeds %d", xmppMaxDepth)
+				}
 				child := &xmppNode{name: value.Name, attrs: value.Attr}
 				parent := stack[len(stack)-1]
 				parent.children = append(parent.children, child)

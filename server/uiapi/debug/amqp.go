@@ -35,10 +35,16 @@ type amqpConn struct {
 	password string
 }
 
-func amqpShortString(value string) []byte {
+// amqpCheckShort rejects user values that do not fit an AMQP shortstr.
+func amqpCheckShort(name, value string) error {
 	if len(value) > 255 {
-		value = value[:255]
+		return fmt.Errorf("amqp %s exceeds 255 bytes", name)
 	}
+	return nil
+}
+
+// amqpShortString encodes a shortstr; callers validate user values first.
+func amqpShortString(value string) []byte {
 	return append([]byte{byte(len(value))}, value...)
 }
 
@@ -300,17 +306,23 @@ func amqpConnect(cfg Config, req *Request) (*amqpConn, error) {
 	if scheme == "amqps" {
 		return nil, fmt.Errorf("amqp over TLS requires a pinned transport; use amqp:// (plaintext) in this build")
 	}
+	for _, name := range []string{"vhost", "queue", "exchange", "routing_key"} {
+		if err := amqpCheckShort(name, req.Opts[name]); err != nil {
+			return nil, err
+		}
+	}
 	conn, err := dialMessaging(cfg, host, port, req.Timeout(cfg))
 	if err != nil {
 		return nil, fmt.Errorf("amqp %v", err)
 	}
 	client := &amqpConn{conn: conn, limit: cfg.Limit(), password: req.Opts["password"]}
+	// Keep the operation deadline through setup; callers clear it once the
+	// session is established (or after the unary publish/consume setup).
 	_ = conn.SetDeadline(time.Now().Add(req.Timeout(cfg)))
 	if err := client.handshake(cfg, req); err != nil {
 		_ = conn.Close()
 		return nil, err
 	}
-	_ = conn.SetDeadline(time.Time{})
 	return client, nil
 }
 
@@ -511,6 +523,7 @@ func executeAMQP(cfg Config, req *Request) (*Response, error) {
 		if _, err := amqpConsumeSetup(client, req); err != nil {
 			return nil, err
 		}
+		_ = client.conn.SetDeadline(time.Time{})
 		want := wantMessages(req)
 		deadline := time.Now().Add(windowDuration(cfg, req))
 		deliveries := []map[string]any{}
@@ -566,6 +579,7 @@ func openAMQPStream(cfg Config, req *Request) (StreamSession, error) {
 		client.close()
 		return nil, err
 	}
+	_ = client.conn.SetDeadline(time.Time{})
 	return &amqpStream{client: client}, nil
 }
 

@@ -43,7 +43,7 @@ type xmppTestMethod struct {
 	body string
 }
 
-func xmppTestCertificate(t *testing.T) (tls.Certificate, *x509.CertPool) {
+func xmppTestCertificate(t *testing.T, domain string) (tls.Certificate, *x509.CertPool) {
 	t.Helper()
 	caKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
@@ -72,8 +72,8 @@ func xmppTestCertificate(t *testing.T) (tls.Certificate, *x509.CertPool) {
 	}
 	serverTemplate := &x509.Certificate{
 		SerialNumber: big.NewInt(2),
-		Subject:      pkix.Name{CommonName: "localhost"},
-		DNSNames:     []string{"localhost"},
+		Subject:      pkix.Name{CommonName: domain},
+		DNSNames:     []string{domain},
 		NotBefore:    time.Now().Add(-time.Hour),
 		NotAfter:     time.Now().Add(time.Hour),
 		KeyUsage:     x509.KeyUsageDigitalSignature,
@@ -91,7 +91,12 @@ func xmppTestCertificate(t *testing.T) (tls.Certificate, *x509.CertPool) {
 
 func newXMPPTestServer(t *testing.T) *xmppTestServer {
 	t.Helper()
-	cert, pool := xmppTestCertificate(t)
+	return newXMPPTestServerDomain(t, "localhost")
+}
+
+func newXMPPTestServerDomain(t *testing.T, domain string) *xmppTestServer {
+	t.Helper()
+	cert, pool := xmppTestCertificate(t, domain)
 	old := xmppRootCAs
 	xmppRootCAs = pool
 	t.Cleanup(func() { xmppRootCAs = old })
@@ -365,6 +370,36 @@ func TestXMPPDeliverWindowStreamAndCaps(t *testing.T) {
 	}
 	if err := stream.Close(); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestXMPPCertificateVerification(t *testing.T) {
+	srv := newXMPPTestServerDomain(t, "wrong.example")
+	_, err := Execute(messagingConfig(), xmppTestRequest(srv.addr, nil, nil))
+	if err == nil || !strings.Contains(err.Error(), "STARTTLS handshake failed") {
+		t.Fatalf("certificate err = %v", err)
+	}
+	if strings.Contains(err.Error(), "pw-secret") {
+		t.Fatalf("certificate error leaked the password: %v", err)
+	}
+}
+
+func TestXMPPDepthCap(t *testing.T) {
+	client, server := net.Pipe()
+	session := &xmppSession{conn: client, limit: 1 << 20}
+	session.reset(client)
+	deep := strings.Repeat("<a>", xmppMaxDepth+1) + strings.Repeat("</a>", xmppMaxDepth+1)
+	done := make(chan struct{})
+	go func() {
+		_, _ = server.Write([]byte(deep))
+		close(done)
+	}()
+	_, err := session.readElement(time.Now().Add(time.Second))
+	_ = server.Close()
+	_ = client.Close()
+	<-done
+	if err == nil || !strings.Contains(err.Error(), "nesting") {
+		t.Fatalf("depth err = %v", err)
 	}
 }
 

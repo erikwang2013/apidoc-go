@@ -16,10 +16,12 @@ type mqttTestServer struct {
 	ln      net.Listener
 	deliver [][]byte
 	echo    bool
+	connack byte
 
 	mu        sync.Mutex
 	published [][]byte
 	topics    []string
+	connect   []byte
 }
 
 func newMQTTTestServer(t *testing.T, deliver [][]byte, echo bool) *mqttTestServer {
@@ -110,14 +112,17 @@ func mqttTestWrite(conn net.Conn, header byte, body []byte) error {
 
 func (s *mqttTestServer) handle(conn net.Conn) {
 	defer conn.Close()
-	header, _, err := mqttTestRead(conn)
+	header, body, err := mqttTestRead(conn)
 	if err != nil || header>>4 != 1 {
 		return
 	}
-	if mqttTestWrite(conn, 0x20, []byte{0, 0}) != nil {
+	s.mu.Lock()
+	s.connect = append([]byte{}, body...)
+	s.mu.Unlock()
+	if mqttTestWrite(conn, 0x20, []byte{0, s.connack}) != nil || s.connack != 0 {
 		return
 	}
-	header, body, err := mqttTestRead(conn)
+	header, body, err = mqttTestRead(conn)
 	if err != nil || header>>4 != 8 || len(body) < 3 {
 		return
 	}
@@ -217,6 +222,12 @@ func TestMQTTPublishAndReceive(t *testing.T) {
 	published, topics := srv.received()
 	if len(published) != 1 || string(published[0]) != "hello" || topics[0] != "demo/topic" {
 		t.Fatalf("published = %q %v", published, topics)
+	}
+	srv.mu.Lock()
+	connect := append([]byte{}, srv.connect...)
+	srv.mu.Unlock()
+	if len(connect) < 10 || binary.BigEndian.Uint16(connect[8:10]) != 0 {
+		t.Fatalf("mqtt keepalive is not disabled: %x", connect)
 	}
 	data := decodeMessagingJSON(t, resp)
 	messages := data["messages"].([]any)
@@ -320,6 +331,20 @@ func TestMQTTStreamSession(t *testing.T) {
 	}
 	if err := stream.Close(); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestMQTTConnackRedaction(t *testing.T) {
+	srv := newMQTTTestServer(t, nil, false)
+	srv.connack = 4
+	_, err := Execute(messagingConfig(), mqttTestRequest(srv.ln.Addr().String(), "demo", map[string]string{
+		"username": "user", "password": "pw-secret",
+	}, ""))
+	if err == nil || !strings.Contains(err.Error(), "bad user name or password") {
+		t.Fatalf("connack err = %v", err)
+	}
+	if strings.Contains(err.Error(), "pw-secret") {
+		t.Fatalf("connack error leaked the password: %v", err)
 	}
 }
 

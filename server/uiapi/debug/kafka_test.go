@@ -21,7 +21,9 @@ type kafkaTestServer struct {
 	port   int
 	values [][]byte
 
-	authError string
+	authError       string
+	stallMetadata   bool
+	stallListOffset bool
 
 	mu         sync.Mutex
 	sasl       []byte
@@ -222,8 +224,16 @@ func (s *kafkaTestServer) handle(conn net.Conn) {
 				response = append(response, kafkaTestInt32(0)...)
 			}
 		case 3: // Metadata
+			if s.stallMetadata {
+				_, _ = io.Copy(io.Discard, conn)
+				return
+			}
 			response = s.metadata()
 		case 2: // ListOffsets
+			if s.stallListOffset {
+				_, _ = io.Copy(io.Discard, conn)
+				return
+			}
 			response = s.listOffsets(s.topic)
 		case 1: // Fetch
 			s.mu.Lock()
@@ -356,6 +366,44 @@ func TestKafkaSASL(t *testing.T) {
 	}
 	if strings.Contains(err.Error(), "pw-secret") || !strings.Contains(err.Error(), "***") {
 		t.Fatalf("auth error leaked the password: %v", err)
+	}
+}
+
+func TestKafkaSetupTimeout(t *testing.T) {
+	cfg := messagingConfig()
+	cfg.TimeoutMS = 200
+	metadata := newKafkaTestServer(t, nil)
+	metadata.stallMetadata = true
+	started := time.Now()
+	if _, err := Execute(cfg, kafkaTestRequest(metadata.addr, map[string]string{"topic": "events"})); err == nil {
+		t.Fatal("stalled metadata was accepted")
+	}
+	if elapsed := time.Since(started); elapsed > 2*time.Second {
+		t.Fatalf("stalled metadata took %v", elapsed)
+	}
+
+	offsets := newKafkaTestServer(t, nil)
+	offsets.stallListOffset = true
+	started = time.Now()
+	if _, err := OpenStream(cfg, kafkaTestRequest(offsets.addr, map[string]string{"topic": "events"})); err == nil {
+		t.Fatal("stalled offset lookup was accepted")
+	}
+	if elapsed := time.Since(started); elapsed > 2*time.Second {
+		t.Fatalf("stalled offset lookup took %v", elapsed)
+	}
+}
+
+func TestKafkaBootstrapFailover(t *testing.T) {
+	srv := newKafkaTestServer(t, [][]byte{[]byte("one")})
+	dead := listenLocal(t)
+	deadAddr := dead.Addr().String()
+	_ = dead.Close()
+	resp, err := Execute(messagingConfig(), kafkaTestRequest(deadAddr+","+srv.addr, map[string]string{"topic": "events", "messages": "1"}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if messages := decodeMessagingJSON(t, resp)["messages"].([]any); len(messages) != 1 {
+		t.Fatalf("messages = %#v", messages)
 	}
 }
 

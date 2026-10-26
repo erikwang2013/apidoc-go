@@ -542,15 +542,15 @@ func (h *handler) protocolMode(protocol, method string) (string, bool, string) {
 		return "relay-unary", false, "server executor for `" + protocol + "` is not compiled in this build"
 	}
 	// Messaging ids default to a stream session; publish/send actions stay
-	// unary like PHP, and amqp/kafka/xmpp are stream per the 3G.4 plan.
+	// unary like PHP, and kafka/xmpp are stream per the 3G.4 plan.
 	mode := "relay-unary"
 	switch kind {
-	case "mqtt", "stomp":
+	case "mqtt", "stomp", "amqp":
 		action := strings.ToLower(method)
 		if action != "publish" && action != "send" {
 			mode = "relay-stream"
 		}
-	case "amqp", "kafka", "xmpp":
+	case "kafka", "xmpp":
 		mode = "relay-stream"
 	}
 	if mode == "relay-unary" && !hasUnary {

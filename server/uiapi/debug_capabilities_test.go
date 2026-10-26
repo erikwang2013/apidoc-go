@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/erikwang2013/apidoc-go/model"
+	"github.com/erikwang2013/apidoc-go/server/uiapi/debug"
 	"github.com/erikwang2013/apidoc-go/store"
 )
 
@@ -111,7 +112,7 @@ func TestDebugDetailMessagingModesTagged(t *testing.T) {
 	for _, entry := range [][2]string{
 		{"mqtt", "PUBLISH"}, {"mqtt", "SUBSCRIBE"},
 		{"stomp", "SEND"}, {"stomp", "SUBSCRIBE"},
-		{"amqp", "PUBLISH"}, {"kafka", "CONSUME"}, {"xmpp", "MESSAGE"},
+		{"amqp", "PUBLISH"}, {"amqp", "CONSUME"}, {"kafka", "CONSUME"}, {"xmpp", "MESSAGE"},
 	} {
 		protocol, method := entry[0], entry[1]
 		target := protocol + "://example.com:9000/" + strings.ToLower(method)
@@ -128,7 +129,8 @@ func TestDebugDetailMessagingModesTagged(t *testing.T) {
 		"mqtt/SUBSCRIBE":  "relay-stream",
 		"stomp/SEND":      "relay-unary",
 		"stomp/SUBSCRIBE": "relay-stream",
-		"amqp/PUBLISH":    "relay-stream",
+		"amqp/PUBLISH":    "relay-unary",
+		"amqp/CONSUME":    "relay-stream",
 		"kafka/CONSUME":   "relay-stream",
 		"xmpp/MESSAGE":    "relay-stream",
 	}
@@ -136,6 +138,16 @@ func TestDebugDetailMessagingModesTagged(t *testing.T) {
 		protocol := debugDetail(t, h, ids[key])["protocol"].(map[string]any)
 		if protocol["mode"] != mode || protocol["debuggable"] != true || protocol["debugReason"] != "" {
 			t.Fatalf("%s protocol: %+v", key, protocol)
+		}
+		// Every advertised mode must have a compiled implementation: a stream
+		// action without an opener (or a unary action without an executor)
+		// would return ok:false from debugStart/debugSend.
+		kind, _, _ := strings.Cut(key, "/")
+		if mode == "relay-stream" && !debug.HasStream(kind) {
+			t.Fatalf("%s advertises relay-stream without a compiled stream", key)
+		}
+		if mode == "relay-unary" && !debug.HasExecutor(kind) {
+			t.Fatalf("%s advertises relay-unary without a compiled executor", key)
 		}
 	}
 	disabled := newHandlerWith(t, Options{Store: st})

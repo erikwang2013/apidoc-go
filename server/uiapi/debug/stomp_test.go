@@ -20,9 +20,10 @@ type stompTestMessage struct {
 }
 
 type stompTestServer struct {
-	addr    string
-	deliver []stompTestMessage
-	echo    bool
+	addr         string
+	deliver      []stompTestMessage
+	echo         bool
+	connectError string
 
 	mu        sync.Mutex
 	sent      []stompTestMessage
@@ -136,6 +137,12 @@ func (s *stompTestServer) handle(conn net.Conn) {
 			s.mu.Lock()
 			s.connected = headers
 			s.mu.Unlock()
+			if s.connectError != "" {
+				if stompTestWrite(writer, "ERROR", [][2]string{{"message", s.connectError}}, s.connectError) != nil {
+					return
+				}
+				return
+			}
 			if stompTestWrite(writer, "CONNECTED", [][2]string{{"version", "1.2"}, {"heart-beat", "0,0"}}, "") != nil {
 				return
 			}
@@ -291,6 +298,20 @@ func TestSTOMPWindowCapsSSRFAndValidation(t *testing.T) {
 		if _, err := Execute(messagingConfig(), req); err == nil {
 			t.Fatalf("%s was accepted", name)
 		}
+	}
+}
+
+func TestSTOMPErrorRedaction(t *testing.T) {
+	srv := newSTOMPTestServer(t, nil, false)
+	srv.connectError = "bad passcode pw-secret"
+	_, err := Execute(messagingConfig(), stompTestRequest(srv.addr, "queue/demo", map[string]string{
+		"login": "user", "passcode": "pw-secret",
+	}, ""))
+	if err == nil || !strings.Contains(err.Error(), "stomp server error") || !strings.Contains(err.Error(), "***") {
+		t.Fatalf("connect err = %v", err)
+	}
+	if strings.Contains(err.Error(), "pw-secret") {
+		t.Fatalf("connect error leaked the passcode: %v", err)
 	}
 }
 
