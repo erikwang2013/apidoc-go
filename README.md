@@ -2,31 +2,35 @@
 
 # apidoc-go — Go 通用 API 文档插件
 
+[![Release](https://img.shields.io/github/v/release/erikwang2013/apidoc-go)](https://github.com/erikwang2013/apidoc-go/releases)
+
 [English](docs/i18n/en/README.md) · [한국어](docs/i18n/ko/README.md) · [Русский](docs/i18n/ru/README.md) · [Deutsch](docs/i18n/de/README.md) · [Français](docs/i18n/fr/README.md) · [Español](docs/i18n/es/README.md) · [Português](docs/i18n/pt/README.md) · [हिन्दी](docs/i18n/hi/README.md) · [العربية](docs/i18n/ar/README.md) · [বাংলা](docs/i18n/bn/README.md) · [Bahasa Indonesia](docs/i18n/id/README.md) · [日本語](docs/i18n/ja/README.md)
 
 ## 项目介绍
 
-**当前版本：以 [Releases](https://github.com/erikwang2013/apidoc-go/releases) 为准**
+**当前版本：v1.1.0**（以 [Releases](https://github.com/erikwang2013/apidoc-go/releases) 为准）
 
-**apidoc-go** 是一个通用 Go API 文档插件库：接口文档以**类型化结构体**随路由注册时一同声明，文档与路由同生；以 JSON API 暴露文档，供外部 UI 渲染与发起测试请求，并内置密码鉴权、多应用/多版本管理、Mock 数据与 JSON / TypeScript 导出能力、注释解析、接口缓存与参数自动补全。一次接入，全框架通用，无需改造现有项目。
+**apidoc-go** 是一个通用 Go API 文档插件库：接口文档以**类型化结构体**随路由注册时一同声明，文档与路由同生；同时提供旧版 `/api/*` 与 UIC-1 `/ui/v1/*` 两套 JSON API，可用任意外部 UI 渲染调试，也可通过 `Config.UIPath` 在同一进程提供打包后的 Vue UI。库内置密码鉴权、多应用/多版本管理、Mock 数据、JSON / TypeScript 导出、注释与九种协议定义解析、接口缓存与参数自动补全；服务端协议执行器按构建标签按需编译，覆盖 HTTP、RPC、套接字、消息、IoT、工业与媒体协议族。一次接入，全框架通用，无需改造现有项目。
 
 ## 项目功能
 
 | # | 功能 | 说明 |
 |---|------|------|
 | 1 | 文档自动生成 | 类型化 Doc 声明，随路由注册，一处声明，文档与路由同生 |
-| 2 | 文档 API | `/api/menus`、`/api/protocols`、`/api/detail`、`/api/export`，供外部 UI 渲染文档与发起测试请求 |
+| 2 | 文档 API | 旧版 `/api/*`（menus / protocols / detail / export）与 UIC-1 `/ui/v1/*`（文档、调试、分享、生成器、导出），供外部 UI 或内置 Vue UI 使用 |
 | 3 | Mock 数据 | 字段级 Mock 示例，接口联调快人一步 |
 | 4 | 多应用 / 多版本 | App / Version 树形管理，一套插件覆盖全项目文档 |
 | 5 | 密码鉴权 | 全局密码 + 应用级密码，HMAC Token · 恒时比较 |
 | 6 | Markdown 文档 | goldmark 安全渲染，原生 HTML 自动剥离 |
 | 7 | 多框架适配 | net/http · Gin · Echo · Chi · Fiber · beego · Kratos · go-zero，一次接入全框架通用 |
 | 8 | JSON / TypeScript 导出 | 接口类型一键导出，前后端联调更顺畅 |
-| 9 | 安全防护 | 密码鉴权 · CORS 白名单限定 · 防 XSS · 防路径穿越 |
-| 10 | 注释自动解析 | go/ast 从注释自动生成文档，`@apidoc` 标记即注册 |
+| 9 | 安全防护 | 密码鉴权 · CORS 白名单 · 防 XSS / 路径穿越 · 服务端调试 SSRF 守卫 · 会话与字节限额 |
+| 10 | 注解与定义解析 | go/ast 解析 `@apidoc` / `@protocol` / `@definition`；内置 OpenAPI、AsyncAPI、GraphQL、proto、WSDL、EDMX、JSON Schema、JSON-RPC、XML-RPC 九种定义格式 |
 | 11 | 接口缓存 | 版本化响应缓存 + ETag/304，文档接口毫秒级返回 |
 | 12 | 参数自动补全 | reflect 从 handler 签名自动推断请求参数 |
-| 13 | 任意协议注解 | `@protocol` 标注协议；detail 返回 protocol/method/url/params/responses/mock，外部 UI 负责面板与测试请求 |
+| 13 | 任意协议注解 | `@protocol` 标注协议；detail 返回 protocol/method/url/params/responses/mock 与解析后的协议定义 |
+| 14 | 内置 Vue UI（可选） | `Config.UIPath` 指向 UIC-1 打包产物即可同进程提供 Vue UI；留空时回退纯 JSON API |
+| 15 | 服务端协议执行器 | 7 大协议族按构建标签编译；默认关闭、未编译即 fail closed，`apidoc_debug_all` 一键全开 |
 
 ## 架构总览
 
@@ -41,17 +45,27 @@
 ```
 apidoc-go/
 ├── apidoc.go            # 核心入口：New / Register / Mount / Handler
+├── VERSION              # 项目版本（v1.1.0），发布工作流据此建 tag
 ├── doc.go               # Route / Doc / Param / Response 类型
 ├── model/               # 数据模型
 │   ├── model.go         #   Project / App / Version / Controller / Action
+│   ├── definition.go    #   @definition 外部协议定义
 │   ├── protocol.go      #   URL scheme → protocol
 │   └── protocols.go     #   协议注册表 / 别名 / 默认端口
 ├── store/               # 存储与去重
 │   └── store.go         #   (app, version, method, url) 去重，后者覆盖
 ├── auth/                # 鉴权
 │   └── auth.go          #   密码校验 · HMAC Token 签发与验证
-├── server/              # JSON API
-│   └── server.go
+├── server/              # HTTP API
+│   ├── server.go        #   旧版 /api 路由 · 鉴权 / CORS / 缓存
+│   ├── ui.go            #   UIPath 静态 Vue UI（SPA 兜底 · 路径限定）
+│   └── uiapi/           #   UIC-1 /ui/v1 API
+│       ├── uiapi.go     #     capabilities / config / menus / detail
+│       ├── read.go      #     文档读取 · 定义解析
+│       ├── debug.go     #     debugSend / debugStart / debugPoll / debugStop
+│       ├── manage.go    #     生成器 · 代码模板 · 分享 · 缓存
+│       ├── share.go
+│       └── debug/       #     服务端协议执行器（构建标签按协议族编译）
 ├── adapter/             # 框架适配层（类型化接口）
 │   ├── adapter.go
 │   ├── nethttp.go       #   net/http  ServeMux
@@ -60,7 +74,8 @@ apidoc-go/
 │   ├── chi.go           #   http.HandlerFunc
 │   └── fiber.go         #   fiber.Handler
 ├── parse/               # 注释自动解析
-│   └── parse.go         #   go/ast · @apidoc 注释标记
+│   ├── parse.go         #   go/ast · @apidoc / @protocol / @definition
+│   └── protocol/        #   九种协议定义解析
 ├── export/              # 导出
 │   └── export.go        #   TypeScript 接口定义
 ├── mock/                # Mock 数据
@@ -120,9 +135,29 @@ func main() {
 
 	s.Mount(adapter.NewNetHTTP(mux))
 	http.ListenAndServe(":8080", mux)
-	// 外部 UI 读取 http://localhost:8080/apidoc/api/menus 等文档 API
+	// 外部 UI 读取 /apidoc/api/menus 或 UIC-1 /apidoc/ui/v1/*；
+	// 配置 UIPath 后也可直接打开 http://localhost:8080/apidoc/
 }
 ```
+
+### 启用 UIC-1 内置 Vue UI 与服务端执行器
+
+```go
+s := apidoc.New(apidoc.Config{
+	Prefix: "/apidoc",
+	// 可选：apidoc-ui 的 npm run package:ui 产物（index.html / config.js / assets/）。
+	// 留空则只提供 JSON API，继续使用外部 UI。
+	UIPath: "/srv/myapp/dist/uic1-ui",
+	// 服务端代发默认关闭；开启后仍受 SSRF 白名单与限额约束。
+	Debug: apidoc.DebugConfig{EnableServerSide: true},
+})
+```
+
+执行器在构建期按协议族选择：`go build -tags apidoc_debug_all` 编译全部，
+或用 `apidoc_debug_http`、`apidoc_debug_sockets`、`apidoc_debug_rpc`、
+`apidoc_debug_grpc`、`apidoc_debug_http3`、`apidoc_debug_messaging`、
+`apidoc_debug_iot`、`apidoc_debug_industrial`、`apidoc_debug_media` 按需裁剪；
+未编译的协议调用一律 fail closed。
 
 ### 任意协议注解
 
@@ -148,9 +183,35 @@ IEC 60870-5-104、BACnet/IP、RTP、RTCP、TCP、UDP、Raw Socket、Unix Domain
 Socket）；完整 key、别名、scheme 与默认端口见 `GET /api/protocols`。二进制 body
 用 `@param ... type=binary`（或 `hex`/`base64`）+ `in=payload` 声明。
 
-协议本身不进入库：`/api/detail` 返回 `protocol`、`protocol_info`、`method`、`url`、
-`params`、`responses` 与 `mock`，由外部 UI 渲染调试面板并自行发起测试请求。库不
-启动任何协议服务，也不提供 `/api/debug/*` 执行端点。
+`/api/detail` 与 UIC-1 `/ui/v1/docDetail` 返回 `protocol`、`protocol_info`、`method`、
+`url`、`params`、`responses`、`mock` 及解析后的 `definitions`。调试有两种通道：
+浏览器直连（HTTP / WebSocket / SSE，始终可用）与服务端代发（`Debug` 开启 + 对应
+构建标签）。服务端协议族包括 HTTP（http / http2 / http3 / SOAP / GraphQL / JSON-RPC /
+XML-RPC / OData / MCP / A2A / Webhook）、RPC（gRPC / Thrift / Dubbo / Hessian /
+ISO 8583）、套接字（TCP / UDP / Raw / Unix）、消息（MQTT / STOMP / AMQP / Kafka /
+XMPP）、IoT（CoAP / LwM2M）、工业（Modbus / DNP3 / IEC 104 / BACnet / OPC UA）与
+媒体（RTSP / SIP / RTP / RTCP / RTMP）。默认构建不编译执行器；开启后目标先过 SSRF
+守卫（`AllowHosts` 白名单、默认拒绝私网/回环/链路本地/云元数据地址、DNS 解析后逐
+IP 校验并钉住连接），并受超时、单消息 1 MiB、响应 `MaxBytes` 与流会话上限约束。
+
+### 协议定义解析（@definition）
+
+用 `@definition` 引入外部协议定义（格式自动探测，也可用 `format=` 指定），解析结果
+随 detail 返回，供 UIC 渲染报文结构并生成调试表单：
+
+```go
+// @apidoc
+// @protocol http
+// @method POST
+// @url /api/v1/users
+// @definition file=specs/openapi.yaml operation=createUser
+// @definition file=specs/service.proto message=User
+```
+
+支持 OpenAPI、AsyncAPI、GraphQL SDL、proto、WSDL、EDMX (OData)、JSON Schema、
+JSON-RPC 与 XML-RPC 九种格式。`Config.DefinitionRoot` 限定可读文件根目录（默认进程
+工作目录），解析受单文件 1 MiB、5 万行与嵌套引用深度 32 的限制；`operation=`、
+`message=`、`direction=`、`sample=`、`inline=` 等选项见 `parse` 包注释。
 
 ### 快速开始（Gin）
 
@@ -182,12 +243,21 @@ Echo / Chi / Fiber 仅需替换适配器构造器：`adapter.NewEcho(e)`、`adap
 | `Auth` | — | 鉴权配置：`Enable` / `Password` / `Secret` / `Expire` / `Secure` |
 | `Apps` | — | 应用配置：`Key` / `Title` / `Password`（应用级独立密码） |
 | `DebugOrigins` | — | 允许跨域读取文档 API 的来源（外部 UI，默认无） |
+| `PublicHost` | — | 外部 UI 调试使用的绝对基地址；空则同源 |
+| `ShareDir` | 临时目录下 `apidoc-go-shares` | UIC-1 分享记录目录 |
+| `DefinitionRoot` | 进程工作目录 | `@definition` 文件根目录；越界路径与符号链接拒绝 |
+| `Generator` / `CodeTemplates` | — | 声明式生成器与代码模板（渲染无副作用） |
+| `ShareActions` | — | 分享动作声明，由 UI 解释执行 |
+| `Debug` | 零值关闭 | 服务端执行器：`EnableServerSide` / `AllowPrivateNetworks` / `AllowHosts` / `AllowUnixSockets` / `TimeoutMS` / `MaxBytes` |
 | `UIPath` | —（不内置 UI） | UIC-1 Vue 打包产物目录；非空时在 `{Prefix}/` 下同进程提供静态 UI |
 
-### 内置静态 UI（UIC-1 Vue）
+### UIC-1 API 与内置 Vue UI（可选）
 
-库默认只提供 JSON 文档 API，由外部 UI 消费。把 `apidoc-ui` 的打包产物交给
-`Config.UIPath` 后，同一进程会在 `{Prefix}/` 下直接提供 Vue UI：
+库默认提供两套 JSON 文档 API：旧版 `/api/*` 与 UIC-1 `/ui/v1/*`，由外部 UI 消费。
+`GET {Prefix}/ui/v1/capabilities` 返回 contract、后端版本与功能矩阵（浏览器/服务端
+调试模式、分享、缓存、生成器、导出、鉴权），UI 据此决定可用面板；`/ui/v1/config`
+返回菜单与生成器、代码模板配置。把 `apidoc-ui` 的打包产物交给 `Config.UIPath` 后，
+同一进程还会在 `{Prefix}/` 下直接提供 Vue UI：
 
 ```go
 s := apidoc.New(apidoc.Config{
@@ -213,6 +283,31 @@ s := apidoc.New(apidoc.Config{
 - 文件访问被限制在 `UIPath` 内（拒绝 `..` 与越界符号链接），不做目录列表；目录或 `index.html` 缺失时 UI 路由返回 500，文档 API 不受影响；
 - go-zero 适配器只注册固定的 API 路由、不转发前缀下的任意路径，因此该适配器下内置 UI 不可用（其余适配器均支持）；
 - 仍使用外部 UI 的部署无需改动；只要 `config.js` 的 `HTTP.API_PREFIX` 与服务端 `Prefix` 一致即可。
+
+### 服务端协议执行器（构建标签）
+
+服务端代发默认不编译任何执行器，调用未编译的协议会返回 fail closed 错误。按协议族
+选择构建标签，`apidoc_debug_all` 聚合全部：
+
+| 构建标签 | 协议族 | 协议 |
+|----------|--------|------|
+| `apidoc_debug_http` | HTTP / Web | http、http2、soap、graphql、jsonrpc、xmlrpc、odata、mcp、a2a、webhook |
+| `apidoc_debug_http3` | HTTP/3 | http3（QUIC，仅 https） |
+| `apidoc_debug_sockets` | 套接字 | tcp、udp、raw、unix（一元 + 流） |
+| `apidoc_debug_rpc` | RPC / 金融 | thrift、dubbo、hessian、iso8583 |
+| `apidoc_debug_grpc` | gRPC | grpc（一元；descriptor 或 server reflection） |
+| `apidoc_debug_messaging` | 消息 | mqtt、stomp、amqp、kafka、xmpp（一元 + 流；也可用 `apidoc_debug_mqtt` / `_stomp` / `_amqp` / `_kafka` / `_xmpp` 单独裁剪） |
+| `apidoc_debug_iot` | IoT | coap、lwm2m |
+| `apidoc_debug_industrial` | 工业 | modbus、dnp3、iec104、bacnet、opcua |
+| `apidoc_debug_media` | 媒体 | rtsp、sip、rtp、rtcp、rtmp |
+| `apidoc_debug_all` | 全部 | 以上所有协议族 |
+
+安全边界：`Debug.EnableServerSide` 默认关闭；开启后仍要求目标通过 `AllowHosts`
+白名单（`*.example.com` 后缀匹配）、默认拒绝私网/回环/链路本地/CGNAT 与云元数据
+地址（`AllowPrivateNetworks` 才放行）、DNS 解析后逐 IP 校验并钉住连接，禁止
+`CONNECT`、重定向与代理；请求/响应受 `TimeoutMS`、`MaxBytes`（默认 1 MiB）、流
+会话数（每作用域 4 个）、帧数与空闲超时约束。定义解析只读 `DefinitionRoot` 内的
+普通文件，并限制文件大小、行数与引用深度。
 
 ### 框架适配器
 
@@ -270,7 +365,7 @@ for _, r := range results {
 
 ### 示例项目
 
-`example/` 内置 8 个框架服务器（net/http :8081、Gin :8082、Echo :8083、Chi :8084、Fiber :8085、beego :8086、Kratos :8087、go-zero :8088），`go run ./example` 一键启动；文档 API 位于各端口的 `/apidoc/api/...`，由外部 UI 消费。
+`example/` 内置 8 个框架服务器（net/http :8081、Gin :8082、Echo :8083、Chi :8084、Fiber :8085、beego :8086、Kratos :8087、go-zero :8088），`go run ./example` 一键启动；旧版文档 API 位于各端口的 `/apidoc/api/...`，UIC-1 API 位于 `/apidoc/ui/v1/...`，可配合外部 UI 或 `UIPath` 内置 Vue UI 使用。
 
 ## 多语言文档
 

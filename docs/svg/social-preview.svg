@@ -7,7 +7,7 @@
   <!-- 文案 -->
   <text x="88" y="242" font-size="84" font-weight="800" fill="#1a1a2e">apidoc<tspan fill="#4a7dff">-go</tspan></text>
   <text x="88" y="302" font-size="36" font-weight="600" fill="#444">Go 通用 API 文档插件库</text>
-  <text x="88" y="352" font-size="22" fill="#666">文档与路由同生 · 类型化 Doc 声明 · 一次接入，全框架通用</text>
+  <text x="88" y="352" font-size="22" fill="#666">文档与路由同生 · UIC-1 · 9 种定义解析 · 可选 Vue UI</text>
 
   <!-- 框架 pills -->
   <g font-size="20" font-weight="600">
@@ -30,7 +30,7 @@
   </g>
 
   <!-- 能力行 -->
-  <text x="88" y="516" font-size="20" fill="#64748b">注解文档 · Mock 数据 · JSON/TS 导出 · 注释解析 · 响应缓存 · 密码鉴权</text>
+  <text x="88" y="516" font-size="20" fill="#64748b">浏览器直连 + 服务端执行器 · Mock/导出 · 定义解析 · 缓存 · 鉴权 · Vue UI</text>
 
   <!-- 页脚 -->
   <text x="88" y="582" font-size="18" fill="#94a3b8">github.com/erikwang2013/apidoc-go</text>

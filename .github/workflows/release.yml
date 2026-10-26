@@ -1,5 +1,8 @@
 name: Release
 
+# On pushes to main, read the project version from the VERSION file (no
+# automatic patch bump) and create the tag + GitHub Release only when
+# v$VERSION does not exist yet. workflow_dispatch allows a manual retry.
 on:
   push:
     branches: [main]
@@ -18,35 +21,27 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          # Full history so tag checks see existing tags.
           fetch-depth: 0
 
-      - name: Get latest tag
-        id: latest
+      - name: Read VERSION
+        id: version
         run: |
-          git fetch --tags --force
-          latest=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
-          echo "latest=$latest" >> "$GITHUB_OUTPUT"
+          VERSION=$(tr -d ' \n' < VERSION)
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
 
-      - name: Bump patch version
-        id: bump
-        run: |
-          base=${latest#v}
-          IFS='.' read -r major minor patch <<< "$base"
-          echo "tag=v${major}.${minor}.$((patch + 1))" >> "$GITHUB_OUTPUT"
+      - name: Create tag and release if absent
         env:
-          latest: ${{ steps.latest.outputs.latest }}
-
-      - name: Create and push tag
+          GH_TOKEN: ${{ github.token }}
+          TAG: v${{ steps.version.outputs.version }}
         run: |
+          if git rev-parse -q --verify "refs/tags/${TAG}" >/dev/null; then
+            echo "tag ${TAG} already exists, skipping"
+            exit 0
+          fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git tag "$tag"
-          git push origin "$tag"
-        env:
-          tag: ${{ steps.bump.outputs.tag }}
-
-      - name: Create GitHub release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ steps.bump.outputs.tag }}
-          generate_release_notes: true
+          git tag "${TAG}"
+          git push origin "${TAG}"
+          gh release create "${TAG}" --title "${TAG}" --generate-notes
+          echo "created ${TAG}"

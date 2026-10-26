@@ -1,7 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 710" font-family="system-ui, -apple-system, 'Segoe UI', 'PingFang SC', sans-serif">
   <rect width="900" height="710" fill="#ffffff"/>
   <text x="450" y="40" text-anchor="middle" font-size="24" font-weight="700" fill="#1a1a2e">项目功能</text>
-  <text x="450" y="64" text-anchor="middle" font-size="14" fill="#666">apidoc-go 核心功能总览</text>
+  <text x="450" y="64" text-anchor="middle" font-size="14" fill="#666">apidoc-go 核心功能总览 · UIC-1</text>
 
   <!-- 3x3 功能网格 -->
   <rect x="60" y="100" width="246" height="130" rx="12" fill="#eef4ff" stroke="#4a7dff"/>
@@ -14,9 +14,10 @@
   <rect x="327" y="100" width="246" height="130" rx="12" fill="#f0fdf4" stroke="#22c55e"/>
   <circle cx="450" cy="138" r="14" fill="#22c55e"/>
   <text x="450" y="144" text-anchor="middle" font-size="15" font-weight="700" fill="#ffffff">2</text>
-  <text x="450" y="176" text-anchor="middle" font-size="15" font-weight="600" fill="#1a1a2e">文档 API</text>
-  <text x="450" y="200" text-anchor="middle" font-size="12" fill="#555">外部 UI 读取文档数据</text>
-  <text x="450" y="218" text-anchor="middle" font-size="12" fill="#555">渲染面板并发起测试请求</text>
+  <text x="450" y="172" text-anchor="middle" font-size="15" font-weight="600" fill="#1a1a2e">UIC-1 文档 API</text>
+  <text x="450" y="194" text-anchor="middle" font-size="11" fill="#555">/ui/v1 + /api · 浏览器/服务端调试</text>
+  <text x="450" y="210" text-anchor="middle" font-size="11" fill="#555">7 大协议族执行器 · 构建标签</text>
+  <text x="450" y="226" text-anchor="middle" font-size="11" fill="#555">内置 Vue UI 可选 · 外部 UI 兼容</text>
 
   <rect x="594" y="100" width="246" height="130" rx="12" fill="#fff7ed" stroke="#f97316"/>
   <circle cx="717" cy="138" r="14" fill="#f97316"/>
@@ -65,15 +66,15 @@
   <circle cx="717" cy="438" r="14" fill="#3b82f6"/>
   <text x="717" y="444" text-anchor="middle" font-size="15" font-weight="700" fill="#ffffff">9</text>
   <text x="717" y="476" text-anchor="middle" font-size="15" font-weight="600" fill="#1a1a2e">安全防护</text>
-  <text x="717" y="500" text-anchor="middle" font-size="12" fill="#555">密码鉴权 · CORS 白名单限定</text>
-  <text x="717" y="518" text-anchor="middle" font-size="12" fill="#555">防 XSS · 防路径穿越</text>
+  <text x="717" y="500" text-anchor="middle" font-size="12" fill="#555">SSRF 守卫 · 会话/字节限额</text>
+  <text x="717" y="518" text-anchor="middle" font-size="12" fill="#555">鉴权 · 防 XSS / 路径穿越</text>
 
   <rect x="60" y="550" width="246" height="130" rx="12" fill="#ecfdf5" stroke="#10b981"/>
   <circle cx="183" cy="588" r="14" fill="#10b981"/>
   <text x="183" y="594" text-anchor="middle" font-size="15" font-weight="700" fill="#ffffff">10</text>
-  <text x="183" y="626" text-anchor="middle" font-size="15" font-weight="600" fill="#1a1a2e">注释自动解析</text>
-  <text x="183" y="650" text-anchor="middle" font-size="12" fill="#555">go/ast 从注释生成文档</text>
-  <text x="183" y="668" text-anchor="middle" font-size="12" fill="#555">`@apidoc` / `@protocol` 注解</text>
+  <text x="183" y="626" text-anchor="middle" font-size="15" font-weight="600" fill="#1a1a2e">注释与定义解析</text>
+  <text x="183" y="650" text-anchor="middle" font-size="12" fill="#555">go/ast · 9 种协议定义格式</text>
+  <text x="183" y="668" text-anchor="middle" font-size="11" fill="#555">`@apidoc` / `@protocol` / `@definition`</text>
 
   <rect x="327" y="550" width="246" height="130" rx="12" fill="#fffbeb" stroke="#f59e0b"/>
   <circle cx="450" cy="588" r="14" fill="#f59e0b"/>

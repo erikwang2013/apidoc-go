@@ -1,7 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 600" font-family="system-ui, -apple-system, 'Segoe UI', 'PingFang SC', sans-serif">
   <rect width="900" height="600" fill="#ffffff"/>
   <text x="450" y="40" text-anchor="middle" font-size="24" font-weight="700" fill="#1a1a2e">项目架构</text>
-  <text x="450" y="64" text-anchor="middle" font-size="14" fill="#666">apidoc-go 通用 API 文档插件架构</text>
+  <text x="450" y="64" text-anchor="middle" font-size="14" fill="#666">apidoc-go 通用 API 文档插件架构 · UIC-1</text>
 
   <defs>
     <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
@@ -12,7 +12,7 @@
   <!-- 使用方 -->
   <rect x="60" y="90" width="780" height="66" rx="10" fill="#eef4ff" stroke="#4a7dff"/>
   <text x="90" y="116" font-size="15" font-weight="600" fill="#1a1a2e">用户代码（使用方）</text>
-  <text x="90" y="139" font-size="13" fill="#444">apidoc.New(cfg) · s.Register(Route{ Handler, Doc }) · s.Mount(adapter)</text>
+  <text x="90" y="139" font-size="13" fill="#444">apidoc.New(cfg{UIPath}) · s.Register(Route{ Handler, Doc }) · s.Mount(adapter)</text>
 
   <!-- 核心 -->
   <rect x="60" y="186" width="780" height="176" rx="10" fill="#f0fdf4" stroke="#22c55e"/>
@@ -25,19 +25,22 @@
   <text x="368" y="268" text-anchor="middle" font-size="11" fill="#555">App/Version/Action</text>
   <rect x="474" y="228" width="172" height="52" rx="8" fill="#ffffff" stroke="#22c55e"/>
   <text x="560" y="250" text-anchor="middle" font-size="13" font-weight="600" fill="#166534">Server API</text>
-  <text x="560" y="268" text-anchor="middle" font-size="10" fill="#555">响应缓存 · 4 个 JSON 接口</text>
+  <text x="560" y="268" text-anchor="middle" font-size="10" fill="#555">响应缓存 · /api + /ui/v1</text>
   <rect x="666" y="228" width="154" height="52" rx="8" fill="#ffffff" stroke="#22c55e"/>
   <text x="743" y="250" text-anchor="middle" font-size="13" font-weight="600" fill="#166534">Auth 鉴权</text>
   <text x="743" y="268" text-anchor="middle" font-size="11" fill="#555">HMAC · 恒时比较</text>
-  <rect x="90" y="296" width="220" height="44" rx="8" fill="#ffffff" stroke="#22c55e"/>
-  <text x="200" y="312" text-anchor="middle" font-size="12" font-weight="600" fill="#166534">Parse 注释解析</text>
-  <text x="200" y="327" text-anchor="middle" font-size="11" fill="#555">go/ast</text>
-  <rect x="340" y="296" width="220" height="44" rx="8" fill="#ffffff" stroke="#22c55e"/>
-  <text x="450" y="312" text-anchor="middle" font-size="12" font-weight="600" fill="#166534">Export 导出</text>
-  <text x="450" y="327" text-anchor="middle" font-size="11" fill="#555">JSON / TS</text>
-  <rect x="590" y="296" width="220" height="44" rx="8" fill="#ffffff" stroke="#22c55e"/>
-  <text x="700" y="312" text-anchor="middle" font-size="12" font-weight="600" fill="#166534">Mock 数据</text>
-  <text x="700" y="327" text-anchor="middle" font-size="11" fill="#555">字段级示例</text>
+  <rect x="90" y="296" width="172" height="44" rx="8" fill="#ffffff" stroke="#22c55e"/>
+  <text x="176" y="312" text-anchor="middle" font-size="12" font-weight="600" fill="#166534">Parse 解析</text>
+  <text x="176" y="327" text-anchor="middle" font-size="10" fill="#555">注释 · 9 格式定义</text>
+  <rect x="282" y="296" width="172" height="44" rx="8" fill="#ffffff" stroke="#22c55e"/>
+  <text x="368" y="312" text-anchor="middle" font-size="12" font-weight="600" fill="#166534">Export 导出</text>
+  <text x="368" y="327" text-anchor="middle" font-size="11" fill="#555">JSON / TS</text>
+  <rect x="474" y="296" width="172" height="44" rx="8" fill="#ffffff" stroke="#22c55e"/>
+  <text x="560" y="312" text-anchor="middle" font-size="12" font-weight="600" fill="#166534">Mock 数据</text>
+  <text x="560" y="327" text-anchor="middle" font-size="11" fill="#555">字段级示例</text>
+  <rect x="666" y="296" width="154" height="44" rx="8" fill="#ffffff" stroke="#22c55e"/>
+  <text x="743" y="312" text-anchor="middle" font-size="12" font-weight="600" fill="#166534">Relay 执行器</text>
+  <text x="743" y="327" text-anchor="middle" font-size="10" fill="#555">构建标签 · 按需编译</text>
 
   <!-- 适配层 -->
   <rect x="60" y="378" width="780" height="132" rx="10" fill="#fff7ed" stroke="#f97316"/>
