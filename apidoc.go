@@ -39,6 +39,8 @@ type Config struct {
 	CodeTemplates []CodeTemplateSpec
 	// ShareActions declares the actions handleApiShareAction may return.
 	ShareActions []ShareActionSpec
+	// Debug enables server-side relay execution; the zero value fails closed.
+	Debug DebugConfig
 }
 
 // UIC-1 management types; see server/uiapi.
@@ -47,6 +49,7 @@ type (
 	GeneratorFile    = uiapi.GeneratorFile
 	CodeTemplateSpec = uiapi.CodeTemplateSpec
 	ShareActionSpec  = uiapi.ShareActionSpec
+	DebugConfig      = uiapi.DebugConfig
 )
 
 // AuthConfig is the auth configuration.
@@ -176,6 +179,7 @@ func (s *Server) Handler() http.Handler {
 			Generator:     s.cfg.Generator,
 			CodeTemplates: s.cfg.CodeTemplates,
 			ShareActions:  s.cfg.ShareActions,
+			Debug:         s.cfg.Debug,
 		})
 	})
 	return s.handler

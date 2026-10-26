@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/erikwang2013/apidoc-go/model"
+	"github.com/erikwang2013/apidoc-go/server/uiapi/debug"
 )
 
 func splitAppKey(key string) (string, string) {
@@ -270,7 +271,7 @@ func (h *handler) detailData(action *model.Action) map[string]any {
 		protocol = "http"
 	}
 	httpProtocol := isHTTPProtocol(protocol)
-	mode, debuggable, reason := protocolMode(protocol)
+	mode, debuggable, reason := h.protocolMode(protocol)
 	address := channelAddress(action)
 	fields, defaults := debugFields(action, address, httpProtocol)
 	data := map[string]any{
@@ -311,7 +312,7 @@ func (h *handler) detailData(action *model.Action) map[string]any {
 		"debug": map[string]any{
 			"mode":             mode,
 			"driver":           protocol,
-			"relayEnabled":     false,
+			"relayEnabled":     strings.HasPrefix(mode, "relay-") && debuggable,
 			"debuggable":       debuggable,
 			"debugReason":      reason,
 			"fields":           fields,
@@ -507,7 +508,7 @@ func protocolLabel(protocol string) string {
 
 func protocolTransport(protocol string) string {
 	switch protocol {
-	case "", "http", "http2", "http3":
+	case "", "http", "http2", "http3", "soap", "graphql", "jsonrpc", "xmlrpc", "odata", "mcp", "a2a", "webhook":
 		return "http"
 	case "ws", "websocket":
 		return "ws"
@@ -518,7 +519,9 @@ func protocolTransport(protocol string) string {
 	}
 }
 
-func protocolMode(protocol string) (string, bool, string) {
+// protocolMode advertises a relay mode only when this build has the executor
+// and the deployment enabled server-side debug.
+func (h *handler) protocolMode(protocol string) (string, bool, string) {
 	switch protocol {
 	case "", "http", "http2", "http3":
 		return "browser-http", true, ""
@@ -526,11 +529,18 @@ func protocolMode(protocol string) (string, bool, string) {
 		return "browser-websocket", true, ""
 	case "sse":
 		return "browser-sse", true, ""
-	case "mqtt", "stomp", "kafka":
-		return "relay-stream", false, "server-side debug is not available in this backend version"
-	default:
-		return "relay-unary", false, "server-side debug is not available in this backend version"
 	}
+	kind := protocol
+	if kind == "rawsocket" {
+		kind = "raw"
+	}
+	if !debug.HasExecutor(kind) && !debug.HasStream(kind) {
+		return "relay-unary", false, "server executor for `" + protocol + "` is not compiled in this build"
+	}
+	if !h.o.Debug.EnableServerSide {
+		return "relay-unary", false, "server-side debug is disabled"
+	}
+	return "relay-unary", true, ""
 }
 
 func responseEncoding(httpProtocol bool) string {

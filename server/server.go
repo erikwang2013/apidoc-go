@@ -42,6 +42,7 @@ type Opts struct {
 	Generator     []uiapi.GeneratorSpec
 	CodeTemplates []uiapi.CodeTemplateSpec
 	ShareActions  []uiapi.ShareActionSpec
+	Debug         uiapi.DebugConfig
 }
 
 // Handler builds the doc JSON API handler: auth middleware, CORS and the
@@ -70,6 +71,7 @@ func Handler(o Opts) http.Handler {
 		Generator:     o.Generator,
 		CodeTemplates: o.CodeTemplates,
 		ShareActions:  o.ShareActions,
+		Debug:         o.Debug,
 		CacheClear:    h.clearCache,
 		CacheWarm:     h.warm,
 	})

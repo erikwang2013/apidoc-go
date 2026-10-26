@@ -11,6 +11,7 @@ import (
 
 	"github.com/erikwang2013/apidoc-go/auth"
 	"github.com/erikwang2013/apidoc-go/model"
+	"github.com/erikwang2013/apidoc-go/server/uiapi/debug"
 	"github.com/erikwang2013/apidoc-go/store"
 )
 
@@ -34,11 +35,17 @@ type Options struct {
 	// nil means cache management is unavailable.
 	CacheClear func()
 	CacheWarm  func()
+	// Debug enables server-side relay execution; the zero value fails closed.
+	Debug debug.Config
 }
 
+// DebugConfig is the library-facing debug configuration type.
+type DebugConfig = debug.Config
+
 type handler struct {
-	o      Options
-	shares *shareStore
+	o             Options
+	shares        *shareStore
+	debugSessions *debugSessionStore
 }
 
 // Register mounts the UIC-1 routes on mux. Legacy /api routes stay untouched.
@@ -46,7 +53,11 @@ func Register(mux *http.ServeMux, o Options) {
 	if o.ShareDir == "" {
 		o.ShareDir = filepath.Join(os.TempDir(), "apidoc-go-shares")
 	}
-	h := &handler{o: o, shares: &shareStore{dir: o.ShareDir}}
+	h := &handler{
+		o:             o,
+		shares:        &shareStore{dir: o.ShareDir},
+		debugSessions: newDebugSessionStore(debugSessionTTL),
+	}
 	mux.HandleFunc("GET /ui/v1/capabilities", h.capabilities)
 	mux.HandleFunc("GET /ui/v1/config", h.config)
 	mux.HandleFunc("POST /ui/v1/menus", h.menus)
@@ -55,10 +66,10 @@ func Register(mux *http.ServeMux, o Options) {
 	mux.HandleFunc("POST /ui/v1/docMenus", h.docMenus)
 	mux.HandleFunc("POST /ui/v1/docDetail", h.docDetail)
 	mux.HandleFunc("POST /ui/v1/verifyAuth", h.verifyAuth)
-	mux.HandleFunc("POST /ui/v1/debugSend", h.debugUnavailable)
-	mux.HandleFunc("POST /ui/v1/debugStart", h.debugUnavailable)
-	mux.HandleFunc("POST /ui/v1/debugPoll", h.debugUnavailable)
-	mux.HandleFunc("POST /ui/v1/debugStop", h.debugUnavailable)
+	mux.HandleFunc("POST /ui/v1/debugSend", h.debugSend)
+	mux.HandleFunc("POST /ui/v1/debugStart", h.debugStart)
+	mux.HandleFunc("POST /ui/v1/debugPoll", h.debugPoll)
+	mux.HandleFunc("POST /ui/v1/debugStop", h.debugStop)
 	mux.HandleFunc("POST /ui/v1/addApiShare", h.addShare)
 	mux.HandleFunc("POST /ui/v1/getApiShareList", h.shareList)
 	mux.HandleFunc("POST /ui/v1/getApiShareDetail", h.shareDetail)
@@ -103,7 +114,7 @@ func (h *handler) capabilitiesData() map[string]any {
 			"protocolDefinitions": true,
 			"debug": map[string]any{
 				"browser": []string{"http", "websocket", "sse"},
-				"relay":   []string{},
+				"relay":   debug.RelayIDs(),
 				"modes":   []string{"browser-http", "browser-websocket", "browser-sse"},
 			},
 			"share": map[string]any{"link": true, "records": true, "actions": h.shareActionsAvailable()},
