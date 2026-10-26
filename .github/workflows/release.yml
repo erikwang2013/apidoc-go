@@ -36,12 +36,13 @@ jobs:
           TAG: v${{ steps.version.outputs.version }}
         run: |
           if git rev-parse -q --verify "refs/tags/${TAG}" >/dev/null; then
-            echo "tag ${TAG} already exists, skipping"
+            gh release edit "${TAG}" --notes-file CHANGELOG.md
+            echo "tag ${TAG} already exists, synced release notes"
             exit 0
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git tag "${TAG}"
           git push origin "${TAG}"
-          gh release create "${TAG}" --title "${TAG}" --generate-notes
+          gh release create "${TAG}" --title "${TAG}" --notes-file CHANGELOG.md
           echo "created ${TAG}"
