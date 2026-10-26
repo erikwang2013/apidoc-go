@@ -8,7 +8,7 @@
 
 ## 项目介绍
 
-**当前版本：v1.1.0**（以 [Releases](https://github.com/erikwang2013/apidoc-go/releases) 为准）
+**当前版本：v1.1.1**（以 [Releases](https://github.com/erikwang2013/apidoc-go/releases) 为准）
 
 **apidoc-go** 是一个通用 Go API 文档插件库：接口文档以**类型化结构体**随路由注册时一同声明，文档与路由同生；同时提供旧版 `/api/*` 与 UIC-1 `/ui/v1/*` 两套 JSON API，可用任意外部 UI 渲染调试，也可通过 `Config.UIPath` 在同一进程提供打包后的 Vue UI。库内置密码鉴权、多应用/多版本管理、Mock 数据、JSON / TypeScript 导出、注释与九种协议定义解析、接口缓存与参数自动补全；服务端协议执行器按构建标签按需编译，覆盖 HTTP、RPC、套接字、消息、IoT、工业与媒体协议族。一次接入，全框架通用，无需改造现有项目。
 
@@ -45,7 +45,7 @@
 ```
 apidoc-go/
 ├── apidoc.go            # 核心入口：New / Register / Mount / Handler
-├── VERSION              # 项目版本（v1.1.0），发布工作流据此建 tag
+├── VERSION              # 项目版本（v1.1.1），发布工作流据此建 tag
 ├── doc.go               # Route / Doc / Param / Response 类型
 ├── model/               # 数据模型
 │   ├── model.go         #   Project / App / Version / Controller / Action

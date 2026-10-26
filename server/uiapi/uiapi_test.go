@@ -194,6 +194,17 @@ func TestCapabilities(t *testing.T) {
 // Auth capabilities must mirror what verifyAuth actually accepts: Enable
 // without a password fails closed, and app tokens need a non-empty app
 // password.
+func TestCapabilitiesVersion(t *testing.T) {
+	h := newHandlerWith(t, Options{Version: "1.1.1"})
+	data := decodeData(t, do(t, h, "GET", "/ui/v1/capabilities", "", ""))
+	if data["version"] != "1.1.1" {
+		t.Fatalf("version = %v", data["version"])
+	}
+	if moduleVersion() == "" {
+		t.Fatal("moduleVersion must not be empty")
+	}
+}
+
 func TestAuthCapabilities(t *testing.T) {
 	cases := []struct {
 		name       string

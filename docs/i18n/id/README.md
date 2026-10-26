@@ -6,7 +6,7 @@
 
 ## Pendahuluan
 
-**Versi saat ini: v1.1.0** (lihat [Releases](https://github.com/erikwang2013/apidoc-go/releases))
+**Versi saat ini: v1.1.1** (lihat [Releases](https://github.com/erikwang2013/apidoc-go/releases))
 
 **apidoc-go** adalah pustaka plugin dokumentasi API umum untuk Go: dokumentasi antarmuka dideklarasikan bersama rute sebagai **struct bertipe (typed struct)** saat rute didaftarkan, sehingga dokumentasi lahir bersama rute. Dokumentasi disajikan melalui API JSON lama `/api/*` dan UIC-1 `/ui/v1/*`, sehingga UI eksternal mana pun dapat merendernya dan mengirim permintaan uji — atau UI Vue yang sudah dipaketkan dapat disajikan dalam proses yang sama melalui `Config.UIPath`. Dilengkapi autentikasi kata sandi, manajemen multi-aplikasi/multi-versi, data Mock, ekspor JSON / TypeScript, parsing komentar dan definisi protokol sembilan format, cache respons, dan pelengkapan parameter otomatis; eksekutor protokol sisi server dikompilasi sesuai permintaan berdasarkan build tag dan mencakup famili protokol HTTP, RPC, socket, messaging, IoT, industrial, dan media. Sekali integrasi, berlaku untuk semua kerangka kerja — tanpa perlu mengubah proyek yang sudah ada.
 
@@ -43,7 +43,7 @@
 ```
 apidoc-go/
 ├── apidoc.go            # Pintu masuk inti: New / Register / Mount / Handler
-├── VERSION              # Versi proyek (v1.1.0); alur kerja rilis membuat tag darinya
+├── VERSION              # Versi proyek (v1.1.1); alur kerja rilis membuat tag darinya
 ├── doc.go               # Tipe Route / Doc / Param / Response
 ├── model/               # Model data
 │   ├── model.go         #   Project / App / Version / Controller / Action
