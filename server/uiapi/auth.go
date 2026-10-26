@@ -14,12 +14,36 @@ func (h *handler) verifyAuth(w http.ResponseWriter, r *http.Request) {
 		AppKey   string `json:"appKey"`
 		ShareKey string `json:"shareKey"`
 	}](r)
-	if err != nil || body.Password == "" {
+	if err != nil {
 		writeError(w, http.StatusBadRequest, 400, "invalid body")
 		return
 	}
 	if body.ShareKey != "" {
-		writeError(w, http.StatusNotImplemented, 501, "share tokens are not supported")
+		rec, found := h.shares.get(body.ShareKey)
+		if !found {
+			writeError(w, http.StatusNotFound, 404, "share not exists")
+			return
+		}
+		if rec.PasswordHash != "" && !sharePasswordOK(rec, body.Password) {
+			writeError(w, http.StatusUnauthorized, 401, "password error")
+			return
+		}
+		ttl := h.o.Auth.Expire
+		if ttl <= 0 {
+			ttl = 24 * time.Hour
+		}
+		token, err := auth.Issue(rec.Secret, ttl, "share:"+rec.Key)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, 500, "token issue failed")
+			return
+		}
+		writeJSON(w, http.StatusOK, ok(map[string]any{
+			"token": token, "expire": int(ttl.Seconds()),
+		}))
+		return
+	}
+	if body.Password == "" {
+		writeError(w, http.StatusBadRequest, 400, "invalid body")
 		return
 	}
 	app, _ := splitAppKey(body.AppKey)

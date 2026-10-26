@@ -30,14 +30,18 @@ const (
 
 // Opts wires the server to a store and configuration.
 type Opts struct {
-	Prefix       string
-	Store        *store.Store
-	Auth         auth.Config
-	AppPWs       map[string]string // app key -> per-app password (overrides global)
-	DebugOrigins []string          // origins allowed CORS access; empty = none
-	GlobalParams []model.Param     // merged into every action's params
-	PublicHost   string            // fallback absolute debug base URL
-	AppHosts     map[string]string // app key -> absolute debug base URL
+	Prefix        string
+	Store         *store.Store
+	Auth          auth.Config
+	AppPWs        map[string]string // app key -> per-app password (overrides global)
+	DebugOrigins  []string          // origins allowed CORS access; empty = none
+	GlobalParams  []model.Param     // merged into every action's params
+	PublicHost    string            // fallback absolute debug base URL
+	AppHosts      map[string]string // app key -> absolute debug base URL
+	ShareDir      string            // UIC-1 share records directory
+	Generator     []uiapi.GeneratorSpec
+	CodeTemplates []uiapi.CodeTemplateSpec
+	ShareActions  []uiapi.ShareActionSpec
 }
 
 // Handler builds the doc JSON API handler: auth middleware, CORS and the
@@ -56,12 +60,18 @@ func Handler(o Opts) http.Handler {
 	mux.HandleFunc("POST /api/login", h.login)
 	mux.HandleFunc("POST /api/app-login", h.appLogin)
 	uiapi.Register(mux, uiapi.Options{
-		Store:        o.Store,
-		Auth:         o.Auth,
-		AppPWs:       o.AppPWs,
-		GlobalParams: o.GlobalParams,
-		PublicHost:   o.PublicHost,
-		AppHosts:     o.AppHosts,
+		Store:         o.Store,
+		Auth:          o.Auth,
+		AppPWs:        o.AppPWs,
+		GlobalParams:  o.GlobalParams,
+		PublicHost:    o.PublicHost,
+		AppHosts:      o.AppHosts,
+		ShareDir:      o.ShareDir,
+		Generator:     o.Generator,
+		CodeTemplates: o.CodeTemplates,
+		ShareActions:  o.ShareActions,
+		CacheClear:    h.clearCache,
+		CacheWarm:     h.warm,
 	})
 	h.warm()
 	// CORS outermost so even 401s carry the headers the browser needs.
@@ -108,6 +118,13 @@ func (h *apiHandler) jsonFor(key string, build func() (any, error)) (cachedResp,
 	}
 	h.mu.Unlock()
 	return c, nil
+}
+
+// clearCache drops every cached response; the next request rebuilds it.
+func (h *apiHandler) clearCache() {
+	h.mu.Lock()
+	h.cache = map[string]cachedResp{}
+	h.mu.Unlock()
 }
 
 // warm precomputes the static payloads so the first request is also fast.

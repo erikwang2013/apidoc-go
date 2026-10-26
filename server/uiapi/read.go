@@ -83,8 +83,9 @@ func (h *handler) globalParams() map[string]any {
 
 func (h *handler) config(w http.ResponseWriter, r *http.Request) {
 	appKey := r.URL.Query().Get("appKey")
-	if !h.canAccess(r, appKey) {
-		writeError(w, http.StatusUnauthorized, 401, "token error")
+	shareKey := r.URL.Query().Get("shareKey")
+	rec, allowed := h.authorize(w, r, appKey, shareKey)
+	if !allowed {
 		return
 	}
 	project, err := h.o.Store.Project()
@@ -95,27 +96,43 @@ func (h *handler) config(w http.ResponseWriter, r *http.Request) {
 	apps := []map[string]any{}
 	for _, app := range project.Apps {
 		for _, version := range app.Versions {
+			if rec != nil && !h.shareAllowsApp(rec, canonicalAppKey(app.Key, version.Name)) {
+				continue
+			}
 			apps = append(apps, h.appLeaf(app, version))
 		}
+	}
+	generator := h.o.Generator
+	if generator == nil {
+		generator = []GeneratorSpec{}
+	}
+	codeTemplates := h.o.CodeTemplates
+	if codeTemplates == nil {
+		codeTemplates = []CodeTemplateSpec{}
+	}
+	actions := h.o.ShareActions
+	if actions == nil {
+		actions = []ShareActionSpec{}
 	}
 	writeJSON(w, http.StatusOK, ok(map[string]any{
 		"title":         project.Name,
 		"desc":          "",
 		"apps":          apps,
-		"cache":         map[string]any{"enable": false},
+		"cache":         map[string]any{"enable": h.o.CacheClear != nil || h.o.CacheWarm != nil},
 		"params":        h.globalParams(),
 		"responses":     map[string]any{"success": []any{}, "error": []any{}},
-		"generator":     []any{},
-		"code_template": []any{},
-		"share":         map[string]any{"enable": false},
-		"export_config": map[string]any{"enable": false},
+		"generator":     generator,
+		"code_template": codeTemplates,
+		"share":         map[string]any{"enable": true, "actions": actions},
+		"export_config": map[string]any{"enable": true},
 		"capabilities":  h.capabilitiesData(),
 	}))
 }
 
 func (h *handler) menus(w http.ResponseWriter, r *http.Request) {
 	body, err := decode[struct {
-		AppKey string `json:"appKey"`
+		AppKey   string `json:"appKey"`
+		ShareKey string `json:"shareKey"`
 	}](r)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, 400, "invalid body")
@@ -124,8 +141,8 @@ func (h *handler) menus(w http.ResponseWriter, r *http.Request) {
 	if !requireAppKey(w, body.AppKey) {
 		return
 	}
-	if !h.canAccess(r, body.AppKey) {
-		writeError(w, http.StatusUnauthorized, 401, "token error")
+	rec, allowed := h.authorize(w, r, body.AppKey, body.ShareKey)
+	if !allowed {
 		return
 	}
 	project, err := h.o.Store.Project()
@@ -144,6 +161,9 @@ func (h *handler) menus(w http.ResponseWriter, r *http.Request) {
 		sort.SliceStable(actions, func(i, j int) bool { return actions[i].Sort < actions[j].Sort })
 		children := []map[string]any{}
 		for _, action := range actions {
+			if !rec.apiAllowed(action.ID) {
+				continue
+			}
 			url := action.URL
 			if url == "" {
 				url = channelAddress(action)
@@ -165,6 +185,9 @@ func (h *handler) menus(w http.ResponseWriter, r *http.Request) {
 			}
 			children = append(children, item)
 		}
+		if rec != nil && rec.Type == "api" && len(children) == 0 {
+			continue
+		}
 		data = append(data, map[string]any{
 			"name":       ctl.Name,
 			"title":      ctl.Name,
@@ -185,8 +208,9 @@ func (h *handler) menus(w http.ResponseWriter, r *http.Request) {
 
 func (h *handler) detail(w http.ResponseWriter, r *http.Request) {
 	body, err := decode[struct {
-		AppKey string `json:"appKey"`
-		Path   string `json:"path"`
+		AppKey   string `json:"appKey"`
+		Path     string `json:"path"`
+		ShareKey string `json:"shareKey"`
 	}](r)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, 400, "invalid body")
@@ -201,8 +225,12 @@ func (h *handler) detail(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, 404, "action not found")
 		return
 	}
-	if !h.canAccess(r, canonicalAppKey(action.App, action.Version)) {
-		writeError(w, http.StatusUnauthorized, 401, "token error")
+	rec, allowed := h.authorize(w, r, canonicalAppKey(action.App, action.Version), body.ShareKey)
+	if !allowed {
+		return
+	}
+	if !rec.apiAllowed(action.ID) {
+		writeError(w, http.StatusForbidden, 403, "share api not allowed")
 		return
 	}
 	writeJSON(w, http.StatusOK, ok(h.detailData(action)))
@@ -303,18 +331,21 @@ func (h *handler) detailData(action *model.Action) map[string]any {
 
 func (h *handler) docMenus(w http.ResponseWriter, r *http.Request) {
 	appKey := r.URL.Query().Get("appKey")
+	shareKey := r.URL.Query().Get("shareKey")
 	if r.Method == http.MethodPost {
 		if body, err := decode[struct {
-			AppKey string `json:"appKey"`
+			AppKey   string `json:"appKey"`
+			ShareKey string `json:"shareKey"`
 		}](r); err == nil {
 			appKey = body.AppKey
+			shareKey = body.ShareKey
 		}
 	}
 	if !requireAppKey(w, appKey) {
 		return
 	}
-	if !h.canAccess(r, appKey) {
-		writeError(w, http.StatusUnauthorized, 401, "token error")
+	rec, allowed := h.authorize(w, r, appKey, shareKey)
+	if !allowed {
 		return
 	}
 	project, err := h.o.Store.Project()
@@ -331,7 +362,7 @@ func (h *handler) docMenus(w http.ResponseWriter, r *http.Request) {
 			for _, ctl := range version.Controllers {
 				children := []map[string]any{}
 				for _, action := range ctl.Actions {
-					if action.Markdown == "" {
+					if action.Markdown == "" || !rec.apiAllowed(action.ID) {
 						continue
 					}
 					children = append(children, map[string]any{
@@ -357,8 +388,9 @@ func (h *handler) docMenus(w http.ResponseWriter, r *http.Request) {
 
 func (h *handler) docDetail(w http.ResponseWriter, r *http.Request) {
 	body, err := decode[struct {
-		AppKey string `json:"appKey"`
-		Path   string `json:"path"`
+		AppKey   string `json:"appKey"`
+		Path     string `json:"path"`
+		ShareKey string `json:"shareKey"`
 	}](r)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, 400, "invalid body")
@@ -376,8 +408,12 @@ func (h *handler) docDetail(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, 404, "doc not found")
 		return
 	}
-	if !h.canAccess(r, canonicalAppKey(action.App, action.Version)) {
-		writeError(w, http.StatusUnauthorized, 401, "token error")
+	rec, allowed := h.authorize(w, r, canonicalAppKey(action.App, action.Version), body.ShareKey)
+	if !allowed {
+		return
+	}
+	if !rec.apiAllowed(action.ID) {
+		writeError(w, http.StatusForbidden, 403, "share api not allowed")
 		return
 	}
 	writeJSON(w, http.StatusOK, ok(map[string]any{"content": action.Markdown}))

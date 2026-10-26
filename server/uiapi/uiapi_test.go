@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -52,20 +54,23 @@ func newMultiAppStore() *store.Store {
 
 func newHandler(t *testing.T) http.Handler {
 	t.Helper()
-	mux := http.NewServeMux()
-	Register(mux, Options{
-		Store: newStore(),
+	return newHandlerWith(t, Options{
 		Auth: auth.Config{
 			Enable: true, Password: "pw", Secret: "secret", Expire: time.Hour,
 		},
 	})
-	return mux
 }
 
 func newHandlerWith(t *testing.T, o Options) http.Handler {
 	t.Helper()
 	if o.Store == nil {
 		o.Store = newStore()
+	}
+	if o.ShareDir == "" {
+		o.ShareDir = t.TempDir()
+	}
+	if o.Auth.Secret == "" {
+		o.Auth.Secret = "secret"
 	}
 	mux := http.NewServeMux()
 	Register(mux, o)
@@ -99,6 +104,22 @@ func decodeData(t *testing.T, rec *httptest.ResponseRecorder) map[string]any {
 	return envelope.Data
 }
 
+func decodeDataOf[T any](t *testing.T, rec *httptest.ResponseRecorder) T {
+	t.Helper()
+	var envelope struct {
+		Code    int    `json:"code"`
+		Message string `json:"message"`
+		Data    T      `json:"data"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &envelope); err != nil {
+		t.Fatalf("decode %s: %v", rec.Body.String(), err)
+	}
+	if envelope.Code != 0 {
+		t.Fatalf("unexpected code %d: %s", envelope.Code, rec.Body.String())
+	}
+	return envelope.Data
+}
+
 func login(t *testing.T, h http.Handler) string {
 	t.Helper()
 	rec := do(t, h, "POST", "/ui/v1/verifyAuth", `{"password":"pw"}`, "")
@@ -117,6 +138,77 @@ func TestCapabilities(t *testing.T) {
 	if data["contract"] != "1.0" || data["backend"] != "go" {
 		t.Fatalf("capabilities: %+v", data)
 	}
+	features := data["features"].(map[string]any)
+	share := features["share"].(map[string]any)
+	if share["records"] != true || share["actions"] != true {
+		t.Fatalf("share features: %+v", share)
+	}
+	cache := features["cache"].(map[string]any)
+	if cache["manage"] != true || cache["mode"] != "server" {
+		t.Fatalf("cache features: %+v", cache)
+	}
+	generator := features["generator"].(map[string]any)
+	if generator["forms"] != true || generator["templates"] != true || generator["sideEffects"] != false {
+		t.Fatalf("generator features: %+v", generator)
+	}
+	exports := features["exports"].([]any)
+	for _, want := range []string{"md", "pdf", "openapi", "postman", "asyncapi", "typescript"} {
+		found := false
+		for _, got := range exports {
+			if got == want {
+				found = true
+			}
+		}
+		if !found {
+			t.Fatalf("missing export %q in %+v", want, exports)
+		}
+	}
+	if features["auth"].(map[string]any)["shareToken"] != true {
+		t.Fatalf("shareToken: %+v", features["auth"])
+	}
+}
+
+// The Go capabilities block must stay in sync with the shared contract fixture.
+func TestCapabilitiesMatchGoFixture(t *testing.T) {
+	b, err := os.ReadFile("../../contract/uic-1/fixtures/capabilities.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var rows []struct {
+		Response struct {
+			Data map[string]any `json:"data"`
+		} `json:"response"`
+	}
+	if err := json.Unmarshal(b, &rows); err != nil {
+		t.Fatal(err)
+	}
+	var want any
+	for _, row := range rows {
+		if row.Response.Data["backend"] == "go" {
+			want = row.Response.Data["features"]
+			break
+		}
+	}
+	if want == nil {
+		t.Fatal("no go capabilities fixture")
+	}
+	live := decodeData(t, do(t, newHandler(t), http.MethodGet, "/ui/v1/capabilities", "", ""))["features"]
+	if !reflect.DeepEqual(jsonRoundTrip(t, live), jsonRoundTrip(t, want)) {
+		t.Fatalf("capabilities drift:\nlive %#v\nwant %#v", live, want)
+	}
+}
+
+func jsonRoundTrip(t *testing.T, v any) any {
+	t.Helper()
+	b, err := json.Marshal(v)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var out any
+	if err := json.Unmarshal(b, &out); err != nil {
+		t.Fatal(err)
+	}
+	return out
 }
 
 func TestAuthAndConfig(t *testing.T) {
@@ -208,18 +300,11 @@ func loginApp(t *testing.T, h http.Handler, appKey, password string) string {
 	return token
 }
 
-func TestVerifyAuthShareKeyNotSupported(t *testing.T) {
+func TestVerifyAuthUnknownShare(t *testing.T) {
 	h := newHandler(t)
 	rec := do(t, h, "POST", "/ui/v1/verifyAuth", `{"password":"pw","shareKey":"share-1"}`, "")
-	if rec.Code != http.StatusNotImplemented {
-		t.Fatalf("expected 501, got %d: %s", rec.Code, rec.Body.String())
-	}
-	var envelope struct {
-		Code    int    `json:"code"`
-		Message string `json:"message"`
-	}
-	if err := json.Unmarshal(rec.Body.Bytes(), &envelope); err != nil || envelope.Code != 501 {
-		t.Fatalf("envelope: %s", rec.Body.String())
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("expected 404, got %d: %s", rec.Code, rec.Body.String())
 	}
 }
 
@@ -329,6 +414,413 @@ func decodeDataArray(t *testing.T, rec *httptest.ResponseRecorder) []any {
 
 // An app token is bound to its app: no other app's menus/docs, and an empty
 // appKey is a missing parameter rather than a wildcard.
+func TestShareCRUD(t *testing.T) {
+	h := newHandlerWith(t, Options{
+		Auth: auth.Config{Enable: true, Password: "pw", Secret: "secret", Expire: time.Hour},
+		ShareActions: []ShareActionSpec{{
+			Name: "Copy link", Action: "copy",
+			Params: map[string]any{"url": "https://api.example.com/apidoc?app=default"},
+		}},
+	})
+	token := login(t, h)
+
+	rec := do(t, h, "POST", "/ui/v1/addApiShare", `{"name":"Team","type":"app","appKeys":["default"]}`, "")
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("unauthenticated add: %d", rec.Code)
+	}
+	rec = do(t, h, "POST", "/ui/v1/addApiShare",
+		`{"key":"share-1","name":"Team","type":"app","appKeys":["default"],"password":"secret"}`, token)
+	if !decodeDataOf[bool](t, rec) {
+		t.Fatalf("add: %s", rec.Body.String())
+	}
+	rec = do(t, h, "POST", "/ui/v1/addApiShare", `{"key":"../evil","name":"x","type":"all"}`, token)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("traversal key: %d %s", rec.Code, rec.Body.String())
+	}
+	rec = do(t, h, "POST", "/ui/v1/addApiShare", `{"name":"x","type":"api"}`, token)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("api share without apiKeys: %d", rec.Code)
+	}
+
+	rec = do(t, h, "POST", "/ui/v1/getApiShareList", `{"pageIndex":1}`, token)
+	if strings.Contains(rec.Body.String(), "password") || strings.Contains(rec.Body.String(), "secret") {
+		t.Fatalf("list leaks credentials: %s", rec.Body.String())
+	}
+	list := decodeData(t, rec)
+	if list["total"].(float64) != 1 {
+		t.Fatalf("list total: %+v", list)
+	}
+	item := list["data"].([]any)[0].(map[string]any)
+	if item["key"] != "share-1" || item["name"] != "Team" || item["type"] != "app" {
+		t.Fatalf("list item: %+v", item)
+	}
+	if item["create_at"] == "" || item["create_at"] != item["create_time"] {
+		t.Fatalf("create times: %+v", item)
+	}
+	if keys, _ := item["appKeys"].([]any); len(keys) != 1 || keys[0] != "default" {
+		t.Fatalf("appKeys: %+v", item["appKeys"])
+	}
+
+	rec = do(t, h, "POST", "/ui/v1/getApiShareDetail", `{"key":"share-1"}`, token)
+	if strings.Contains(rec.Body.String(), "password") || strings.Contains(rec.Body.String(), "secret") {
+		t.Fatalf("detail leaks credentials: %s", rec.Body.String())
+	}
+	detail := decodeData(t, rec)
+	if detail["key"] != "share-1" || detail["name"] != "Team" {
+		t.Fatalf("detail: %+v", detail)
+	}
+
+	rec = do(t, h, "POST", "/ui/v1/addApiShare", `{"key":"share-1","name":"Team 2","type":"all"}`, token)
+	if !decodeDataOf[bool](t, rec) {
+		t.Fatalf("edit: %s", rec.Body.String())
+	}
+	detail = decodeData(t, do(t, h, "POST", "/ui/v1/getApiShareDetail", `{"key":"share-1"}`, token))
+	if detail["name"] != "Team 2" || detail["type"] != "all" {
+		t.Fatalf("edited detail: %+v", detail)
+	}
+	// An edit without a password keeps the old one.
+	rec = do(t, h, "POST", "/ui/v1/verifyAuth", `{"shareKey":"share-1","password":"secret"}`, "")
+	if decodeData(t, rec)["token"] == "" {
+		t.Fatalf("share login after edit: %s", rec.Body.String())
+	}
+	rec = do(t, h, "POST", "/ui/v1/verifyAuth", `{"shareKey":"share-1","password":"bad"}`, "")
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("share wrong password: %d", rec.Code)
+	}
+
+	action := decodeData(t, do(t, h, "POST", "/ui/v1/handleApiShareAction", `{"key":"share-1","index":0}`, token))
+	if action["action"] != "copy" ||
+		action["params"].(map[string]any)["url"] != "https://api.example.com/apidoc?app=default" {
+		t.Fatalf("share action: %+v", action)
+	}
+	if got := decodeDataOf[any](t, do(t, h, "POST", "/ui/v1/handleApiShareAction", `{"key":"share-1","index":9}`, token)); got != false {
+		t.Fatalf("out of range action: %+v", got)
+	}
+
+	if !decodeDataOf[bool](t, do(t, h, "POST", "/ui/v1/deleteApiShare", `{"key":"share-1"}`, token)) {
+		t.Fatal("delete failed")
+	}
+	rec = do(t, h, "POST", "/ui/v1/getApiShareDetail", `{"key":"share-1"}`, token)
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("deleted detail: %d", rec.Code)
+	}
+	if total := decodeData(t, do(t, h, "POST", "/ui/v1/getApiShareList", `{}`, token))["total"]; total.(float64) != 0 {
+		t.Fatalf("list after delete: %+v", total)
+	}
+}
+
+func TestShareLoginAndScope(t *testing.T) {
+	h := newHandlerWith(t, Options{
+		Store:  newMultiAppStore(),
+		Auth:   auth.Config{Enable: true, Password: "pw", Secret: "secret", Expire: time.Hour},
+		AppPWs: map[string]string{"default": "apppw", "b": "apppw2"},
+	})
+	admin := login(t, h)
+	itemsID := store.ActionID("default", "v1", "GET", "/items")
+	wsID := store.ActionID("default", "v1", "SUBSCRIBE", "ws://example.com/chat")
+
+	for _, body := range []string{
+		`{"key":"s1","name":"Default share","type":"app","appKeys":["default"],"password":"sp"}`,
+		`{"key":"open","name":"Open","type":"app","appKeys":["default"]}`,
+		`{"key":"s2","name":"One API","type":"api","appKeys":["default"],"apiKeys":["` + itemsID + `"],"password":"sp"}`,
+	} {
+		rec := do(t, h, "POST", "/ui/v1/addApiShare", body, admin)
+		if !decodeDataOf[bool](t, rec) {
+			t.Fatalf("add %s: %s", body, rec.Body.String())
+		}
+	}
+
+	rec := do(t, h, "POST", "/ui/v1/verifyAuth", `{"shareKey":"s1","password":"bad"}`, "")
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("wrong share password: %d", rec.Code)
+	}
+	shareToken := decodeData(t, do(t, h, "POST", "/ui/v1/verifyAuth", `{"shareKey":"s1","password":"sp"}`, ""))["token"].(string)
+	apiToken := decodeData(t, do(t, h, "POST", "/ui/v1/verifyAuth", `{"shareKey":"s2","password":"sp"}`, ""))["token"].(string)
+	if shareToken == "" || apiToken == "" {
+		t.Fatal("empty share token")
+	}
+
+	// Share config is scoped to the share's apps.
+	rec = do(t, h, "GET", "/ui/v1/config?shareKey=s1", "", shareToken)
+	apps := decodeData(t, rec)["apps"].([]any)
+	if len(apps) != 1 || apps[0].(map[string]any)["key"] != "default|v1" {
+		t.Fatalf("share config apps: %+v", apps)
+	}
+	if rec = do(t, h, "GET", "/ui/v1/config?shareKey=s1", "", ""); rec.Code != http.StatusUnauthorized {
+		t.Fatalf("share config without token: %d", rec.Code)
+	}
+	// A share token is only valid alongside its shareKey, and an app token
+	// cannot impersonate a share.
+	if rec = do(t, h, "POST", "/ui/v1/menus", `{"appKey":"default|v1"}`, shareToken); rec.Code != http.StatusUnauthorized {
+		t.Fatalf("share token without shareKey: %d", rec.Code)
+	}
+	appToken := loginApp(t, h, "default|v1", "apppw")
+	if rec = do(t, h, "POST", "/ui/v1/menus", `{"appKey":"default|v1","shareKey":"s1"}`, appToken); rec.Code != http.StatusUnauthorized {
+		t.Fatalf("app token with shareKey: %d", rec.Code)
+	}
+	if rec = do(t, h, "POST", "/ui/v1/menus", `{"appKey":"b|v1","shareKey":"s1"}`, shareToken); rec.Code != http.StatusNotFound {
+		t.Fatalf("outside share app: %d %s", rec.Code, rec.Body.String())
+	}
+
+	// An app-wide share sees every API of its app despite the app password.
+	rec = do(t, h, "POST", "/ui/v1/menus", `{"appKey":"default|v1","shareKey":"s1"}`, shareToken)
+	if data := decodeData(t, rec); len(data["data"].([]any)) != 2 {
+		t.Fatalf("share menus: %+v", data["data"])
+	}
+	rec = do(t, h, "POST", "/ui/v1/detail", `{"appKey":"default|v1","path":"`+wsID+`","shareKey":"s1"}`, shareToken)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("share detail: %d %s", rec.Code, rec.Body.String())
+	}
+
+	// A passwordless share works without a token.
+	rec = do(t, h, "GET", "/ui/v1/config?shareKey=open", "", "")
+	if apps := decodeData(t, rec)["apps"].([]any); len(apps) != 1 {
+		t.Fatalf("open share config: %+v", apps)
+	}
+	rec = do(t, h, "POST", "/ui/v1/menus", `{"appKey":"default|v1","shareKey":"open"}`, "")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("open share menus: %d %s", rec.Code, rec.Body.String())
+	}
+
+	// An API-scoped share only exposes the selected menuKey.
+	rec = do(t, h, "POST", "/ui/v1/menus", `{"appKey":"default|v1","shareKey":"s2"}`, apiToken)
+	data := decodeData(t, rec)
+	controllers := data["data"].([]any)
+	if len(controllers) != 1 {
+		t.Fatalf("api share controllers: %+v", controllers)
+	}
+	children := controllers[0].(map[string]any)["children"].([]any)
+	if len(children) != 1 || children[0].(map[string]any)["menuKey"] != itemsID {
+		t.Fatalf("api share actions: %+v", children)
+	}
+	rec = do(t, h, "POST", "/ui/v1/detail", `{"appKey":"default|v1","path":"`+wsID+`","shareKey":"s2"}`, apiToken)
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("share api outside scope: %d", rec.Code)
+	}
+	rec = do(t, h, "POST", "/ui/v1/detail", `{"appKey":"default|v1","path":"`+itemsID+`","shareKey":"s2"}`, apiToken)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("share api inside scope: %d %s", rec.Code, rec.Body.String())
+	}
+	rec = do(t, h, "POST", "/ui/v1/docMenus", `{"appKey":"default|v1","shareKey":"s2"}`, apiToken)
+	docControllers := decodeDataArray(t, rec)
+	if len(docControllers) != 1 {
+		t.Fatalf("api share docs: %+v", docControllers)
+	}
+
+	// exportAllData {key} is owner-only and honours the share scope.
+	if rec = do(t, h, "POST", "/ui/v1/exportAllData", `{"key":"s2"}`, ""); rec.Code != http.StatusUnauthorized {
+		t.Fatalf("share export without admin: %d", rec.Code)
+	}
+	rec = do(t, h, "POST", "/ui/v1/exportAllData", `{"key":"s2"}`, admin)
+	apiData := decodeData(t, rec)["apiData"].([]any)
+	if len(apiData) != 1 {
+		t.Fatalf("share export apps: %+v", apiData)
+	}
+	if leaves := exportLeafKeys(apiData); len(leaves) != 1 || leaves[0] != itemsID {
+		t.Fatalf("share export leaves: %+v", leaves)
+	}
+	rec = do(t, h, "POST", "/ui/v1/exportAllData", `{"key":"s1"}`, admin)
+	if leaves := exportLeafKeys(decodeData(t, rec)["apiData"].([]any)); len(leaves) != 2 {
+		t.Fatalf("app share export leaves: %+v", leaves)
+	}
+
+	// App tokens still cannot cross apps.
+	if rec = do(t, h, "POST", "/ui/v1/exportAllData", `{"appKey":"b|v1"}`, appToken); rec.Code != http.StatusUnauthorized {
+		t.Fatalf("cross-app export: %d", rec.Code)
+	}
+	rec = do(t, h, "POST", "/ui/v1/exportAllData", `{"appKey":"default|v1"}`, appToken)
+	if leaves := exportLeafKeys(decodeData(t, rec)["apiData"].([]any)); len(leaves) != 2 {
+		t.Fatalf("app export leaves: %+v", leaves)
+	}
+}
+
+func TestCacheManagement(t *testing.T) {
+	cleared, warmed := 0, 0
+	h := newHandlerWith(t, Options{
+		Auth:       auth.Config{Enable: true, Password: "pw", Secret: "secret", Expire: time.Hour},
+		CacheClear: func() { cleared++ },
+		CacheWarm:  func() { warmed++ },
+	})
+	if rec := do(t, h, "POST", "/ui/v1/cache/clear", `{}`, ""); rec.Code != http.StatusUnauthorized {
+		t.Fatalf("unauthenticated cache clear: %d", rec.Code)
+	}
+	token := login(t, h)
+	clear := decodeData(t, do(t, h, "POST", "/ui/v1/cache/clear", `{}`, token))
+	if clear["ok"] != true || clear["mode"] != "server" {
+		t.Fatalf("cache clear: %+v", clear)
+	}
+	warm := decodeData(t, do(t, h, "POST", "/ui/v1/cache/warm", `{}`, token))
+	if warm["ok"] != true || warm["mode"] != "server" || warm["message"] != "cache rebuilt" {
+		t.Fatalf("cache warm: %+v", warm)
+	}
+	if cleared != 1 || warmed != 1 {
+		t.Fatalf("callbacks: cleared=%d warmed=%d", cleared, warmed)
+	}
+	config := decodeData(t, do(t, h, "GET", "/ui/v1/config", "", token))
+	if config["cache"].(map[string]any)["enable"] != true {
+		t.Fatalf("cache config: %+v", config["cache"])
+	}
+}
+
+func TestGeneratorEndpoints(t *testing.T) {
+	h := newHandlerWith(t, Options{
+		Auth: auth.Config{Enable: true, Password: "pw", Secret: "secret", Expire: time.Hour},
+		Generator: []GeneratorSpec{{
+			Name: "model", Title: "Model",
+			Files: []GeneratorFile{{
+				Name: "User", Path: "src/User.ts", Template: "export interface {{.name}} {}\n",
+			}},
+			Form: map[string]any{"items": []any{}},
+		}},
+		CodeTemplates: []CodeTemplateSpec{{
+			Title: "API client", Template: "api.ts", Content: "// {{.appKey}} {{len .apis}}\n",
+			SelectMode: "api", Multiple: true,
+		}},
+	})
+	if rec := do(t, h, "POST", "/ui/v1/generator", `{"index":0}`, ""); rec.Code != http.StatusUnauthorized {
+		t.Fatalf("unauthenticated generator: %d", rec.Code)
+	}
+	token := login(t, h)
+
+	rec := do(t, h, "POST", "/ui/v1/generator",
+		`{"index":0,"form":{"name":"User"},"files":[{"name":"User","path":"gen/User.ts"}],"tables":[]}`, token)
+	data := decodeData(t, rec)
+	files := data["files"].([]any)
+	if len(files) != 1 {
+		t.Fatalf("generator files: %+v", files)
+	}
+	file := files[0].(map[string]any)
+	if file["name"] != "User" || file["path"] != "gen/User.ts" ||
+		file["content"] != "export interface User {}\n" {
+		t.Fatalf("generator file: %+v", file)
+	}
+	if rec = do(t, h, "POST", "/ui/v1/generator", `{"index":9}`, token); rec.Code != http.StatusNotFound {
+		t.Fatalf("unknown generator: %d", rec.Code)
+	}
+
+	rec = do(t, h, "GET", "/ui/v1/config", "", token)
+	config := decodeData(t, rec)
+	generators := config["generator"].([]any)
+	templates := config["code_template"].([]any)
+	if len(generators) != 1 || len(templates) != 1 {
+		t.Fatalf("config descriptors: %+v", config)
+	}
+	if strings.Contains(rec.Body.String(), "// {{.appKey}}") {
+		t.Fatalf("code template source leaked: %s", rec.Body.String())
+	}
+
+	itemsID := store.ActionID("default", "v1", "GET", "/items")
+	rec = do(t, h, "POST", "/ui/v1/renderCodeTemplate",
+		`{"appKey":"default|v1","template":"api.ts","selected":["`+itemsID+`"],"form":{}}`, token)
+	if code := decodeData(t, rec)["code"]; code != "// default|v1 1\n" {
+		t.Fatalf("code template: %+v", code)
+	}
+	rec = do(t, h, "POST", "/ui/v1/renderCodeTemplate",
+		`{"appKey":"default|v1","template":{"title":"API client","template":"api.ts"},"selected":["`+itemsID+`"],"form":{}}`, token)
+	if code := decodeData(t, rec)["code"]; code != "// default|v1 1\n" {
+		t.Fatalf("object code template: %+v", code)
+	}
+	if rec = do(t, h, "POST", "/ui/v1/renderCodeTemplate",
+		`{"appKey":"default|v1","template":"nope.ts","selected":[],"form":{}}`, token); rec.Code != http.StatusNotFound {
+		t.Fatalf("unknown code template: %d", rec.Code)
+	}
+}
+
+func TestExportAllData(t *testing.T) {
+	h := newHandlerWith(t, Options{Store: newMultiAppStore()})
+	itemsID := store.ActionID("default", "v1", "GET", "/items")
+	wsID := store.ActionID("default", "v1", "SUBSCRIBE", "ws://example.com/chat")
+
+	rec := do(t, h, "POST", "/ui/v1/exportAllData", `{"appKey":"default|v1"}`, "")
+	data := decodeData(t, rec)
+	apiData := data["apiData"].([]any)
+	if len(apiData) != 1 {
+		t.Fatalf("export apps: %+v", apiData)
+	}
+	node := apiData[0].(map[string]any)
+	if node["key"] != "default" || node["appKey"] != "default|v1" || node["menuKey"] != "default|v1" {
+		t.Fatalf("export node: %+v", node)
+	}
+	leaves := exportLeafKeys(apiData)
+	if len(leaves) != 2 || leaves[0] != itemsID || leaves[1] != wsID {
+		t.Fatalf("export leaves: %+v", leaves)
+	}
+	leaf := findExportLeaf(t, apiData, itemsID)
+	if leaf["protocol"].(map[string]any)["name"] != "http" ||
+		leaf["query"].([]any)[0].(map[string]any)["name"] != "page" {
+		t.Fatalf("export detail mapping: %+v", leaf)
+	}
+	ws := findExportLeaf(t, apiData, wsID)
+	if ws["debug"].(map[string]any)["mode"] != "browser-websocket" {
+		t.Fatalf("export ws detail: %+v", ws["debug"])
+	}
+
+	if got := decodeData(t, do(t, h, "POST", "/ui/v1/exportAllData", `{"appKey":"default"}`, ""))["apiData"].([]any); len(got) != 1 {
+		t.Fatalf("bare app export: %+v", got)
+	}
+	if got := decodeData(t, do(t, h, "POST", "/ui/v1/exportAllData", `{}`, ""))["apiData"].([]any); len(got) != 2 {
+		t.Fatalf("all app export: %+v", got)
+	}
+
+	h2 := newHandlerWith(t, Options{
+		Store:  newMultiAppStore(),
+		Auth:   auth.Config{Secret: "secret"},
+		AppPWs: map[string]string{"default": "pw1", "b": "pw2"},
+	})
+	appToken := loginApp(t, h2, "default|v1", "pw1")
+	if rec := do(t, h2, "POST", "/ui/v1/exportAllData", `{"appKey":"default|v1"}`, ""); rec.Code != http.StatusUnauthorized {
+		t.Fatalf("protected export without token: %d", rec.Code)
+	}
+	rec = do(t, h2, "POST", "/ui/v1/exportAllData", `{"appKey":"default|v1"}`, appToken)
+	if got := decodeData(t, rec)["apiData"].([]any); len(got) != 1 {
+		t.Fatalf("app token export: %+v", got)
+	}
+	if rec = do(t, h2, "POST", "/ui/v1/exportAllData", `{"appKey":"b|v1"}`, appToken); rec.Code != http.StatusUnauthorized {
+		t.Fatalf("cross-app export: %d", rec.Code)
+	}
+}
+
+// exportLeafKeys walks an export tree and returns leaf menuKeys in order.
+func exportLeafKeys(nodes []any) []string {
+	out := []string{}
+	var walk func([]any)
+	walk = func(nodes []any) {
+		for _, node := range nodes {
+			m, _ := node.(map[string]any)
+			if children, ok := m["children"].([]any); ok {
+				walk(children)
+				continue
+			}
+			if key, _ := m["menuKey"].(string); key != "" {
+				out = append(out, key)
+			}
+		}
+	}
+	walk(nodes)
+	return out
+}
+
+func findExportLeaf(t *testing.T, nodes []any, menuKey string) map[string]any {
+	t.Helper()
+	var found map[string]any
+	var walk func([]any)
+	walk = func(nodes []any) {
+		for _, node := range nodes {
+			m := node.(map[string]any)
+			if children, ok := m["children"].([]any); ok {
+				walk(children)
+			} else if m["menuKey"] == menuKey {
+				found = m
+			}
+		}
+	}
+	walk(nodes)
+	if found == nil {
+		t.Fatalf("export leaf %s not found", menuKey)
+	}
+	return found
+}
+
 func TestAppScopeIsolation(t *testing.T) {
 	h := newHandlerWith(t, Options{
 		Store:  newMultiAppStore(),

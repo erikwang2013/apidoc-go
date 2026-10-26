@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/erikwang2013/apidoc-go/auth"
@@ -22,15 +24,29 @@ type Options struct {
 	GlobalParams []model.Param
 	PublicHost   string
 	AppHosts     map[string]string
+	// ShareDir is where share records live; empty means a directory under
+	// os.TempDir().
+	ShareDir      string
+	Generator     []GeneratorSpec
+	CodeTemplates []CodeTemplateSpec
+	ShareActions  []ShareActionSpec
+	// CacheClear/CacheWarm are wired by server.Handler to the response cache;
+	// nil means cache management is unavailable.
+	CacheClear func()
+	CacheWarm  func()
 }
 
 type handler struct {
-	o Options
+	o      Options
+	shares *shareStore
 }
 
 // Register mounts the UIC-1 routes on mux. Legacy /api routes stay untouched.
 func Register(mux *http.ServeMux, o Options) {
-	h := &handler{o: o}
+	if o.ShareDir == "" {
+		o.ShareDir = filepath.Join(os.TempDir(), "apidoc-go-shares")
+	}
+	h := &handler{o: o, shares: &shareStore{dir: o.ShareDir}}
 	mux.HandleFunc("GET /ui/v1/capabilities", h.capabilities)
 	mux.HandleFunc("GET /ui/v1/config", h.config)
 	mux.HandleFunc("POST /ui/v1/menus", h.menus)
@@ -43,6 +59,16 @@ func Register(mux *http.ServeMux, o Options) {
 	mux.HandleFunc("POST /ui/v1/debugStart", h.debugUnavailable)
 	mux.HandleFunc("POST /ui/v1/debugPoll", h.debugUnavailable)
 	mux.HandleFunc("POST /ui/v1/debugStop", h.debugUnavailable)
+	mux.HandleFunc("POST /ui/v1/addApiShare", h.addShare)
+	mux.HandleFunc("POST /ui/v1/getApiShareList", h.shareList)
+	mux.HandleFunc("POST /ui/v1/getApiShareDetail", h.shareDetail)
+	mux.HandleFunc("POST /ui/v1/deleteApiShare", h.deleteShare)
+	mux.HandleFunc("POST /ui/v1/handleApiShareAction", h.shareAction)
+	mux.HandleFunc("POST /ui/v1/cache/clear", h.cacheClear)
+	mux.HandleFunc("POST /ui/v1/cache/warm", h.cacheWarm)
+	mux.HandleFunc("POST /ui/v1/generator", h.generator)
+	mux.HandleFunc("POST /ui/v1/renderCodeTemplate", h.renderCodeTemplate)
+	mux.HandleFunc("POST /ui/v1/exportAllData", h.exportAllData)
 }
 
 func ok(data any) map[string]any {
@@ -80,16 +106,16 @@ func (h *handler) capabilitiesData() map[string]any {
 				"relay":   []string{},
 				"modes":   []string{"browser-http", "browser-websocket", "browser-sse"},
 			},
-			"share": map[string]any{"link": true, "records": false, "actions": false},
-			"cache": map[string]any{"manage": false, "mode": "server"},
+			"share": map[string]any{"link": true, "records": true, "actions": true},
+			"cache": map[string]any{"manage": true, "mode": "server"},
 			"generator": map[string]any{
-				"forms": false, "templates": false, "sideEffects": false,
+				"forms": true, "templates": true, "sideEffects": false,
 			},
-			"exports": []string{},
+			"exports": []string{"md", "pdf", "openapi", "postman", "asyncapi", "typescript"},
 			"auth": map[string]any{
 				"global":     h.o.Auth.Enable,
-				"app":        len(h.o.AppPWs) > 0,
-				"shareToken": false,
+				"app":        true, // app-scoped tokens are always supported
+				"shareToken": true,
 			},
 		},
 	}
