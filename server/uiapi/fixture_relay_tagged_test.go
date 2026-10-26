@@ -1,4 +1,4 @@
-//go:build apidoc_debug_http || apidoc_debug_sockets || apidoc_debug_rpc || apidoc_debug_grpc || apidoc_debug_http3 || apidoc_debug_messaging || apidoc_debug_mqtt || apidoc_debug_stomp || apidoc_debug_amqp || apidoc_debug_kafka || apidoc_debug_xmpp || apidoc_debug_iot || apidoc_debug_industrial || apidoc_debug_all
+//go:build apidoc_debug_http || apidoc_debug_sockets || apidoc_debug_rpc || apidoc_debug_grpc || apidoc_debug_http3 || apidoc_debug_messaging || apidoc_debug_mqtt || apidoc_debug_stomp || apidoc_debug_amqp || apidoc_debug_kafka || apidoc_debug_xmpp || apidoc_debug_iot || apidoc_debug_industrial || apidoc_debug_media || apidoc_debug_all
 
 package uiapi
 

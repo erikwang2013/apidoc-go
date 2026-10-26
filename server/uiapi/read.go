@@ -493,7 +493,7 @@ func responseItems(responses []model.Response) ([]map[string]any, []map[string]a
 
 func isHTTPProtocol(protocol string) bool {
 	switch protocol {
-	case "", "http", "http2", "http3":
+	case "", "http", "http2", "http3", "hls":
 		return true
 	}
 	return false
@@ -508,7 +508,7 @@ func protocolLabel(protocol string) string {
 
 func protocolTransport(protocol string) string {
 	switch protocol {
-	case "", "http", "http2", "http3", "soap", "graphql", "jsonrpc", "xmlrpc", "odata", "mcp", "a2a", "webhook":
+	case "", "http", "http2", "http3", "hls", "soap", "graphql", "jsonrpc", "xmlrpc", "odata", "mcp", "a2a", "webhook":
 		return "http"
 	case "ws", "websocket":
 		return "ws"
@@ -526,6 +526,8 @@ func (h *handler) protocolMode(protocol, method string) (string, bool, string) {
 	case "", "http", "http2", "http3":
 		// HTTP ids stay browser modes (Rust/plan parity); tagged builds also
 		// expose http3 through the relay capability.
+		return "browser-http", true, ""
+	case "hls":
 		return "browser-http", true, ""
 	case "ws", "websocket":
 		return "browser-websocket", true, ""

@@ -242,3 +242,33 @@ func TestDebugSessionStoreCapsAndDrain(t *testing.T) {
 		t.Fatal("session must be removed at the frame cap")
 	}
 }
+
+func TestDebugRequestRTSPURLOnlyFromServerConfig(t *testing.T) {
+	h := &handler{o: Options{}}
+	action := debugActionFixture()
+	action.Protocol = "rtsp"
+	action.ProtocolOpts = map[string]string{
+		"target": "rtsp://configured.example/live",
+		"url":    "rtsp://annotated.example/live",
+	}
+	req := h.debugRequest(action, debugInput{
+		Fields: map[string]any{"url": "rtsp://169.254.169.254/live", "method": "DESCRIBE"},
+	})
+	if req.Opts["url"] != "rtsp://annotated.example/live" {
+		t.Fatalf("client url must not override the server annotation: %q", req.Opts["url"])
+	}
+	if req.Opts["method"] != "DESCRIBE" {
+		t.Fatalf("non-reserved opts must pass through: %+v", req.Opts)
+	}
+}
+
+func TestHLSStaysBrowserMode(t *testing.T) {
+	h := &handler{o: Options{}}
+	mode, debuggable, reason := h.protocolMode("hls", "GET")
+	if mode != "browser-http" || !debuggable || reason != "" {
+		t.Fatalf("hls mode = %s %v %q", mode, debuggable, reason)
+	}
+	if !isHTTPProtocol("hls") || protocolTransport("hls") != "http" {
+		t.Fatalf("hls transport = %q", protocolTransport("hls"))
+	}
+}

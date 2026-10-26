@@ -1,4 +1,4 @@
-//go:build apidoc_debug_iot || apidoc_debug_industrial || apidoc_debug_all
+//go:build apidoc_debug_iot || apidoc_debug_industrial || apidoc_debug_media || apidoc_debug_all
 
 package debug
 

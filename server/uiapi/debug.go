@@ -220,7 +220,9 @@ func (h *handler) debugRequest(action *model.Action, input debugInput) *debug.Re
 		}
 	}
 	for key, value := range input.Fields {
-		if key == "target" {
+		// Rust parity: rtsp carries its ssrf-checked URL in opts.url, so the
+		// client cannot override it.
+		if key == "target" || (kind == "rtsp" && key == "url") {
 			continue
 		}
 		opts[key] = debugFieldValue(value)

@@ -21,6 +21,7 @@ func TestDebugCapabilitiesTagged(t *testing.T) {
 		"http", "http2", "http3", "soap", "graphql", "jsonrpc", "xmlrpc", "odata", "mcp", "a2a", "webhook",
 		"tcp", "udp", "raw", "unix", "mqtt", "stomp", "amqp", "kafka", "xmpp",
 		"coap", "lwm2m", "modbus", "dnp3", "iec104", "bacnet", "opcua",
+		"rtsp", "sip", "rtp", "rtcp", "rtmp",
 		"grpc", "thrift", "dubbo", "hessian", "iso8583",
 	}
 	if !reflect.DeepEqual(debug["relay"], wantRelay) {
@@ -98,11 +99,27 @@ func TestDebugDetailRelayModesTagged(t *testing.T) {
 		t.Fatalf("modbus protocol: %+v", protocol)
 	}
 
+	rtspTarget := "rtsp://example.com:554/live"
+	st.Register("POST", rtspTarget, model.Doc{
+		App: "default", Version: "v1", Controller: "debug", Title: "RTSP",
+		Protocol: "rtsp", ProtocolOpts: map[string]string{"target": rtspTarget},
+	})
+	rtspID := store.ActionID("default", "v1", "POST", rtspTarget)
+	protocol = debugDetail(t, enabled, rtspID)["protocol"].(map[string]any)
+	if protocol["mode"] != "relay-unary" || protocol["debuggable"] != true ||
+		protocol["debugReason"] != "" {
+		t.Fatalf("rtsp protocol: %+v", protocol)
+	}
+
 	disabled := newHandlerWith(t, Options{Store: st})
 	data = debugDetail(t, disabled, tcpID)
 	protocol = data["protocol"].(map[string]any)
 	if protocol["debuggable"] != false || protocol["debugReason"] != "server-side debug is disabled" {
 		t.Fatalf("disabled tcp: %+v", protocol)
+	}
+	protocol = debugDetail(t, disabled, rtspID)["protocol"].(map[string]any)
+	if protocol["debuggable"] != false || protocol["debugReason"] != "server-side debug is disabled" {
+		t.Fatalf("disabled rtsp: %+v", protocol)
 	}
 }
 
