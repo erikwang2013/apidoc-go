@@ -135,8 +135,8 @@ func (h *handler) capabilitiesData() map[string]any {
 			},
 			"exports": []string{"md", "pdf", "openapi", "postman", "asyncapi", "typescript"},
 			"auth": map[string]any{
-				"global":     h.o.Auth.Enable,
-				"app":        true, // app-scoped tokens are always supported
+				"global":     h.globalAuthAvailable(),
+				"app":        h.appAuthAvailable(),
 				"shareToken": true,
 			},
 		},
@@ -145,6 +145,24 @@ func (h *handler) capabilitiesData() map[string]any {
 
 func (h *handler) capabilities(w http.ResponseWriter, _ *http.Request) {
 	writeJSON(w, http.StatusOK, ok(h.capabilitiesData()))
+}
+
+// globalAuthAvailable reports whether verifyAuth can issue a global session:
+// Enable with an empty password fails closed there, so it must not be
+// advertised.
+func (h *handler) globalAuthAvailable() bool {
+	return h.o.Auth.Enable && h.o.Auth.Password != ""
+}
+
+// appAuthAvailable reports whether verifyAuth can issue an app-scoped token
+// for at least one configured app password.
+func (h *handler) appAuthAvailable() bool {
+	for _, pw := range h.o.AppPWs {
+		if pw != "" {
+			return true
+		}
+	}
+	return false
 }
 
 // cacheManageable reports whether both cache controls are wired; otherwise
