@@ -36,12 +36,13 @@ func encodeRTCPPacket(packetType uint8, ssrc uint32, payload []byte) []byte {
 	}
 	body := payload
 	switch packetType {
-	case 202: // SDES: one CNAME item (type 1, 8-bit length, text)
+	case 202: // SDES: one CNAME item (type 1, 8-bit length, text), then END
 		text := payload
 		if len(text) > 255 {
 			text = text[:255]
 		}
 		body = append([]byte{1, byte(len(text))}, text...)
+		body = append(body, 0)
 	case 203: // BYE: 8-bit reason length, then the reason
 		if len(payload) > 0 {
 			text := payload

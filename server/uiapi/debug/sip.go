@@ -12,6 +12,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 	"unicode/utf8"
 )
@@ -110,13 +111,17 @@ func executeSIP(cfg Config, req *Request) (*Response, error) {
 }
 
 func buildSIPRequest(req *Request, method, host string, local net.Addr, transport string, cfg Config) ([]byte, string, uint64, error) {
+	uriHost := host
+	if strings.Contains(host, ":") {
+		uriHost = "[" + host + "]"
+	}
 	uri := req.Opts["uri"]
 	if uri == "" {
-		uri = "sip:" + host
+		uri = "sip:" + uriHost
 	}
 	from := req.Opts["from"]
 	if from == "" {
-		from = "sip:apidoc@" + host
+		from = "sip:apidoc@" + uriHost
 	}
 	to := req.Opts["to"]
 	if to == "" {
@@ -154,16 +159,17 @@ func buildSIPRequest(req *Request, method, host string, local net.Addr, transpor
 	}
 
 	localHost, localPort := sipLocalAddr(local)
+	localAddr := net.JoinHostPort(localHost, localPort)
 	transportUpper := strings.ToUpper(transport)
 	type header struct{ name, value string }
 	headers := []header{
-		{"Via", fmt.Sprintf("SIP/2.0/%s %s:%s;branch=%s;rport", transportUpper, localHost, localPort, branch)},
+		{"Via", fmt.Sprintf("SIP/2.0/%s %s;branch=%s;rport", transportUpper, localAddr, branch)},
 		{"Max-Forwards", "70"},
 		{"From", "<" + from + ">;tag=" + tag},
 		{"To", "<" + to + ">"},
 		{"Call-ID", callID},
 		{"CSeq", fmt.Sprintf("%d %s", cseq, method)},
-		{"Contact", fmt.Sprintf("<sip:apidoc@%s:%s;transport=%s>", localHost, localPort, transport)},
+		{"Contact", fmt.Sprintf("<sip:apidoc@%s;transport=%s>", localAddr, transport)},
 	}
 	managed := map[string]bool{
 		"via": true, "max-forwards": true, "from": true, "to": true,
@@ -253,10 +259,16 @@ func sipUDPExchange(cfg Config, conn net.Conn, request []byte, callID, method st
 			if err != nil {
 				// Timeouts end this attempt; ICMP refusals also just mean no
 				// response, so the next attempt still applies.
-				break
+				if mediaTimeout(err) || errors.Is(err, syscall.ECONNREFUSED) {
+					break
+				}
+				return nil, fmt.Errorf("SIP udp recv failed: %v", err)
 			}
 			if n > cfg.Limit() {
 				return nil, fmt.Errorf("SIP response exceeds max_bytes (%d)", cfg.Limit())
+			}
+			if n == len(buf) {
+				return nil, fmt.Errorf("SIP response exceeds a single %d-byte datagram", len(buf))
 			}
 			response, err := parseSIPResponse(buf[:n])
 			if err != nil {
@@ -291,17 +303,17 @@ func sipTCPExchange(conn net.Conn, maxBytes int, callID, method string, cseq uin
 func readSIPMessage(conn net.Conn, buffer []byte, maxBytes int) ([]byte, []byte, error) {
 	for {
 		if pos := bytes.Index(buffer, []byte("\r\n\r\n")); pos >= 0 {
-			length := 0
+			length := uint64(0)
 			for _, line := range strings.Split(string(buffer[:pos]), "\r\n") {
 				name, value, found := strings.Cut(line, ":")
 				if found && strings.EqualFold(strings.TrimSpace(name), "content-length") {
-					length, _ = strconv.Atoi(strings.TrimSpace(value))
+					length, _ = strconv.ParseUint(strings.TrimSpace(value), 10, 63)
 				}
 			}
-			total := pos + 4 + length
-			if total > maxBytes {
+			if pos+4 > maxBytes || length > uint64(maxBytes-pos-4) {
 				return nil, nil, fmt.Errorf("SIP response exceeds max_bytes (%d)", maxBytes)
 			}
+			total := pos + 4 + int(length)
 			for len(buffer) < total {
 				chunk := make([]byte, 4096)
 				n, err := conn.Read(chunk)
@@ -376,9 +388,14 @@ func parseSIPResponse(raw []byte) (*sipResponse, error) {
 	}
 	body := raw[pos+4:]
 	if value, ok := mediaHeader(headers, "content-length"); ok {
-		if length, err := strconv.Atoi(value); err == nil && length <= len(body) {
-			body = body[:length]
+		length, err := strconv.ParseUint(strings.TrimSpace(value), 10, 63)
+		if err != nil {
+			return nil, fmt.Errorf("invalid SIP Content-Length `%s`", value)
 		}
+		if length > uint64(len(body)) {
+			return nil, fmt.Errorf("SIP Content-Length %d exceeds received body (%d bytes)", length, len(body))
+		}
+		body = body[:int(length)]
 	}
 	return &sipResponse{
 		status:  status,

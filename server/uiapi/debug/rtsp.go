@@ -211,15 +211,16 @@ func readRTSPResponse(conn net.Conn, maxBytes int) (int, string, map[string]stri
 			headers[name] = value
 		}
 	}
-	length := 0
+	length := uint64(0)
 	if value, ok := mediaHeader(headers, "content-length"); ok {
-		length, _ = strconv.Atoi(value)
+		length, _ = strconv.ParseUint(strings.TrimSpace(value), 10, 64)
 	}
-	if length > maxBytes {
+	if length > uint64(maxBytes) {
 		return 0, "", nil, nil, fmt.Errorf("rtsp response body exceeds max_bytes (%d)", maxBytes)
 	}
+	wanted := int(length)
 	body := append([]byte{}, buf[headerEnd+4:]...)
-	for len(body) < length {
+	for len(body) < wanted {
 		chunk := make([]byte, 4096)
 		n, err := conn.Read(chunk)
 		if n > 0 {
@@ -229,13 +230,13 @@ func readRTSPResponse(conn net.Conn, maxBytes int) (int, string, map[string]stri
 			if mediaTimeout(err) {
 				return 0, "", nil, nil, err
 			}
-			return 0, "", nil, nil, fmt.Errorf("rtsp connection closed before Content-Length (%d) was read", length)
+			return 0, "", nil, nil, fmt.Errorf("rtsp connection closed before Content-Length (%d) was read", wanted)
 		}
 		if n == 0 {
-			return 0, "", nil, nil, fmt.Errorf("rtsp connection closed before Content-Length (%d) was read", length)
+			return 0, "", nil, nil, fmt.Errorf("rtsp connection closed before Content-Length (%d) was read", wanted)
 		}
 	}
-	return status, reason, headers, body[:length], nil
+	return status, reason, headers, body[:wanted], nil
 }
 
 func rtspAuthError(status string, headers map[string]string, headerName string) error {

@@ -37,6 +37,13 @@ func TestRTCPSRRRSDESBYEVectors(t *testing.T) {
 	if err != nil || decoded.count != 1 || decoded.text != "user@host" {
 		t.Fatalf("sdes = %+v, %v", decoded, err)
 	}
+	// "ab" makes the item 4 bytes long; the SDES END octet must still be
+	// present and force one padding word.
+	aligned := encodeRTCPPacket(202, 7, []byte("ab"))
+	wantAligned := []byte{0x81, 202, 0x00, 0x03, 0, 0, 0, 7, 1, 2, 'a', 'b', 0, 0, 0, 0}
+	if !bytes.Equal(aligned, wantAligned) {
+		t.Fatalf("aligned sdes = % x, want % x", aligned, wantAligned)
+	}
 	bye := encodeRTCPPacket(203, 7, []byte("done"))
 	decoded, err = decodeRTCPPacket(bye)
 	if err != nil || decoded.count != 1 || decoded.text != "done" {

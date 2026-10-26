@@ -158,6 +158,41 @@ func TestRTSPTimeoutAndHeaderInjection(t *testing.T) {
 	}
 }
 
+func TestRTSPMalformedContentLengthDoesNotPanic(t *testing.T) {
+	t.Run("negative", func(t *testing.T) {
+		address := mediaTCPOnce(t, func(conn net.Conn) {
+			request := mediaReadHeaders(t, conn)
+			fmt.Fprintf(conn, "RTSP/1.0 200 OK\r\nCSeq: %s\r\nContent-Length: -5\r\n\r\n",
+				mediaRequestHeader(request, "CSeq"))
+		})
+		response, err := executeRTSP(mediaTestConfig(), &Request{
+			Kind: "rtsp", Target: "rtsp://" + address + "/stream",
+			Opts: map[string]string{"method": "OPTIONS"}, TimeoutMS: 2000,
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if response.Body.Data != "" {
+			t.Fatalf("body = %q", response.Body.Data)
+		}
+	})
+
+	t.Run("max_int", func(t *testing.T) {
+		address := mediaTCPOnce(t, func(conn net.Conn) {
+			request := mediaReadHeaders(t, conn)
+			fmt.Fprintf(conn, "RTSP/1.0 200 OK\r\nCSeq: %s\r\nContent-Length: 9223372036854775807\r\n\r\n",
+				mediaRequestHeader(request, "CSeq"))
+		})
+		_, err := executeRTSP(mediaTestConfig(), &Request{
+			Kind: "rtsp", Target: "rtsp://" + address + "/stream",
+			Opts: map[string]string{"method": "OPTIONS"}, TimeoutMS: 2000,
+		})
+		if err == nil || !strings.Contains(err.Error(), "exceeds max_bytes") {
+			t.Fatalf("max-int Content-Length: %v", err)
+		}
+	})
+}
+
 func TestRTSPResponseCapAndSSRF(t *testing.T) {
 	address := mediaTCPOnce(t, func(conn net.Conn) {
 		request := mediaReadHeaders(t, conn)

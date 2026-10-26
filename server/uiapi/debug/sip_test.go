@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 )
@@ -124,6 +125,124 @@ func TestSIPMismatchedCallIDTimesOut(t *testing.T) {
 	})
 	if err == nil || !strings.Contains(err.Error(), "timed out") || time.Since(started) > 5*time.Second {
 		t.Fatalf("mismatched call-id: %v after %s", err, time.Since(started))
+	}
+}
+
+func TestSIPMalformedContentLengthDoesNotPanic(t *testing.T) {
+	withLength := func(reply, length string) string {
+		return strings.Replace(reply, "Content-Length: 0", "Content-Length: "+length, 1)
+	}
+	cases := []struct {
+		name   string
+		length string
+		want   string
+	}{
+		{"negative", "-5", "invalid SIP Content-Length"},
+		{"max_int", "9223372036854775807", "exceeds max_bytes"},
+	}
+	for _, tc := range cases {
+		t.Run("tcp_"+tc.name, func(t *testing.T) {
+			address := mediaTCPOnce(t, func(conn net.Conn) {
+				request := mediaReadHeaders(t, conn)
+				fmt.Fprint(conn, withLength(sipTestReply(request, "SIP/2.0 200 OK", ""), tc.length))
+			})
+			_, err := executeSIP(mediaTestConfig(), sipTestRequest(address,
+				map[string]string{"method": "OPTIONS", "transport": "tcp", "cseq": "3"}))
+			if err == nil || !strings.Contains(err.Error(), tc.want) {
+				t.Fatalf("tcp %s: %v", tc.name, err)
+			}
+		})
+
+		t.Run("udp_"+tc.name, func(t *testing.T) {
+			address := mediaUDPOnce(t, func(conn *net.UDPConn, peer *net.UDPAddr, raw []byte) {
+				conn.WriteToUDP([]byte(withLength(sipTestReply(string(raw), "SIP/2.0 200 OK", ""), tc.length)), peer)
+			})
+			started := time.Now()
+			_, err := executeSIP(Config{AllowPrivateNetworks: true, TimeoutMS: 200}, &Request{
+				Kind: "sip", Target: "sip://" + address, TimeoutMS: 200,
+				Opts: map[string]string{
+					"method": "OPTIONS", "transport": "udp", "cseq": "3",
+					"branch": sipTestBranch, "call_id": sipTestCallID,
+				},
+			})
+			if err == nil || !strings.Contains(err.Error(), "timed out") || time.Since(started) > 5*time.Second {
+				t.Fatalf("udp %s: %v after %s", tc.name, err, time.Since(started))
+			}
+		})
+	}
+}
+
+func TestSIPContentLengthBeyondBodyRejected(t *testing.T) {
+	raw := []byte("SIP/2.0 200 OK\r\nCall-ID: x\r\nCSeq: 1 OPTIONS\r\nContent-Length: 10\r\n\r\nshort")
+	if _, err := parseSIPResponse(raw); err == nil || !strings.Contains(err.Error(), "exceeds received body") {
+		t.Fatalf("short body: %v", err)
+	}
+}
+
+func TestSIPIPv6HeadersAreBracketed(t *testing.T) {
+	request, _, _, err := buildSIPRequest(&Request{Opts: map[string]string{}}, "OPTIONS", "::1",
+		&net.UDPAddr{IP: net.ParseIP("::1"), Port: 12345}, "tcp", mediaTestConfig())
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := string(request)
+	for _, want := range []string{
+		"OPTIONS sip:[::1] SIP/2.0\r\n",
+		"Via: SIP/2.0/TCP [::1]:12345;branch=",
+		"From: <sip:apidoc@[::1]>;tag=",
+		"Contact: <sip:apidoc@[::1]:12345;transport=tcp>",
+	} {
+		if !strings.Contains(text, want) {
+			t.Fatalf("request missing %q:\n%s", want, text)
+		}
+	}
+}
+
+type sipStubConn struct {
+	readData []byte
+	readErr  error
+}
+
+func (c *sipStubConn) Read(buf []byte) (int, error) {
+	if c.readErr != nil {
+		return 0, c.readErr
+	}
+	return copy(buf, c.readData), nil
+}
+
+func (c *sipStubConn) Write(p []byte) (int, error) { return len(p), nil }
+func (c *sipStubConn) Close() error                { return nil }
+func (c *sipStubConn) LocalAddr() net.Addr {
+	return &net.UDPAddr{IP: net.IPv4(127, 0, 0, 1)}
+}
+func (c *sipStubConn) RemoteAddr() net.Addr {
+	return &net.UDPAddr{IP: net.IPv4(127, 0, 0, 1)}
+}
+func (c *sipStubConn) SetDeadline(time.Time) error      { return nil }
+func (c *sipStubConn) SetReadDeadline(time.Time) error  { return nil }
+func (c *sipStubConn) SetWriteDeadline(time.Time) error { return nil }
+
+func TestSIPUDPRecvErrorFidelity(t *testing.T) {
+	request := []byte("OPTIONS sip:x SIP/2.0\r\n\r\n")
+	_, err := sipUDPExchange(Config{}, &sipStubConn{readErr: syscall.ENETUNREACH},
+		request, "call", "OPTIONS", 1, time.Now().Add(time.Second))
+	if err == nil || !strings.Contains(err.Error(), "SIP udp recv failed: network is unreachable") {
+		t.Fatalf("non-refusal recv error: %v", err)
+	}
+
+	started := time.Now()
+	_, err = sipUDPExchange(Config{}, &sipStubConn{readErr: syscall.ECONNREFUSED},
+		request, "call", "OPTIONS", 1, started.Add(50*time.Millisecond))
+	if err == nil || !strings.Contains(err.Error(), "timed out") || time.Since(started) > 5*time.Second {
+		t.Fatalf("connection refused must retry then time out: %v after %s", err, time.Since(started))
+	}
+}
+
+func TestSIPUDPOversizeDatagramRejected(t *testing.T) {
+	_, err := sipUDPExchange(Config{MaxBytes: 64}, &sipStubConn{readData: make([]byte, 100)},
+		[]byte("OPTIONS sip:x SIP/2.0\r\n\r\n"), "call", "OPTIONS", 1, time.Now().Add(time.Second))
+	if err == nil || !strings.Contains(err.Error(), "exceeds max_bytes (64)") {
+		t.Fatalf("oversize datagram: %v", err)
 	}
 }
 

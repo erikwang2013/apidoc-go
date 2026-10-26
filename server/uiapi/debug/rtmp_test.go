@@ -227,6 +227,83 @@ func TestRTMPTimeoutAndSSRF(t *testing.T) {
 	}
 }
 
+func TestRTMPExtendedTimestamps(t *testing.T) {
+	t.Run("fmt0_and_fmt3", func(t *testing.T) {
+		reader := newRTMPChunkReader(1 << 20)
+		reader.chunkSize = 4
+		stream := []byte{
+			0x03, 0xff, 0xff, 0xff, // fmt 0, csid 3, extended timestamp marker
+			0x00, 0x00, 0x06, // message length 6
+			20,         // command type
+			1, 0, 0, 0, // stream id
+			0x01, 0x02, 0x03, 0x04, // extended timestamp
+			'a', 'b', 'c', 'd',
+			0xc3,                   // fmt 3 continuation
+			0x01, 0x02, 0x03, 0x04, // extended timestamp repeated
+			'e', 'f',
+		}
+		typeID, streamID, payload, err := reader.readChunkMessage(bytes.NewReader(stream))
+		if err != nil || typeID != 20 || streamID != 1 || string(payload) != "abcdef" {
+			t.Fatalf("fmt0/fmt3 = %d %d %q, %v", typeID, streamID, payload, err)
+		}
+	})
+
+	for _, tc := range []struct {
+		name  string
+		first byte
+		state *rtmpChunkState
+		data  []byte
+	}{
+		{"fmt1", 0x43, &rtmpChunkState{length: 1, typeID: 20, streamID: 1},
+			[]byte{0xff, 0xff, 0xff, 0x00, 0x00, 0x01, 20, 0x01, 0x02, 0x03, 0x04, 'x'}},
+		{"fmt2", 0x83, &rtmpChunkState{length: 1, typeID: 20, streamID: 1},
+			[]byte{0xff, 0xff, 0xff, 0x01, 0x02, 0x03, 0x04, 'x'}},
+		{"fmt3", 0xc3, &rtmpChunkState{length: 1, typeID: 20, streamID: 1, extended: true},
+			[]byte{0x01, 0x02, 0x03, 0x04, 'x'}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			reader := newRTMPChunkReader(1 << 20)
+			reader.states[3] = tc.state
+			typeID, streamID, payload, err := reader.readChunkMessage(bytes.NewReader(append([]byte{tc.first}, tc.data...)))
+			if err != nil || typeID != 20 || streamID != 1 || string(payload) != "x" {
+				t.Fatalf("%s = %d %d %q, %v", tc.name, typeID, streamID, payload, err)
+			}
+		})
+	}
+}
+
+func TestRTMPOnStatusHonorsRequestDeadline(t *testing.T) {
+	address := mediaTCPOnce(t, func(conn net.Conn) {
+		rtmpTestHandshake(t, conn)
+		reader := newRTMPChunkReader(1 << 20)
+		rtmpTestConnect(t, conn, reader)
+		if _, err := readRTMPCommand(conn, reader); err != nil {
+			t.Errorf("read createStream: %v", err)
+			return
+		}
+		time.Sleep(300 * time.Millisecond)
+		rtmpTestSend(t, conn, 3, 0, amf0StringValue("_result"), amf0NumberValue(2), amf0NullValue, amf0NumberValue(1))
+		if _, err := readRTMPCommand(conn, reader); err != nil {
+			t.Errorf("read play: %v", err)
+			return
+		}
+		_, _ = io.Copy(io.Discard, conn) // no onStatus
+	})
+	started := time.Now()
+	_, err := executeRTMP(Config{AllowPrivateNetworks: true, TimeoutMS: 500}, &Request{
+		Kind: "rtmp", Target: "rtmp://" + address + "/live",
+		Opts:      map[string]string{"operation": "play", "stream": "live"},
+		TimeoutMS: 500,
+	})
+	elapsed := time.Since(started)
+	if err == nil || !strings.Contains(err.Error(), "timed out") {
+		t.Fatalf("onStatus deadline: %v after %s", err, elapsed)
+	}
+	if elapsed < 400*time.Millisecond || elapsed > 900*time.Millisecond {
+		t.Fatalf("onStatus returned after %s, want the 500ms request deadline", elapsed)
+	}
+}
+
 func TestRTMPPlayWithoutOnStatusSucceeds(t *testing.T) {
 	address := mediaTCPOnce(t, func(conn net.Conn) {
 		rtmpTestHandshake(t, conn)

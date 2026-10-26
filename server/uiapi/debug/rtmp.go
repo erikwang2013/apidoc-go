@@ -46,10 +46,11 @@ func executeRTMP(cfg Config, req *Request) (*Response, error) {
 		return nil, err
 	}
 	defer conn.Close()
-	if err := conn.SetDeadline(started.Add(req.Timeout(cfg))); err != nil {
+	deadline := started.Add(req.Timeout(cfg))
+	if err := conn.SetDeadline(deadline); err != nil {
 		return nil, fmt.Errorf("rtmp deadline failed: %v", err)
 	}
-	streamName, status, err := runRTMP(cfg, req, conn, host, operation)
+	streamName, status, err := runRTMP(cfg, req, conn, host, operation, deadline)
 	if err != nil {
 		return nil, err
 	}
@@ -77,7 +78,7 @@ func executeRTMP(cfg Config, req *Request) (*Response, error) {
 	}, nil
 }
 
-func runRTMP(cfg Config, req *Request, conn net.Conn, host, operation string) (string, string, error) {
+func runRTMP(cfg Config, req *Request, conn net.Conn, host, operation string, sessionDeadline time.Time) (string, string, error) {
 	if err := rtmpHandshake(conn); err != nil {
 		return "", "", err
 	}
@@ -132,19 +133,28 @@ func runRTMP(cfg Config, req *Request, conn net.Conn, host, operation string) (s
 	}
 
 	// Not every server answers publish/play, so onStatus is best effort within
-	// duration_ms.
-	deadline := time.Now().Add(mediaWindow(cfg, req, 1000))
+	// duration_ms, but it never extends the request deadline.
+	waitUntil := time.Now().Add(mediaWindow(cfg, req, 1000))
+	if waitUntil.After(sessionDeadline) {
+		waitUntil = sessionDeadline
+	}
 	status := ""
 	for {
-		if time.Until(deadline) <= 0 {
+		if time.Until(waitUntil) <= 0 {
+			if !time.Now().Before(sessionDeadline) {
+				return "", "", errRTMPTimeout
+			}
 			break
 		}
-		if err := conn.SetReadDeadline(deadline); err != nil {
+		if err := conn.SetReadDeadline(waitUntil); err != nil {
 			return "", "", fmt.Errorf("rtmp deadline failed: %v", err)
 		}
 		values, err := readRTMPCommand(conn, reader)
 		if err != nil {
 			if errors.Is(err, errRTMPTimeout) {
+				if !time.Now().Before(sessionDeadline) {
+					return "", "", errRTMPTimeout
+				}
 				break
 			}
 			return "", "", err
@@ -233,6 +243,17 @@ func rtmpReadU32LE(reader io.Reader) (uint32, error) {
 	return binary.LittleEndian.Uint32(buf), nil
 }
 
+// rtmpReadTimestamp consumes a 3-byte timestamp/delta and reports whether it
+// used the 0xffffff extended marker. The 4-byte extended field follows the
+// rest of the fmt 0/1 header, so callers consume it once the header is read.
+func rtmpReadTimestamp(reader io.Reader) (bool, error) {
+	buf, err := rtmpReadN(reader, 3)
+	if err != nil {
+		return false, err
+	}
+	return buf[0] == 0xff && buf[1] == 0xff && buf[2] == 0xff, nil
+}
+
 // writeRTMPMessage writes a fmt 0 message, splitting the payload at chunkSize
 // with fmt 3 continuation headers.
 func writeRTMPMessage(out *[]byte, csid, typeID uint8, streamID uint32, payload []byte, chunkSize int) error {
@@ -266,6 +287,7 @@ type rtmpChunkState struct {
 	length   int
 	typeID   uint8
 	streamID uint32
+	extended bool
 	payload  []byte
 }
 
@@ -339,7 +361,8 @@ func (c *rtmpChunkReader) readChunkMessage(reader io.Reader) (uint8, uint32, []b
 		delete(c.states, csid)
 		switch format {
 		case 0:
-			if _, err := rtmpReadN(reader, 3); err != nil { // timestamp
+			extended, err := rtmpReadTimestamp(reader)
+			if err != nil {
 				return 0, 0, nil, err
 			}
 			length, err := rtmpReadU24(reader)
@@ -354,12 +377,18 @@ func (c *rtmpChunkReader) readChunkMessage(reader io.Reader) (uint8, uint32, []b
 			if err != nil {
 				return 0, 0, nil, err
 			}
+			if extended {
+				if _, err := rtmpReadN(reader, 4); err != nil {
+					return 0, 0, nil, err
+				}
+			}
 			if state != nil && len(state.payload) > 0 {
 				return 0, 0, nil, fmt.Errorf("rtmp new chunk header while message incomplete")
 			}
-			state = &rtmpChunkState{length: int(length), typeID: typeID, streamID: streamID}
+			state = &rtmpChunkState{length: int(length), typeID: typeID, streamID: streamID, extended: extended}
 		case 1:
-			if _, err := rtmpReadN(reader, 3); err != nil { // delta
+			extended, err := rtmpReadTimestamp(reader)
+			if err != nil {
 				return 0, 0, nil, err
 			}
 			length, err := rtmpReadU24(reader)
@@ -370,16 +399,27 @@ func (c *rtmpChunkReader) readChunkMessage(reader io.Reader) (uint8, uint32, []b
 			if err != nil {
 				return 0, 0, nil, err
 			}
+			if extended {
+				if _, err := rtmpReadN(reader, 4); err != nil {
+					return 0, 0, nil, err
+				}
+			}
 			if state == nil {
 				return 0, 0, nil, fmt.Errorf("rtmp fmt 1 chunk without previous state")
 			}
 			if len(state.payload) > 0 {
 				return 0, 0, nil, fmt.Errorf("rtmp new chunk header while message incomplete")
 			}
-			state.length, state.typeID = int(length), typeID
+			state.length, state.typeID, state.extended = int(length), typeID, extended
 		case 2:
-			if _, err := rtmpReadN(reader, 3); err != nil { // delta
+			extended, err := rtmpReadTimestamp(reader)
+			if err != nil {
 				return 0, 0, nil, err
+			}
+			if extended {
+				if _, err := rtmpReadN(reader, 4); err != nil {
+					return 0, 0, nil, err
+				}
 			}
 			if state == nil {
 				return 0, 0, nil, fmt.Errorf("rtmp fmt 2 chunk without previous state")
@@ -387,9 +427,15 @@ func (c *rtmpChunkReader) readChunkMessage(reader io.Reader) (uint8, uint32, []b
 			if len(state.payload) > 0 {
 				return 0, 0, nil, fmt.Errorf("rtmp new chunk header while message incomplete")
 			}
+			state.extended = extended
 		case 3:
 			if state == nil {
-				return 0, 0, nil, fmt.Errorf("rtmp fmt 3 chunk without previous state")
+				return 0, 0, nil, fmt.Errorf("rtmp fmt 3 chunk without state")
+			}
+			if state.extended {
+				if _, err := rtmpReadN(reader, 4); err != nil {
+					return 0, 0, nil, err
+				}
 			}
 		}
 		if state == nil {
