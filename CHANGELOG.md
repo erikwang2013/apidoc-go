@@ -5,6 +5,55 @@
 
 ## [Unreleased]
 
+## [v1.1.0] - 2026-10-26
+
+### Added
+
+- **UIC-1 HTTP API**：`/ui/v1/capabilities`、`/config`、`/menus`、`/detail`、
+  `/docMenus`、`/docDetail`、`/verifyAuth`、`/debugSend`、`/debugStart`、`/debugPoll`、
+  `/debugStop`、分享（`addApiShare` / `getApiShareList` / `getApiShareDetail` /
+  `deleteApiShare` / `handleApiShareAction`）、缓存管理、声明式生成器、代码模板与
+  `exportAllData`；`capabilities` 按实际编译结果上报调试模式、分享、缓存、生成器、
+  导出与鉴权能力。
+- **服务端协议执行器（构建标签）**：HTTP/Web（http、http2、soap、graphql、jsonrpc、
+  xmlrpc、odata、mcp、a2a、webhook）、HTTP/3、套接字（tcp、udp、raw、unix）、
+  RPC/金融（grpc、thrift、dubbo、hessian、iso8583）、消息（mqtt、stomp、amqp、
+  kafka、xmpp）、IoT（coap、lwm2m）、工业（modbus、dnp3、iec104、bacnet、opcua）
+  与媒体（rtsp、sip、rtp、rtcp、rtmp）；支持一元与流式会话。默认构建不编译执行器，
+  `apidoc_debug_all` 聚合全部，也可用 `apidoc_debug_http` / `_http3` / `_sockets` /
+  `_rpc` / `_grpc` / `_messaging` / `_iot` / `_industrial` / `_media` 等标签按协议族
+  裁剪，未编译的协议 fail closed。
+- **九种协议定义解析**：`@definition` 注解支持 OpenAPI、AsyncAPI、GraphQL SDL、
+  proto、WSDL、EDMX、JSON Schema、JSON-RPC 与 XML-RPC；自动探测格式、解析
+  import / `$ref`、校验样例，结果随 UIC detail 返回；`Config.DefinitionRoot`
+  限定可读文件根目录。
+- **UIPath Vue UI**：`Config.UIPath` 指向 `apidoc-ui` 的 `dist/uic1-ui/` 打包产物，
+  同一进程提供 UIC-1 Vue UI（SPA 兜底、静态资源 MIME、无尾斜杠 307、路径与符号
+  链接限定）；留空保持纯 JSON API。
+- 声明式生成器 `Generator`、代码模板 `CodeTemplates`、分享动作 `ShareActions`
+  配置，以及 `PublicHost` / `AppConfig.PublicHost` 调试基地址。
+
+### Changed
+
+- `@protocol` 注解与 `/api/detail` 的 `protocol_info` 继续作为协议文档元数据；
+  UIC-1 detail 额外返回解析后的 `definitions`、`validation`、调试模式与能力信息。
+- 响应缓存覆盖旧版 `/api` 与 UIC-1；`/ui/v1/cache/clear`、`/ui/v1/cache/warm`
+  可管理进程内缓存。
+- README、架构/功能/生命周期/社交预览图与项目结构更新到 1.1.0；发布工作流改为
+  读取根目录 `VERSION`，仅在 `v$VERSION` 不存在时创建 tag 与 GitHub Release。
+
+### Security
+
+- 服务端执行器默认关闭，目标先过 SSRF 守卫：`AllowHosts` 白名单、默认拒绝私网/
+  回环/链路本地/CGNAT 与云元数据地址、DNS 解析后逐 IP 校验并钉住连接，禁止
+  CONNECT、重定向与代理。
+- 调试请求与响应限额：单消息 1 MiB、`MaxBytes`、超时、每作用域 4 个流会话、
+  1000 帧、100 条/轮轮询与 60s 空闲回收；DNP3 单响应 10,000 点、IEC 104
+  10,000 行上限。
+- `@definition` 解析限制：单文件 1 MiB、5 万行、引用深度 32；仅读取
+  `DefinitionRoot` 内普通文件，拒绝绝对路径、`..` 与越界符号链接。
+- 鉴权能力如实上报：全局密码为空时不广告全局鉴权，应用鉴权按已配置密码上报。
+
 ## [v1.0.15] - 2026-10-25
 
 ### Changed
