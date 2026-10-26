@@ -3,6 +3,7 @@ package uiapi
 import (
 	"io"
 	"os"
+	pathpkg "path"
 	"path/filepath"
 	"strings"
 
@@ -27,7 +28,7 @@ func (r *definitionResolver) Read(path string) (string, string, bool) {
 	if path == "" || strings.ContainsRune(path, '\x00') || filepath.IsAbs(path) {
 		return "", "", false
 	}
-	slashed := filepath.ToSlash(path)
+	slashed := strings.ReplaceAll(path, "\\", "/")
 	if len(slashed) >= 2 && slashed[1] == ':' {
 		return "", "", false
 	}
@@ -36,6 +37,7 @@ func (r *definitionResolver) Read(path string) (string, string, bool) {
 			return "", "", false
 		}
 	}
+	key := pathpkg.Clean(slashed)
 	root := r.root
 	if root == "" {
 		var err error
@@ -54,7 +56,7 @@ func (r *definitionResolver) Read(path string) (string, string, bool) {
 		r.failure = "definition root unavailable"
 		return "", "", false
 	}
-	resolved, err := filepath.EvalSymlinks(filepath.Join(root, filepath.FromSlash(slashed)))
+	resolved, err := filepath.EvalSymlinks(filepath.Join(root, filepath.FromSlash(key)))
 	if err != nil {
 		return "", "", false // missing: the parser reports not-found
 	}
@@ -93,7 +95,9 @@ func (r *definitionResolver) Read(path string) (string, string, bool) {
 		r.failure = "file exceeds max_lines"
 		return "", "", false
 	}
-	return resolved, string(data), true
+	// The key is the requested root-relative path, not the canonical one: the
+	// parser resolves nested imports relative to it.
+	return key, string(data), true
 }
 
 // withinDefinitionRoot compares canonical paths with a separator boundary.

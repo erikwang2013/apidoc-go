@@ -18,8 +18,16 @@ func TestDefinitionResolverConfinesAndCaps(t *testing.T) {
 	}
 	resolver := newDefinitionResolver(root)
 	key, content, ok := resolver.Read("user.json")
-	if !ok || content != `{"type":"object"}` || key != filepath.Join(root, "user.json") {
+	if !ok || content != `{"type":"object"}` || key != "user.json" {
 		t.Fatalf("read: %q %q %v", key, content, ok)
+	}
+	// Keys stay root-relative so nested imports resolve beside the declaration.
+	if key, _, ok := resolver.Read("./sub/../user.json"); ok || key != "" {
+		t.Fatalf("traversal-like key accepted: %q %v", key, ok)
+	}
+	key, _, ok = resolver.Read("./user.json")
+	if !ok || key != "user.json" {
+		t.Fatalf("normalized key: %q %v", key, ok)
 	}
 
 	for _, path := range []string{"../outside.json", "/etc/passwd", "dir/../user.json", "user.json\x00"} {
@@ -60,6 +68,39 @@ func TestDefinitionResolverConfinesAndCaps(t *testing.T) {
 	}
 	if _, _, ok := resolver.Read("lines.json"); ok || resolver.Failure() != "file exceeds max_lines" {
 		t.Fatalf("line cap: ok=%v failure=%q", ok, resolver.Failure())
+	}
+}
+
+func TestDetailResolvesNestedRelativeRefs(t *testing.T) {
+	st := store.New("Demo")
+	st.SetAppMeta("default", "Default")
+	st.Register("POST", "/users", model.Doc{
+		App: "default", Version: "v1", Controller: "users", Title: "Create",
+		Definitions: []model.Definition{{File: "openapi/api.yaml", Format: "openapi", Operation: "createUser"}},
+	})
+	h := newHandlerWith(t, Options{
+		Store:          st,
+		DefinitionRoot: filepath.Join("..", "..", "parse", "protocol", "testdata"),
+	})
+
+	body := `{"appKey":"default|v1","path":"` + store.ActionID("default", "v1", "POST", "/users") + `"}`
+	detail := decodeData(t, do(t, h, "POST", "/ui/v1/detail", body, ""))
+	if validation := detail["validation"].(map[string]any); validation["ok"] != true {
+		t.Fatalf("validation: %#v", validation)
+	}
+	definitions := detail["definitions"].([]any)
+	definition := definitions[0].(map[string]any)
+	if definition["operation"] != "createUser" {
+		t.Fatalf("definition: %#v", definition)
+	}
+	request := definition["messages"].([]any)[0].(map[string]any)
+	fields := request["fields"].([]any)
+	if len(fields) != 2 {
+		t.Fatalf("request fields: %#v", fields)
+	}
+	id := fields[0].(map[string]any)
+	if id["name"] != "id" || id["type"] != "integer" || id["require"] != true {
+		t.Fatalf("nested $ref field: %#v", id)
 	}
 }
 
