@@ -43,6 +43,9 @@ type Opts struct {
 	CodeTemplates []uiapi.CodeTemplateSpec
 	ShareActions  []uiapi.ShareActionSpec
 	Debug         uiapi.DebugConfig
+	// UIPath points at a packaged UIC-1 Vue build (index.html, config.js,
+	// assets/); empty disables the bundled UI and serves only the JSON API.
+	UIPath string
 }
 
 // Handler builds the doc JSON API handler: auth middleware, CORS and the
@@ -76,8 +79,15 @@ func Handler(o Opts) http.Handler {
 		CacheWarm:     h.warm,
 	})
 	h.warm()
+	// Registered routes are more specific than "/", so the API always wins;
+	// unknown API paths are rejected by the UI handler instead of the SPA.
+	var root http.Handler = mux
+	if o.UIPath != "" {
+		mux.Handle("/", newUI(o.UIPath))
+		root = prefixEntry{next: mux, prefix: o.Prefix}
+	}
 	// CORS outermost so even 401s carry the headers the browser needs.
-	return withCORS(o, withAuth(o, mux))
+	return withCORS(o, withAuth(o, root))
 }
 
 type apiHandler struct {

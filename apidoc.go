@@ -41,6 +41,11 @@ type Config struct {
 	ShareActions []ShareActionSpec
 	// Debug enables server-side relay execution; the zero value fails closed.
 	Debug DebugConfig
+	// UIPath points at a packaged UIC-1 Vue build (the dist/uic1-ui/
+	// directory printed by apidoc-ui's scripts/package-ui.sh). When set, the
+	// UI is served under Prefix; empty — the library default — leaves the
+	// bundled UI off and serves only the JSON API.
+	UIPath string
 }
 
 // UIC-1 management types; see server/uiapi.
@@ -180,6 +185,7 @@ func (s *Server) Handler() http.Handler {
 			CodeTemplates: s.cfg.CodeTemplates,
 			ShareActions:  s.cfg.ShareActions,
 			Debug:         s.cfg.Debug,
+			UIPath:        s.cfg.UIPath,
 		})
 	})
 	return s.handler
