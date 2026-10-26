@@ -132,6 +132,12 @@ func TestDNP3Codec(t *testing.T) {
 			t.Fatalf("float point %x = %s (%v)", objects, encoded, err)
 		}
 	}
+	// A packed object claiming more than the per-response cap must fail before
+	// allocating its points.
+	if _, err := dnp3ParseObjects([]byte{1, 1, 0x80, 0x11, 0x27}); err == nil ||
+		!strings.Contains(err.Error(), "exceeds 10000 points") {
+		t.Fatalf("point cap error = %v", err)
+	}
 	for _, malformed := range [][]byte{
 		{30, 1, 0x00, 0x00, 0x01, 0x01},
 		{30, 1, 0x06},

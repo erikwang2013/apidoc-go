@@ -113,9 +113,17 @@ func TestIEC104SinglePointRead(t *testing.T) {
 
 func TestIEC104TimeoutCapMalformedAndValidation(t *testing.T) {
 	t.Run("startdt timeout", func(t *testing.T) {
-		address := startTCPServer(t, func(conn net.Conn) {})
+		address := startTCPServer(t, func(conn net.Conn) {
+			if _, err := iec104TestReadAPDU(conn); err != nil {
+				t.Errorf("STARTDT act: %v", err)
+				return
+			}
+			time.Sleep(500 * time.Millisecond) // keep the link open past the read deadline
+		})
+		request := iec104TestRequest(address, nil)
+		request.TimeoutMS = 100
 		started := time.Now()
-		_, err := executeIEC104(industrialTestConfig(), iec104TestRequest(address, nil))
+		_, err := executeIEC104(industrialTestConfig(), request)
 		if err == nil || !strings.Contains(err.Error(), "STARTDT was not confirmed") {
 			t.Fatalf("startdt error = %v", err)
 		}

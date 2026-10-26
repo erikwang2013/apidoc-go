@@ -9,8 +9,10 @@ import (
 	"io"
 	"math"
 	"net"
+	"strconv"
 	"strings"
 	"testing"
+	"time"
 )
 
 const opcuaTestPolicy = "http://opcfoundation.org/UA/SecurityPolicy#None"
@@ -273,6 +275,69 @@ func TestOPCUAAuthFailureDoesNotLeakPassword(t *testing.T) {
 	}
 	if strings.Contains(err.Error(), "hunter2") {
 		t.Fatalf("password leaked: %v", err)
+	}
+}
+
+func TestOPCUAEndpointURLBracketsIPv6(t *testing.T) {
+	listener, err := net.Listen("tcp6", "[::1]:0")
+	if err != nil {
+		t.Skipf("IPv6 loopback unavailable: %v", err)
+	}
+	defer listener.Close()
+	port := strconv.Itoa(listener.Addr().(*net.TCPAddr).Port)
+	endpoint := make(chan string, 1)
+	go func() {
+		conn, err := listener.Accept()
+		if err != nil {
+			return
+		}
+		defer conn.Close()
+		kind, body, err := opcuaTestReadMessage(conn)
+		if err != nil || kind != "HEL" {
+			return
+		}
+		pos := 20 // protocol version, receive/send buffers, max message, max chunks
+		size := int(binary.LittleEndian.Uint32(body[pos:]))
+		endpoint <- string(body[pos+4 : pos+4+size])
+	}()
+	_, _ = executeOPCUA(industrialTestConfig(), &Request{
+		Kind: "opcua", Target: "opc.tcp://[::1]:" + port, TimeoutMS: 500,
+	})
+	select {
+	case got := <-endpoint:
+		if want := "opc.tcp://[::1]:" + port; got != want {
+			t.Fatalf("HEL endpoint = %q, want %q", got, want)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("HEL endpoint was not captured")
+	}
+}
+
+func TestOPCUANullSecurityPolicyRejected(t *testing.T) {
+	address := startTCPServer(t, func(conn net.Conn) {
+		if kind, _, err := opcuaTestReadMessage(conn); err != nil || kind != "HEL" {
+			return
+		}
+		if _, err := conn.Write(opcuaTestACK()); err != nil {
+			return
+		}
+		if kind, _, err := opcuaTestReadMessage(conn); err != nil || kind != "OPN" {
+			return
+		}
+		body := opcuaTestOpenChannelBody()
+		out := []byte{'O', 'P', 'N', 'F'}
+		out = binary.LittleEndian.AppendUint32(out, uint32(32+len(body)))
+		out = binary.LittleEndian.AppendUint32(out, 1)
+		out = opcuaTestPutNull(out) // null SecurityPolicyUri
+		out = opcuaTestPutNull(out) // sender certificate
+		out = opcuaTestPutNull(out) // receiver thumbprint
+		out = binary.LittleEndian.AppendUint32(out, 1)
+		out = binary.LittleEndian.AppendUint32(out, 1)
+		_, _ = conn.Write(append(out, body...))
+	})
+	_, err := executeOPCUA(industrialTestConfig(), opcuaTestRequest(address, nil))
+	if err == nil || !strings.Contains(err.Error(), "only None is supported") {
+		t.Fatalf("null policy error = %v", err)
 	}
 }
 

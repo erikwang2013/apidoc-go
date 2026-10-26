@@ -209,6 +209,27 @@ func TestModbusTimeoutAndTransactionMismatch(t *testing.T) {
 		}
 	})
 
+	t.Run("response cap", func(t *testing.T) {
+		address := startTCPServer(t, func(conn net.Conn) {
+			header := make([]byte, 7)
+			if _, err := io.ReadFull(conn, header); err != nil {
+				return
+			}
+			pdu := make([]byte, int(binary.BigEndian.Uint16(header[4:]))-1)
+			if _, err := io.ReadFull(conn, pdu); err != nil {
+				return
+			}
+			_, _ = conn.Write([]byte{header[0], header[1], 0, 0, 0, 200, header[6]})
+		})
+		cfg := industrialTestConfig()
+		cfg.MaxBytes = 12 // exactly the request size, so the oversized reply trips the cap
+		_, err := executeModbus(cfg, modbusTestRequest(address,
+			map[string]string{"operation": "read_holding", "address": "0"}))
+		if err == nil || !strings.Contains(err.Error(), "modbus response exceeds max_bytes (12)") {
+			t.Fatalf("cap error = %v", err)
+		}
+	})
+
 	t.Run("transaction", func(t *testing.T) {
 		address := startTCPServer(t, func(conn net.Conn) {
 			header := make([]byte, 7)

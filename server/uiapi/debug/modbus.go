@@ -128,7 +128,7 @@ func executeModbus(cfg Config, req *Request) (*Response, error) {
 	if _, err := conn.Write(request); err != nil {
 		return nil, fmt.Errorf("modbus write failed: %v", err)
 	}
-	body, err := modbusReadPDU(conn, transaction, unit, pdu[0])
+	body, err := modbusReadPDU(conn, transaction, unit, pdu[0], cfg.Limit())
 	if err != nil {
 		return nil, err
 	}
@@ -188,7 +188,7 @@ func modbusReadRequestPDU(function byte, address, quantity uint16) []byte {
 
 // modbusReadPDU reads one MBAP-framed response and rejects transaction,
 // protocol, unit or function mismatches and device exception PDUs.
-func modbusReadPDU(conn net.Conn, transaction uint16, unit, function byte) ([]byte, error) {
+func modbusReadPDU(conn net.Conn, transaction uint16, unit, function byte, limit int) ([]byte, error) {
 	header := make([]byte, 7)
 	if _, err := io.ReadFull(conn, header); err != nil {
 		return nil, fmt.Errorf("modbus read failed: %v", err)
@@ -202,6 +202,9 @@ func modbusReadPDU(conn net.Conn, transaction uint16, unit, function byte) ([]by
 	length := int(binary.BigEndian.Uint16(header[4:]))
 	if length < 2 {
 		return nil, fmt.Errorf("modbus response length %d is too short", length)
+	}
+	if length-1 > limit {
+		return nil, fmt.Errorf("modbus response exceeds max_bytes (%d)", limit)
 	}
 	if header[6] != unit {
 		return nil, fmt.Errorf("modbus response unit mismatch")

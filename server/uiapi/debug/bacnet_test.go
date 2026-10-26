@@ -123,6 +123,34 @@ func TestBACnetReadProperty(t *testing.T) {
 	}
 }
 
+func TestBACnetReadPropertyIgnoresUncorrelatedResponses(t *testing.T) {
+	server, err := net.ListenUDP("udp4", &net.UDPAddr{IP: net.IPv4(127, 0, 0, 1), Port: 0})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer server.Close()
+	go func() {
+		buf := make([]byte, 1500)
+		_, peer, err := server.ReadFromUDP(buf)
+		if err != nil {
+			return
+		}
+		wrongInvoke := bacnetTestReadPropertyAck(1, 1.25)
+		wrongInvoke[1] = 7
+		_, _ = server.WriteToUDP(bacnetTestBVLC(false, wrongInvoke), peer)
+		_, _ = server.WriteToUDP(bacnetTestBVLC(false, bacnetTestReadPropertyAck(2, 1.5)), peer)
+		_, _ = server.WriteToUDP(bacnetTestBVLC(false, bacnetTestReadPropertyAck(1, 9.75)), peer)
+	}()
+	result, err := executeBACnet(industrialTestConfig(), bacnetTestRequest(server.LocalAddr().String(),
+		map[string]string{"operation": "read_property", "object_instance": "1", "duration_ms": "500"}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if value := decodeBody(t, result)["value"]; value != 9.75 {
+		t.Fatalf("value = %#v, want the correlated response", value)
+	}
+}
+
 func TestBACnetBroadcastRulesFailClosed(t *testing.T) {
 	cases := []struct {
 		target string

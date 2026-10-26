@@ -10,7 +10,10 @@ import (
 	"time"
 )
 
-const dnp3DefaultPort = "20000"
+const (
+	dnp3DefaultPort = "20000"
+	dnp3MaxPoints   = 10000 // bounds packed-bit and multi-frame amplification
+)
 
 func init() {
 	RegisterExecutor("dnp3", executeDNP3)
@@ -154,6 +157,9 @@ func dnp3CollectPoints(cfg Config, conn net.Conn, deadline time.Time, linkAddres
 		parsed, err := dnp3ParseObjects(app[2:])
 		if err != nil {
 			return nil, err
+		}
+		if len(parsed) > dnp3MaxPoints-len(points) {
+			return nil, fmt.Errorf("dnp3 response exceeds %d points", dnp3MaxPoints)
 		}
 		points = append(points, parsed...)
 		app = app[:0]

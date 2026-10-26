@@ -61,7 +61,7 @@ func executeOPCUA(cfg Config, req *Request) (*Response, error) {
 		return nil, err // validate before connecting; invalid ids never reach the server
 	}
 	attribute := uint32(protocolOptUint(req, "attribute", 13)) // 13 = Value
-	endpoint := "opc.tcp://" + host + ":" + port
+	endpoint := "opc.tcp://" + net.JoinHostPort(host, port)
 
 	client, err := opcuaConnect(cfg, host, port, endpoint)
 	if err != nil {
@@ -217,7 +217,7 @@ func (c *opcuaClient) openSecureChannel() error {
 	if string(response.kind[:]) != "OPN" {
 		return fmt.Errorf("opcua expected OPN, got %s", string(response.kind[:]))
 	}
-	if response.hasPolicy && response.policy != opcuaNonePolicy {
+	if !response.hasPolicy || response.policy != opcuaNonePolicy {
 		return fmt.Errorf("opcua server selected security policy `%s`; only None is supported", response.policy)
 	}
 	c.channel = response.channel

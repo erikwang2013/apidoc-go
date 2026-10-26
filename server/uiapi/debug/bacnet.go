@@ -5,6 +5,7 @@ package debug
 import (
 	"encoding/binary"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math"
 	"net"
@@ -22,6 +23,8 @@ const (
 func init() {
 	RegisterExecutor("bacnet", executeBACnet)
 }
+
+var errBACnetUncorrelated = errors.New("bacnet response does not match the request")
 
 // BACnet/IP minimal subset: Who-Is / I-Am and ReadProperty. Only direct
 // BACnet/IP packets (no DNET/SNET routing) are parsed. Broadcast is limited to
@@ -57,6 +60,7 @@ func executeBACnet(cfg Config, req *Request) (*Response, error) {
 	duration := protocolWindow(cfg, req)
 
 	var apdu []byte
+	var objectID uint32
 	switch operation {
 	case "who_is":
 		apdu = []byte{0x10, 0x08}
@@ -76,7 +80,7 @@ func executeBACnet(cfg Config, req *Request) (*Response, error) {
 		if objectType > 0x3FF || property > 0xFF {
 			return nil, fmt.Errorf("bacnet object_type <= 1023 and property <= 255 are required")
 		}
-		objectID := uint32(objectType)<<22 | uint32(objectInstance)
+		objectID = uint32(objectType)<<22 | uint32(objectInstance)
 		apdu = []byte{0x00, 0x00, 0x0C, 0xC4} // Confirmed-Request, invoke 0, ReadProperty
 		apdu = binary.BigEndian.AppendUint32(apdu, objectID)
 		apdu = append(apdu, 0x19, byte(property))
@@ -144,7 +148,13 @@ func executeBACnet(cfg Config, req *Request) (*Response, error) {
 			// Ignore non-response PDUs (e.g. other broadcast traffic on the port).
 			switch responseAPDU[0] {
 			case 0x30, 0x50, 0x60, 0x70:
-				propertyValue, err = bacnetParseReadPropertyAck(responseAPDU)
+				if len(responseAPDU) < 2 || responseAPDU[1] != 0 {
+					continue // uncorrelated traffic on the shared BACnet port
+				}
+				propertyValue, err = bacnetParseReadPropertyAck(responseAPDU, objectID)
+				if errors.Is(err, errBACnetUncorrelated) {
+					continue
+				}
 				if err != nil {
 					return nil, err
 				}
@@ -252,7 +262,7 @@ func bacnetParseIAm(apdu []byte) (uint32, bool) {
 	return objectID & 0x3FFFFF, true
 }
 
-func bacnetParseReadPropertyAck(apdu []byte) (any, error) {
+func bacnetParseReadPropertyAck(apdu []byte, objectID uint32) (any, error) {
 	if len(apdu) == 0 {
 		return nil, fmt.Errorf("not a bacnet ComplexACK")
 	}
@@ -271,6 +281,9 @@ func bacnetParseReadPropertyAck(apdu []byte) (any, error) {
 	pos := 3
 	if pos >= len(apdu) || apdu[pos] != 0xC4 {
 		return nil, fmt.Errorf("unsupported bacnet ComplexACK shape")
+	}
+	if len(apdu) < pos+5 || binary.BigEndian.Uint32(apdu[pos+1:pos+5]) != objectID {
+		return nil, errBACnetUncorrelated
 	}
 	pos += 5
 	if pos >= len(apdu) || apdu[pos] != 0x19 {

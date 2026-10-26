@@ -212,6 +212,9 @@ func dnp3ParseObjects(data []byte) ([]any, error) {
 		if err != nil {
 			return nil, err
 		}
+		if uint64(count) > uint64(dnp3MaxPoints-len(points)) {
+			return nil, fmt.Errorf("dnp3 response exceeds %d points", dnp3MaxPoints)
+		}
 		prefix := qualifier & 0x0F
 		if prefix > 3 {
 			return nil, fmt.Errorf("dnp3 size-prefix qualifier %d is not supported", prefix)
