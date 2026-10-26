@@ -5,6 +5,16 @@
 
 ## [Unreleased]
 
+## [v1.1.1] - 2026-10-27
+
+### Fixed
+
+- `/ui/v1/capabilities.version` now reports the actual apidoc-go module version
+  from Go build info instead of always returning `dev`; development builds still
+  fall back to `dev`. `Options.Version` can override it.
+- Documentation and translated READMEs now describe UIC-1, server executors,
+  nine definition formats and the optional Vue UI; 1.1.1 version references.
+
 ## [v1.1.0] - 2026-10-26
 
 ### Added

@@ -6,7 +6,7 @@
 
 ## 프로젝트 소개
 
-**현재 버전: v1.1.0** ([Releases](https://github.com/erikwang2013/apidoc-go/releases) 참고)
+**현재 버전: v1.1.1** ([Releases](https://github.com/erikwang2013/apidoc-go/releases) 참고)
 
 **apidoc-go**는 Go용 범용 API 문서 플러그인 라이브러리입니다: 인터페이스 문서는 라우트 등록 시 함께 **타입화된 구조체**로 선언되어, 문서와 라우트가 동시에 생성됩니다. 문서는 레거시 `/api/*`와 UIC-1 `/ui/v1/*` JSON API 모두로 제공되므로, 어떤 외부 UI든 렌더링하고 테스트 요청을 보낼 수 있으며, 패키징된 Vue UI는 `Config.UIPath`를 통해 동일 프로세스에서 제공할 수 있습니다. 비밀번호 인증, 다중 앱 / 다중 버전 관리, Mock 데이터, JSON / TypeScript 내보내기, 주석 및 9가지 형식의 프로토콜 정의 파싱, 응답 캐싱, 파라미터 자동 완성을 내장합니다. 서버 측 프로토콜 실행기는 빌드 태그에 따라 필요 시 컴파일되며 HTTP, RPC, 소켓, 메시징, IoT, 산업, 미디어 프로토콜 계열을 지원합니다. 한 번 연동하면 모든 프레임워크에서 사용할 수 있으며, 기존 프로젝트를 개조할 필요가 없습니다.
 
@@ -43,7 +43,7 @@
 ```
 apidoc-go/
 ├── apidoc.go            # 핵심 진입점: New / Register / Mount / Handler
-├── VERSION              # 프로젝트 버전(v1.1.0), 릴리스 워크플로가 이 파일로 태그 생성
+├── VERSION              # 프로젝트 버전(v1.1.1), 릴리스 워크플로가 이 파일로 태그 생성
 ├── doc.go               # Route / Doc / Param / Response 타입
 ├── model/               # 데이터 모델
 │   ├── model.go         #   Project / App / Version / Controller / Action

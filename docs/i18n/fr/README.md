@@ -6,7 +6,7 @@
 
 ## Présentation du projet
 
-**Version actuelle : v1.1.0** (voir [Releases](https://github.com/erikwang2013/apidoc-go/releases))
+**Version actuelle : v1.1.1** (voir [Releases](https://github.com/erikwang2013/apidoc-go/releases))
 
 **apidoc-go** est une bibliothèque de plugin de documentation API universelle pour Go : la documentation des interfaces est déclarée sous forme de **structures typées** en même temps que l'enregistrement des routes — documentation et route naissent ensemble. La documentation est exposée via l'API JSON historique `/api/*` et l'API UIC-1 `/ui/v1/*`, afin que toute interface externe puisse l'afficher et envoyer des requêtes de test — ou une interface Vue empaquetée peut être servie dans le même processus via `Config.UIPath`. La bibliothèque intègre : authentification par mot de passe, gestion multi-applications / multi-versions, données Mock, export JSON / TypeScript, analyse des commentaires et des définitions de protocole en neuf formats, cache de réponses et complétion automatique des paramètres ; les exécuteurs de protocole côté serveur sont compilés à la demande par build tag et couvrent les familles de protocoles HTTP, RPC, socket, messagerie, IoT, industriel et média. Une seule intégration, compatible avec tous les frameworks — sans modifier vos projets existants.
 
@@ -43,7 +43,7 @@
 ```
 apidoc-go/
 ├── apidoc.go            # Points d'entrée principaux : New / Register / Mount / Handler
-├── VERSION              # Version du projet (v1.1.0) ; le workflow de release crée le tag à partir de ce fichier
+├── VERSION              # Version du projet (v1.1.1) ; le workflow de release crée le tag à partir de ce fichier
 ├── doc.go               # Types Route / Doc / Param / Response
 ├── model/               # Modèles de données
 │   ├── model.go         #   Project / App / Version / Controller / Action

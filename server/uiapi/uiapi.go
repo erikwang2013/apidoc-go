@@ -28,6 +28,8 @@ type Options struct {
 	// ShareDir is where share records live; empty means a directory under
 	// os.TempDir().
 	ShareDir string
+	// Version overrides the reported package version; empty uses build info.
+	Version string
 	// DefinitionRoot confines @definition files. Empty means the process
 	// working directory.
 	DefinitionRoot string
@@ -113,11 +115,18 @@ func debugModes() []string {
 	return modes
 }
 
+func (h *handler) version() string {
+	if h.o.Version != "" {
+		return h.o.Version
+	}
+	return moduleVersion()
+}
+
 func (h *handler) capabilitiesData() map[string]any {
 	return map[string]any{
 		"contract": contractVersion,
 		"backend":  "go",
-		"version":  "dev",
+		"version":  h.version(),
 		"features": map[string]any{
 			"menus":               true,
 			"detail":              true,
