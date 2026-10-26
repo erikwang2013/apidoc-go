@@ -81,7 +81,8 @@ func executeBACnet(cfg Config, req *Request) (*Response, error) {
 			return nil, fmt.Errorf("bacnet object_type <= 1023 and property <= 255 are required")
 		}
 		objectID = uint32(objectType)<<22 | uint32(objectInstance)
-		apdu = []byte{0x00, 0x00, 0x0C, 0xC4} // Confirmed-Request, invoke 0, ReadProperty
+		// Confirmed-Request: PDU header, invoke 0, ReadProperty, opening tag 0.
+		apdu = []byte{0x00, 0x00, 0x00, 0x0C, 0xC4}
 		apdu = binary.BigEndian.AppendUint32(apdu, objectID)
 		apdu = append(apdu, 0x19, byte(property))
 	default:
@@ -279,7 +280,7 @@ func bacnetParseReadPropertyAck(apdu []byte, objectID uint32) (any, error) {
 	}
 	// ComplexACK: 30 invoke 0C | C4 + object id | 19 property [| 29 array index] | 3E value 3F
 	pos := 3
-	if pos >= len(apdu) || apdu[pos] != 0xC4 {
+	if len(apdu) < 4 || apdu[2] != 0x0C || apdu[pos] != 0xC4 {
 		return nil, fmt.Errorf("unsupported bacnet ComplexACK shape")
 	}
 	if len(apdu) < pos+5 || binary.BigEndian.Uint32(apdu[pos+1:pos+5]) != objectID {

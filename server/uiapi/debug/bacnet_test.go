@@ -105,7 +105,7 @@ func TestBACnetWhoIsAndBroadcast(t *testing.T) {
 
 func TestBACnetReadProperty(t *testing.T) {
 	address := bacnetTestServer(t, func(packet []byte) []byte {
-		expected := []byte{0x81, 0x0A, 0x00, 0x10, 0x01, 0x00, 0x00, 0x00, 0x0C, 0xC4}
+		expected := []byte{0x81, 0x0A, 0x00, 0x11, 0x01, 0x00, 0x00, 0x00, 0x00, 0x0C, 0xC4}
 		expected = binary.BigEndian.AppendUint32(expected, 8<<22|1)
 		expected = append(expected, 0x19, 0x55)
 		if hex.EncodeToString(packet) != hex.EncodeToString(expected) {

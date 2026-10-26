@@ -13,8 +13,9 @@ import (
 )
 
 const (
-	dnp3GoldenRequest  = "05640bc4010000004de9c0c0013c0106ff50"
-	dnp3GoldenResponse = "0564174400000100ec4ec0c0811e01000001012a00000001f9ff4c3cffff3a99"
+	dnp3GoldenRequest = "05640bc4010000004de9c0c0013c0106ff50"
+	// app: C0 81 + IIN 00 00 + G30V1 objects {0: 42, 1: -7}
+	dnp3GoldenResponse = "0564194400000100e9bfc0c08100001e01000001012a000000010c86f9ffffff0d6e"
 )
 
 func dnp3TestRequest(target string, opts map[string]string) *Request {
@@ -188,6 +189,24 @@ func TestDNP3TimeoutCapAndValidation(t *testing.T) {
 			map[string]string{"duration_ms": "500"}))
 		if err == nil || !strings.Contains(err.Error(), "invalid dnp3 start bytes") {
 			t.Fatalf("malformed error = %v", err)
+		}
+	})
+
+	t.Run("missing iin", func(t *testing.T) {
+		address := startTCPServer(t, func(conn net.Conn) {
+			request := make([]byte, 18)
+			_, _ = io.ReadFull(conn, request)
+			frame, err := dnp3EncodeLinkFrame(0x44, 0, 1, []byte{0xC0, 0xC0, 0x81, 0x00})
+			if err != nil {
+				t.Errorf("encode frame: %v", err)
+				return
+			}
+			_, _ = conn.Write(frame)
+		})
+		_, err := executeDNP3(industrialTestConfig(), dnp3TestRequest(address,
+			map[string]string{"duration_ms": "500"}))
+		if err == nil || !strings.Contains(err.Error(), "missing IIN") {
+			t.Fatalf("missing IIN error = %v", err)
 		}
 	})
 

@@ -154,7 +154,11 @@ func dnp3CollectPoints(cfg Config, conn net.Conn, deadline time.Time, linkAddres
 			app = app[:0] // Confirm/Unsolicited and other non-read responses
 			continue
 		}
-		parsed, err := dnp3ParseObjects(app[2:])
+		if len(app) < 4 {
+			return nil, fmt.Errorf("truncated dnp3 read response (missing IIN)")
+		}
+		// [app control][function 0x81][IIN1][IIN2][object headers...]
+		parsed, err := dnp3ParseObjects(app[4:])
 		if err != nil {
 			return nil, err
 		}
