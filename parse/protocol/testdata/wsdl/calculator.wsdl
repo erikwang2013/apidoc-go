@@ -1,0 +1,8 @@
+<definitions xmlns="http://schemas.xmlsoap.org/wsdl/" xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:tns="urn:calc" targetNamespace="urn:calc">
+  <types><xsd:schema><xsd:include schemaLocation="types.xsd"/></xsd:schema></types>
+  <message name="AddRequest"><part name="parameters" element="tns:Add"/></message>
+  <message name="AddResponse"><part name="parameters" element="tns:AddResponse"/></message>
+  <portType name="CalculatorPortType"><operation name="Add"><input message="tns:AddRequest"/><output message="tns:AddResponse"/></operation></portType>
+  <binding name="CalculatorBinding" type="tns:CalculatorPortType"><soap:binding style="document"/><operation name="Add"><soap:operation soapAction="urn:add"/></operation></binding>
+  <service name="CalculatorService"><port name="CalculatorPort" binding="tns:CalculatorBinding"><soap:address location="http://example.test/calc"/></port></service>
+</definitions>

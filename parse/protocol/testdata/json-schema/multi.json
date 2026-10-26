@@ -1,0 +1,5 @@
+{
+  "title": "Multi",
+  "type": "object",
+  "properties": {"deep": {"$ref": "sub/deep.json#/definitions/Deep"}}
+}

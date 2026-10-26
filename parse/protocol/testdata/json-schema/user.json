@@ -1,0 +1,10 @@
+{
+  "title": "User",
+  "type": "object",
+  "required": ["id"],
+  "properties": {
+    "id": {"type": "integer"},
+    "name": {"type": "string"},
+    "roles": {"type": "array", "items": {"type": "string"}}
+  }
+}

@@ -1,0 +1,186 @@
+[
+  {
+    "name": "openapi.getUser",
+    "format": "openapi",
+    "file": "tests/fixtures/protocol/openapi/api.yaml",
+    "operation": "getUser"
+  },
+  {
+    "name": "openapi.createUser",
+    "format": "openapi",
+    "file": "tests/fixtures/protocol/openapi/api.yaml",
+    "operation": "createUser"
+  },
+  {
+    "name": "openapi.operationId-case",
+    "format": "openapi",
+    "file": "tests/fixtures/protocol/openapi/api.yaml",
+    "operation": "GETUSER"
+  },
+  {
+    "name": "openapi.missing",
+    "format": "openapi",
+    "file": "tests/fixtures/protocol/openapi/api.yaml",
+    "operation": "nope"
+  },
+  {
+    "name": "openapi.swagger",
+    "format": "openapi",
+    "file": "tests/fixtures/protocol/openapi/swagger.yaml",
+    "operation": "ping"
+  },
+  {
+    "name": "openapi.lone-list",
+    "format": "openapi",
+    "file": "tests/fixtures/protocol/openapi/lone-list.yaml",
+    "content": "openapi: 3.0.0\ninfo: {title: x, version: \"1\"}\npaths: {}\ntype: [\n"
+  },
+  {
+    "name": "openapi.lone-map",
+    "format": "openapi",
+    "file": "tests/fixtures/protocol/openapi/lone-map.yaml",
+    "content": "openapi: 3.0.0\ninfo: {title: x, version: \"1\"}\npaths: {}\ntype: {\n"
+  },
+  {
+    "name": "asyncapi.v2",
+    "format": "asyncapi",
+    "file": "tests/fixtures/protocol/asyncapi/asyncapi.yaml",
+    "operation": "sensors/+/temp:publish"
+  },
+  {
+    "name": "asyncapi.v3-external",
+    "format": "asyncapi",
+    "file": "tests/fixtures/protocol/asyncapi/v3/root.yaml",
+    "operation": "receiveUserSignedUp"
+  },
+  {
+    "name": "asyncapi.v3-bad-channel",
+    "format": "asyncapi",
+    "file": "tests/fixtures/protocol/asyncapi/v3/bad-channel.yaml",
+    "operation": "receiveUserSignedUp"
+  },
+  {
+    "name": "asyncapi.version-float",
+    "format": "asyncapi",
+    "file": "tests/fixtures/protocol/asyncapi/version-float.yaml",
+    "content": "asyncapi: 3.0\nchannels: {}\noperations: {}\n"
+  },
+  {
+    "name": "graphql.user",
+    "format": "graphql",
+    "file": "tests/fixtures/protocol/graphql/schema.graphql",
+    "operation": "Query.user"
+  },
+  {
+    "name": "graphql.missing",
+    "format": "graphql",
+    "file": "tests/fixtures/protocol/graphql/schema.graphql",
+    "operation": "Query.nope"
+  },
+  {
+    "name": "proto.sayHello",
+    "format": "proto",
+    "file": "tests/fixtures/protocol/proto/helloworld.proto",
+    "operation": "helloworld.Greeter/SayHello"
+  },
+  {
+    "name": "proto.unsupported",
+    "format": "proto",
+    "file": "tests/fixtures/protocol/proto/unsupported.proto"
+  },
+  {
+    "name": "proto.strict-off",
+    "format": "proto",
+    "file": "tests/fixtures/protocol/proto/strict-off.proto",
+    "strict": false,
+    "content": "syntax = \"proto3\";\nextend Foo { optional string x = 100; }\nmessage Req { string a = 1; }\nmessage Res { string b = 1; }\nservice S { rpc Op (Req) returns (Res); }\n"
+  },
+  {
+    "name": "wsdl.add",
+    "format": "wsdl",
+    "file": "tests/fixtures/protocol/wsdl/calculator.wsdl",
+    "operation": "CalculatorService/CalculatorPort/Add"
+  },
+  {
+    "name": "wsdl.element-fallback",
+    "format": "wsdl",
+    "file": "tests/fixtures/protocol/wsdl/element-fallback.wsdl",
+    "content": "<definitions xmlns=\"http://schemas.xmlsoap.org/wsdl/\" xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\" xmlns:tns=\"urn:test\" targetNamespace=\"urn:test\">\n  <message name=\"Req\"><part name=\"x\" element=\"Missing\" type=\"xsd:int\"/></message>\n  <portType name=\"Port\"><operation name=\"Op\"><input message=\"tns:Req\"/></operation></portType>\n</definitions>\n"
+  },
+  {
+    "name": "edmx.products",
+    "format": "edmx",
+    "file": "tests/fixtures/protocol/edmx/metadata.xml",
+    "operation": "Products"
+  },
+  {
+    "name": "edmx.empty",
+    "format": "edmx",
+    "file": "tests/fixtures/protocol/edmx/empty.xml",
+    "content": ""
+  },
+  {
+    "name": "json-schema.user",
+    "format": "json-schema",
+    "file": "tests/fixtures/protocol/json-schema/user.json",
+    "sample": "{\"id\":1,\"name\":\"a\"}"
+  },
+  {
+    "name": "json-schema.invalid",
+    "format": "json-schema",
+    "file": "tests/fixtures/protocol/json-schema/invalid.json"
+  },
+  {
+    "name": "json-schema.recursive",
+    "format": "json-schema",
+    "file": "tests/fixtures/protocol/json-schema/recursive.json"
+  },
+  {
+    "name": "json-schema.multi",
+    "format": "json-schema",
+    "file": "tests/fixtures/protocol/json-schema/multi.json"
+  },
+  {
+    "name": "json-schema.chain",
+    "format": "json-schema",
+    "file": "tests/fixtures/protocol/json-schema/chain.json"
+  },
+  {
+    "name": "json-schema.webhook",
+    "format": "json-schema",
+    "file": "tests/fixtures/protocol/json-schema/webhook.json"
+  },
+  {
+    "name": "json-rpc.valid",
+    "format": "json-rpc",
+    "file": "tests/fixtures/protocol/json-rpc/methods.json",
+    "operation": "user.get",
+    "sample": "{\"jsonrpc\":\"2.0\",\"method\":\"user.get\",\"params\":{\"id\":1},\"id\":1}"
+  },
+  {
+    "name": "json-rpc.bad-sample",
+    "format": "json-rpc",
+    "file": "tests/fixtures/protocol/json-rpc/methods.json",
+    "operation": "user.get",
+    "sample": "{\"jsonrpc\":\"2.0\",\"method\":\"user.get\",\"params\":{},\"id\":1}"
+  },
+  {
+    "name": "xml-rpc.add",
+    "format": "xml-rpc",
+    "file": "tests/fixtures/protocol/xml-rpc/methods.xml",
+    "operation": "add"
+  },
+  {
+    "name": "xml-rpc.missing",
+    "format": "xml-rpc",
+    "file": "tests/fixtures/protocol/xml-rpc/methods.xml",
+    "operation": "nope"
+  },
+  {
+    "name": "xml-rpc.bad-sample",
+    "format": "xml-rpc",
+    "file": "tests/fixtures/protocol/xml-rpc/methods.xml",
+    "operation": "add",
+    "sample": "<methodCall><methodName>other</methodName></methodCall>"
+  }
+]

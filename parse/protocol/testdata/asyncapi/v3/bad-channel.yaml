@@ -1,0 +1,12 @@
+asyncapi: 3.0.0
+info: {title: Users, version: "1"}
+channels:
+  userSignedUp:
+    address: user/signedup
+operations:
+  receiveUserSignedUp:
+    action: receive
+    channel:
+      $ref: './missing.yaml#/channels/userSignedUp'
+    messages:
+      - $ref: './messages/user.yaml#/messages/UserSignedUp'

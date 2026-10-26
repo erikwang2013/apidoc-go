@@ -1,0 +1,23 @@
+openapi: 3.0.3
+info: {title: Users, version: "1"}
+paths:
+  /users/{id}:
+    get:
+      operationId: getUser
+      parameters:
+        - {name: id, in: path, required: true, schema: {type: integer}}
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: {$ref: './user.yaml#/User'}
+  /users:
+    post:
+      operationId: createUser
+      requestBody:
+        $ref: './sub/request.yaml#/UserInput'
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: {$ref: './user.yaml#/User'}

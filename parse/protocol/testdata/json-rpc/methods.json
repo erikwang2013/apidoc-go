@@ -1,0 +1,8 @@
+{
+  "methods": {
+    "user.get": {
+      "params": {"type": "object", "required": ["id"], "properties": {"id": {"type": "integer"}}},
+      "result": {"type": "object", "properties": {"id": {"type": "integer"}, "name": {"type": "string"}}}
+    }
+  }
+}
