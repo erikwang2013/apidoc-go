@@ -20,6 +20,8 @@ func TestCheckIPPolicy(t *testing.T) {
 		"127.0.0.1", "10.1.2.3", "172.16.0.1", "192.168.1.1", "169.254.1.1",
 		"100.64.0.1", "192.0.0.9", "198.18.0.1", "240.0.0.1", "0.1.2.3",
 		"::1", "fc00::1", "fe80::1", "ff02::1", "::",
+		"::10.1.2.3", "::ffff:10.1.2.3", "::ffff:0:10.1.2.3", "64:ff9b::a01:203",
+		"2002:a01:203::", "64:ff9b:1::1", "2001:0:4136:e378:8000:63bf:3fff:fdd2",
 	}
 	for _, ip := range denied {
 		if err := checkIP(cfg(false), parseIP(t, ip)); err == nil {
@@ -28,6 +30,35 @@ func TestCheckIPPolicy(t *testing.T) {
 	}
 	if err := checkIP(cfg(true), parseIP(t, "10.1.2.3")); err != nil {
 		t.Errorf("private network should be allowed when configured: %v", err)
+	}
+	for _, ip := range []string{"64:ff9b::808:808", "2002:808:808::", "::8.8.8.8", "::ffff:0:808:808"} {
+		if err := checkIP(cfg(false), parseIP(t, ip)); err != nil {
+			t.Errorf("%s carries a public IPv4 and should be allowed: %v", ip, err)
+		}
+	}
+}
+
+func TestEmbeddedIPv4MetadataAlwaysBlocked(t *testing.T) {
+	for _, ip := range []string{
+		"::169.254.169.254",
+		"::ffff:0:a9fe:a9fe",
+		"64:ff9b::a9fe:a9fe",
+		"2002:a9fe:a9fe::",
+	} {
+		if err := checkIP(cfg(true), parseIP(t, ip)); err == nil {
+			t.Errorf("%s must stay blocked even with private networks allowed", ip)
+		}
+	}
+}
+
+func TestCheckAddrsRejectsMixedDNSAnswer(t *testing.T) {
+	public := parseIP(t, "8.8.8.8")
+	private := parseIP(t, "127.0.0.1")
+	if err := checkAddrs(cfg(false), []net.IP{public, private}); err == nil {
+		t.Fatal("a DNS answer containing any blocked address must be rejected")
+	}
+	if err := checkAddrs(cfg(false), []net.IP{public}); err != nil {
+		t.Fatalf("public-only answer rejected: %v", err)
 	}
 }
 

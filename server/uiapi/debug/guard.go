@@ -76,12 +76,19 @@ func CheckHost(cfg Config, host, port string) ([]net.IP, error) {
 	if len(addrs) == 0 {
 		return nil, fmt.Errorf("target host `%s` resolved to no addresses", host)
 	}
-	for _, ip := range addrs {
-		if err := checkIP(cfg, ip); err != nil {
-			return nil, err
-		}
+	if err := checkAddrs(cfg, addrs); err != nil {
+		return nil, err
 	}
 	return addrs, nil
+}
+
+func checkAddrs(cfg Config, addrs []net.IP) error {
+	for _, ip := range addrs {
+		if err := checkIP(cfg, ip); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // DialContext connects to a checked address, ignoring the hostname passed by
@@ -135,18 +142,21 @@ func checkIP(cfg Config, ip net.IP) error {
 }
 
 func alwaysBlocked(ip net.IP) bool {
-	if v4 := ip.To4(); v4 != nil {
-		switch {
-		case v4[0] == 169 && v4[1] == 254 && v4[2] == 169 && v4[3] == 254,
-			v4[0] == 169 && v4[1] == 254 && v4[2] == 170 && v4[3] == 2,
-			v4[0] == 100 && v4[1] == 100 && v4[2] == 100 && v4[3] == 200:
-			return true
-		}
-		return false
+	if v4, ok := embeddedIPv4(ip); ok {
+		return metadataIPv4(v4)
 	}
 	ip16 := ip.To16()
 	if ip16 == nil {
 		return false
+	}
+	// Teredo and local-use NAT64 can tunnel to a private/metadata IPv4; reject
+	// the whole translation prefix rather than guessing its embedded layout.
+	if ip16[0] == 0x20 && ip16[1] == 0x01 && ip16[2] == 0 && ip16[3] == 0 {
+		return true
+	}
+	if ip16[0] == 0x00 && ip16[1] == 0x64 && ip16[2] == 0xff && ip16[3] == 0x9b &&
+		ip16[4] == 0x00 && ip16[5] == 0x01 {
+		return true
 	}
 	// AWS IMDS IPv6: fd00:ec2::254.
 	return ip16[0] == 0xfd && ip16[1] == 0x00 && ip16[2] == 0x0e && ip16[3] == 0xc2 &&
@@ -156,23 +166,82 @@ func alwaysBlocked(ip net.IP) bool {
 }
 
 func privateIP(ip net.IP) bool {
-	if v4 := ip.To4(); v4 != nil {
-		return v4.IsPrivate() ||
-			v4.IsLoopback() ||
-			v4.IsLinkLocalUnicast() ||
-			v4.IsLinkLocalMulticast() ||
-			v4.IsMulticast() ||
-			v4.IsUnspecified() ||
-			v4.Equal(net.IPv4bcast) ||
-			(v4[0] == 100 && v4[1] >= 64 && v4[1] <= 127) || // 100.64.0.0/10 CGNAT
-			(v4[0] == 192 && v4[1] == 0 && v4[2] == 0) || // 192.0.0.0/24
-			(v4[0] == 198 && (v4[1] == 18 || v4[1] == 19)) || // 198.18.0.0/15
-			v4[0] >= 240 || // 240.0.0.0/4
-			v4[0] == 0 // 0.0.0.0/8
+	if v4, ok := embeddedIPv4(ip); ok {
+		return privateIPv4(v4)
 	}
 	return ip.IsLoopback() ||
 		ip.IsUnspecified() ||
 		ip.IsMulticast() ||
 		(ip[0]&0xfe) == 0xfc || // fc00::/7 ULA
 		(ip[0]&0xff) == 0xfe && (ip[1]&0xc0) == 0x80 // fe80::/10
+}
+
+// embeddedIPv4 returns the IPv4 address carried by an IPv4-mapped, IPv4-
+// compatible, NAT64, or 6to4 IPv6 address. The embedded address must pass the
+// same policy as a direct IPv4 target.
+func embeddedIPv4(ip net.IP) (net.IP, bool) {
+	if v4 := ip.To4(); v4 != nil {
+		return v4, true
+	}
+	ip16 := ip.To16()
+	if ip16 == nil {
+		return nil, false
+	}
+	zero := func(b []byte) bool {
+		for _, v := range b {
+			if v != 0 {
+				return false
+			}
+		}
+		return true
+	}
+	switch {
+	// ::a.b.c.d IPv4-compatible (deprecated, but still routed by some stacks).
+	case zero(ip16[:12]):
+		return net.IPv4(ip16[12], ip16[13], ip16[14], ip16[15]), true
+	// ::ffff:0:a.b.c.d IPv4-translated (RFC 2765; To4 does not cover it).
+	case zero(ip16[:8]) && ip16[8] == 0xff && ip16[9] == 0xff && ip16[10] == 0 && ip16[11] == 0:
+		return net.IPv4(ip16[12], ip16[13], ip16[14], ip16[15]), true
+	// 64:ff9b::/96 well-known NAT64 prefix.
+	case ip16[0] == 0x00 && ip16[1] == 0x64 && ip16[2] == 0xff && ip16[3] == 0x9b &&
+		zero(ip16[4:12]):
+		return net.IPv4(ip16[12], ip16[13], ip16[14], ip16[15]), true
+	// 2002::/16 6to4.
+	case ip16[0] == 0x20 && ip16[1] == 0x02:
+		return net.IPv4(ip16[2], ip16[3], ip16[4], ip16[5]), true
+	}
+	return nil, false
+}
+
+func metadataIPv4(v4 net.IP) bool {
+	v4 = v4.To4()
+	if v4 == nil {
+		return false
+	}
+	switch {
+	case v4[0] == 169 && v4[1] == 254 && v4[2] == 169 && v4[3] == 254,
+		v4[0] == 169 && v4[1] == 254 && v4[2] == 170 && v4[3] == 2,
+		v4[0] == 100 && v4[1] == 100 && v4[2] == 100 && v4[3] == 200:
+		return true
+	}
+	return false
+}
+
+func privateIPv4(v4 net.IP) bool {
+	v4 = v4.To4()
+	if v4 == nil {
+		return false
+	}
+	return v4.IsPrivate() ||
+		v4.IsLoopback() ||
+		v4.IsLinkLocalUnicast() ||
+		v4.IsLinkLocalMulticast() ||
+		v4.IsMulticast() ||
+		v4.IsUnspecified() ||
+		v4.Equal(net.IPv4bcast) ||
+		(v4[0] == 100 && v4[1] >= 64 && v4[1] <= 127) || // 100.64.0.0/10 CGNAT
+		(v4[0] == 192 && v4[1] == 0 && v4[2] == 0) || // 192.0.0.0/24
+		(v4[0] == 198 && (v4[1] == 18 || v4[1] == 19)) || // 198.18.0.0/15
+		v4[0] >= 240 || // 240.0.0.0/4
+		v4[0] == 0 // 0.0.0.0/8
 }
