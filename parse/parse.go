@@ -185,9 +185,16 @@ func parseTags(fset *token.FileSet, f *ast.File, fn *ast.FuncDecl, r *Result) er
 				r.Doc.Events = append(r.Doc.Events, ev)
 			}
 		case "definition":
-			var def model.Definition
-			if def, err = parseDefinition(toks); err == nil {
-				r.Doc.Definitions = append(r.Doc.Definitions, def)
+			var tokens []string
+			if tokens, err = splitQuoted(strings.TrimSpace(commentLine(c.Text))); err == nil {
+				if len(tokens) == 0 || tokens[0] != "@definition" {
+					err = fmt.Errorf("@definition wants key=value")
+				} else {
+					var def model.Definition
+					if def, err = parseDefinition(tokens[1:]); err == nil {
+						r.Doc.Definitions = append(r.Doc.Definitions, def)
+					}
+				}
 			}
 		case "app":
 			r.Doc.App = strings.Join(toks, " ")
@@ -308,9 +315,11 @@ func parseEvent(toks []string) (model.DocEvent, error) {
 	return ev, nil
 }
 
-// parseDefinition parses "@definition file=... [format=...] [operation=...]
+// parseDefinition parses "@definition [file=...] [format=...] [operation=...]
 // [message=...] [direction=...] [sample=...] [sample-file=...]
-// [sample-encoding=...] [strict=false] [inline=...]". Values are single tokens.
+// [sample-encoding=...] [strict=false] [inline=...]". Values containing spaces
+// must be quoted; a declaration without file/inline is valid (pending/inline,
+// matching PHP).
 func parseDefinition(toks []string) (model.Definition, error) {
 	var def model.Definition
 	for i, tok := range toks {
@@ -351,10 +360,77 @@ func parseDefinition(toks []string) (model.Definition, error) {
 			return def, fmt.Errorf("unknown definition key %q", key)
 		}
 	}
-	if def.File == "" && def.Inline == "" {
-		return def, fmt.Errorf("definition wants file= or inline=")
-	}
 	return def, nil
+}
+
+// splitQuoted splits annotation arguments on whitespace outside '...' / "...".
+// Inside double quotes, \n, \t, \\ and \" are unescaped; quotes are removed.
+func splitQuoted(line string) ([]string, error) {
+	var tokens []string
+	var current strings.Builder
+	quote := byte(0)
+	escaped := false
+	hasToken := false
+	afterEquals := false
+	for i := 0; i < len(line); i++ {
+		ch := line[i]
+		if escaped {
+			switch ch {
+			case 'n':
+				current.WriteByte('\n')
+			case 't':
+				current.WriteByte('\t')
+			default:
+				current.WriteByte(ch)
+			}
+			escaped, hasToken, afterEquals = false, true, false
+			continue
+		}
+		if quote != 0 {
+			if ch == '\\' && quote == '"' {
+				escaped = true
+				continue
+			}
+			if ch == quote {
+				quote = 0
+				continue
+			}
+			current.WriteByte(ch)
+			hasToken = true
+			continue
+		}
+		switch ch {
+		case ' ', '\t', '\n', '\r':
+			if hasToken {
+				tokens = append(tokens, current.String())
+				current.Reset()
+				hasToken, afterEquals = false, false
+			}
+		case '\'', '"':
+			// Quote only at a value boundary; bare JSON like sample={"id":1}
+			// keeps its quotes as before.
+			if !hasToken || afterEquals {
+				quote, hasToken, afterEquals = ch, true, false
+			} else {
+				current.WriteByte(ch)
+				afterEquals = false
+			}
+		default:
+			current.WriteByte(ch)
+			hasToken = true
+			afterEquals = ch == '='
+		}
+	}
+	if escaped {
+		current.WriteByte('\\')
+	}
+	if quote != 0 {
+		return nil, fmt.Errorf("unterminated quote in definition annotation")
+	}
+	if hasToken {
+		tokens = append(tokens, current.String())
+	}
+	return tokens, nil
 }
 
 // parseResponse parses "@success [name] type [desc]". A leading token

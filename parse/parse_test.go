@@ -78,9 +78,9 @@ func TestDefinitionTag(t *testing.T) {
 
 func TestDefinitionTagErrors(t *testing.T) {
 	cases := []string{
-		"// @definition format=json-schema",
 		"// @definition file=a.json unknown=1",
 		"// @definition file=a.json strict=maybe",
+		"// @definition file=\"unterminated",
 	}
 	for _, line := range cases {
 		res, err := parse.ParseSource("defs.go", []byte(src("package p", "// @apidoc", line, "func F() {}")))
@@ -438,5 +438,37 @@ func TestProtocolOptsAndEvents(t *testing.T) {
 		d.Events[0].Name != "temperature" || d.Events[0].Type != "json" ||
 		d.Events[0].Desc != "temp" || d.Events[0].Mock != `{"v":1}` {
 		t.Fatalf("events mismatch: %+v", d.Events)
+	}
+}
+
+func TestDefinitionQuotedValues(t *testing.T) {
+	res, err := parse.ParseSource("defs.go", []byte(src(
+		"package p",
+		"// @apidoc",
+		`// @definition file="a b.json" sample="{\"a\": 1}" format=json-schema`,
+		"func F() {}",
+	)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []model.Definition{{File: "a b.json", Sample: `{"a": 1}`, Format: "json-schema"}}
+	if !reflect.DeepEqual(res[0].Doc.Definitions, want) {
+		t.Fatalf("definitions: %#v", res[0].Doc.Definitions)
+	}
+}
+
+func TestDefinitionFilelessIsAccepted(t *testing.T) {
+	res, err := parse.ParseSource("defs.go", []byte(src(
+		"package p",
+		"// @apidoc",
+		"// @definition format=inline",
+		"func F() {}",
+	)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []model.Definition{{Format: "inline"}}
+	if !reflect.DeepEqual(res[0].Doc.Definitions, want) {
+		t.Fatalf("definitions: %#v", res[0].Doc.Definitions)
 	}
 }
