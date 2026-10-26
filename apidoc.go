@@ -14,6 +14,7 @@ import (
 	"github.com/erikwang2013/apidoc-go/auth"
 	"github.com/erikwang2013/apidoc-go/model"
 	"github.com/erikwang2013/apidoc-go/server"
+	"github.com/erikwang2013/apidoc-go/server/uiapi"
 	"github.com/erikwang2013/apidoc-go/store"
 )
 
@@ -26,7 +27,27 @@ type Config struct {
 	Auth         AuthConfig
 	Apps         []AppConfig
 	DebugOrigins []string // origins allowed CORS access (default none)
+	// PublicHost is the fallback absolute base URL used by the external UI
+	// for browser debugging. Empty means same-origin.
+	PublicHost string
+	// ShareDir stores UIC-1 share records; empty means a directory under
+	// os.TempDir().
+	ShareDir string
+	// Generator and CodeTemplates are the declarative UIC-1 generator
+	// descriptors; rendering is side-effect free.
+	Generator     []GeneratorSpec
+	CodeTemplates []CodeTemplateSpec
+	// ShareActions declares the actions handleApiShareAction may return.
+	ShareActions []ShareActionSpec
 }
+
+// UIC-1 management types; see server/uiapi.
+type (
+	GeneratorSpec    = uiapi.GeneratorSpec
+	GeneratorFile    = uiapi.GeneratorFile
+	CodeTemplateSpec = uiapi.CodeTemplateSpec
+	ShareActionSpec  = uiapi.ShareActionSpec
+)
 
 // AuthConfig is the auth configuration.
 type AuthConfig = auth.Config
@@ -36,6 +57,8 @@ type AuthConfig = auth.Config
 // app's detail data with a scoped token.
 type AppConfig struct {
 	Key, Title, Password string
+	// PublicHost is this app's absolute debug base URL; falls back to Config.PublicHost.
+	PublicHost string
 }
 
 // Server is one doc server instance. Create with New; register routes
@@ -134,13 +157,25 @@ func (s *Server) Mount(a adapter.Framework) error {
 // Handler returns the doc server's JSON API handler.
 func (s *Server) Handler() http.Handler {
 	s.once.Do(func() {
+		appHosts := map[string]string{}
+		for _, app := range s.cfg.Apps {
+			if app.PublicHost != "" {
+				appHosts[app.Key] = app.PublicHost
+			}
+		}
 		s.handler = server.Handler(server.Opts{
-			Prefix:       s.cfg.Prefix,
-			Store:        s.st,
-			Auth:         s.cfg.Auth,
-			AppPWs:       s.appPw,
-			DebugOrigins: s.cfg.DebugOrigins,
-			GlobalParams: s.cfg.GlobalParams,
+			Prefix:        s.cfg.Prefix,
+			Store:         s.st,
+			Auth:          s.cfg.Auth,
+			AppPWs:        s.appPw,
+			DebugOrigins:  s.cfg.DebugOrigins,
+			GlobalParams:  s.cfg.GlobalParams,
+			PublicHost:    s.cfg.PublicHost,
+			AppHosts:      appHosts,
+			ShareDir:      s.cfg.ShareDir,
+			Generator:     s.cfg.Generator,
+			CodeTemplates: s.cfg.CodeTemplates,
+			ShareActions:  s.cfg.ShareActions,
 		})
 	})
 	return s.handler
