@@ -102,6 +102,14 @@ func decode[T any](r *http.Request) (T, error) {
 	return value, err
 }
 
+func debugModes() []string {
+	modes := []string{"browser-http", "browser-websocket", "browser-sse"}
+	if len(debug.RelayIDs()) > 0 {
+		modes = append(modes, "relay-unary", "relay-stream")
+	}
+	return modes
+}
+
 func (h *handler) capabilitiesData() map[string]any {
 	return map[string]any{
 		"contract": contractVersion,
@@ -115,7 +123,7 @@ func (h *handler) capabilitiesData() map[string]any {
 			"debug": map[string]any{
 				"browser": []string{"http", "websocket", "sse"},
 				"relay":   debug.RelayIDs(),
-				"modes":   []string{"browser-http", "browser-websocket", "browser-sse"},
+				"modes":   debugModes(),
 			},
 			"share": map[string]any{"link": true, "records": true, "actions": h.shareActionsAvailable()},
 			"cache": map[string]any{"manage": h.cacheManageable(), "mode": "server"},

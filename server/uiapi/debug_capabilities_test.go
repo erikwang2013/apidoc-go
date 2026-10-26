@@ -17,19 +17,19 @@ func TestDebugCapabilitiesTagged(t *testing.T) {
 	features := decodeData(t, do(t, h, "GET", "/ui/v1/capabilities", "", ""))["features"].(map[string]any)
 	debug := features["debug"].(map[string]any)
 	wantRelay := []any{
-		"http", "http2", "soap", "graphql", "jsonrpc", "xmlrpc", "odata", "mcp", "a2a", "webhook",
-		"tcp", "udp", "raw", "unix", "thrift", "dubbo", "hessian", "iso8583",
+		"http", "http2", "http3", "soap", "graphql", "jsonrpc", "xmlrpc", "odata", "mcp", "a2a", "webhook",
+		"tcp", "udp", "raw", "unix", "grpc", "thrift", "dubbo", "hessian", "iso8583",
 	}
 	if !reflect.DeepEqual(debug["relay"], wantRelay) {
 		t.Fatalf("relay = %#v", debug["relay"])
 	}
-	wantModes := []any{"browser-http", "browser-websocket", "browser-sse"}
+	wantModes := []any{"browser-http", "browser-websocket", "browser-sse", "relay-unary", "relay-stream"}
 	if !reflect.DeepEqual(debug["modes"], wantModes) {
 		t.Fatalf("modes = %#v", debug["modes"])
 	}
 }
 
-func debugDetailStore() (*store.Store, string, string) {
+func debugDetailStore() (*store.Store, string, string, string) {
 	st := store.New("Debug")
 	st.SetAppMeta("default", "Default")
 	st.Register("POST", "tcp://example.com:9000", model.Doc{
@@ -42,8 +42,14 @@ func debugDetailStore() (*store.Store, string, string) {
 		Protocol:     "grpc",
 		ProtocolOpts: map[string]string{"target": "grpc://example.com:443"},
 	})
+	st.Register("POST", "modbus://example.com:502", model.Doc{
+		App: "default", Version: "v1", Controller: "debug", Title: "Modbus",
+		Protocol:     "modbus",
+		ProtocolOpts: map[string]string{"target": "modbus://example.com:502"},
+	})
 	return st, store.ActionID("default", "v1", "POST", "tcp://example.com:9000"),
-		store.ActionID("default", "v1", "POST", "grpc://example.com:443")
+		store.ActionID("default", "v1", "POST", "grpc://example.com:443"),
+		store.ActionID("default", "v1", "POST", "modbus://example.com:502")
 }
 
 func debugDetail(t *testing.T, h http.Handler, path string) map[string]any {
@@ -53,7 +59,7 @@ func debugDetail(t *testing.T, h http.Handler, path string) map[string]any {
 }
 
 func TestDebugDetailRelayModesTagged(t *testing.T) {
-	st, tcpID, grpcID := debugDetailStore()
+	st, tcpID, grpcID, modbusID := debugDetailStore()
 	enabled := newHandlerWith(t, Options{Store: st, Debug: DebugConfig{EnableServerSide: true}})
 
 	data := debugDetail(t, enabled, tcpID)
@@ -78,9 +84,15 @@ func TestDebugDetailRelayModesTagged(t *testing.T) {
 
 	data = debugDetail(t, enabled, grpcID)
 	protocol = data["protocol"].(map[string]any)
+	if protocol["mode"] != "relay-unary" || protocol["debuggable"] != true || protocol["debugReason"] != "" {
+		t.Fatalf("grpc protocol: %+v", protocol)
+	}
+
+	data = debugDetail(t, enabled, modbusID)
+	protocol = data["protocol"].(map[string]any)
 	if protocol["mode"] != "relay-unary" || protocol["debuggable"] != false ||
 		!strings.Contains(protocol["debugReason"].(string), "not compiled") {
-		t.Fatalf("grpc protocol: %+v", protocol)
+		t.Fatalf("modbus protocol: %+v", protocol)
 	}
 
 	disabled := newHandlerWith(t, Options{Store: st})
