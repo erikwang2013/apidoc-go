@@ -1,0 +1,9 @@
+messages:
+  UserSignedUp:
+    name: UserSignedUp
+    payload:
+      type: object
+      required: [id]
+      properties:
+        id: {$ref: './types.yaml#/Id'}
+        name: {type: string}

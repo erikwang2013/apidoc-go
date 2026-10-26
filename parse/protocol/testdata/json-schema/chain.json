@@ -1,0 +1,9 @@
+{
+  "title": "Chain",
+  "definitions": {
+    "A": {"$ref": "#/definitions/B"},
+    "B": {"$ref": "#/definitions/C"},
+    "C": {"type": "object", "required": ["name"], "properties": {"name": {"type": "string"}}}
+  },
+  "$ref": "#/definitions/A"
+}

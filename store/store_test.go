@@ -121,3 +121,26 @@ func TestRegisterProtocolDefaultAndBackfill(t *testing.T) {
 		t.Fatalf("backfill failed: ok=%v action=%+v", ok, c)
 	}
 }
+
+func TestRegisterCopiesDefinitions(t *testing.T) {
+	s := New("p")
+	s.Register("GET", "/users", model.Doc{App: "a", Version: "v1",
+		Definitions: []model.Definition{{File: "json-schema/user.json", Format: "json-schema"}}})
+	a, ok := s.Action(ActionID("a", "v1", "GET", "/users"))
+	if !ok || len(a.Definitions) != 1 || a.Definitions[0].File != "json-schema/user.json" {
+		t.Fatalf("definitions dropped: ok=%v action=%+v", ok, a)
+	}
+	// The definition inputs must survive the JSON persistence round-trip.
+	b, err := json.Marshal(s)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var s2 Store
+	if err := json.Unmarshal(b, &s2); err != nil {
+		t.Fatal(err)
+	}
+	a, ok = s2.Action(ActionID("a", "v1", "GET", "/users"))
+	if !ok || len(a.Definitions) != 1 {
+		t.Fatalf("definitions lost on round-trip: ok=%v action=%+v", ok, a)
+	}
+}

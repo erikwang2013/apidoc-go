@@ -1,0 +1,998 @@
+{
+    "openapi.getUser": {
+        "operation": "getUser",
+        "messages": [
+            {
+                "name": "Request",
+                "direction": "request",
+                "fields": [
+                    {
+                        "name": "id",
+                        "type": "integer",
+                        "require": true,
+                        "desc": "",
+                        "in": "path"
+                    }
+                ]
+            },
+            {
+                "name": "Response 200",
+                "direction": "response",
+                "fields": [
+                    {
+                        "name": "id",
+                        "type": "integer",
+                        "require": true
+                    },
+                    {
+                        "name": "name",
+                        "type": "string",
+                        "require": false
+                    }
+                ]
+            }
+        ],
+        "meta": [],
+        "errors": [],
+        "warnings": []
+    },
+    "openapi.createUser": {
+        "operation": "createUser",
+        "messages": [
+            {
+                "name": "Request",
+                "direction": "request",
+                "fields": [
+                    {
+                        "name": "id",
+                        "type": "integer",
+                        "require": true,
+                        "in": "body"
+                    },
+                    {
+                        "name": "name",
+                        "type": "string",
+                        "require": false,
+                        "in": "body"
+                    }
+                ]
+            },
+            {
+                "name": "Response 200",
+                "direction": "response",
+                "fields": [
+                    {
+                        "name": "id",
+                        "type": "integer",
+                        "require": true
+                    },
+                    {
+                        "name": "name",
+                        "type": "string",
+                        "require": false
+                    }
+                ]
+            }
+        ],
+        "meta": [],
+        "errors": [],
+        "warnings": []
+    },
+    "openapi.operationId-case": {
+        "operation": "GETUSER",
+        "messages": [
+            {
+                "name": "Request",
+                "direction": "request",
+                "fields": [
+                    {
+                        "name": "id",
+                        "type": "integer",
+                        "require": true,
+                        "desc": "",
+                        "in": "path"
+                    }
+                ]
+            },
+            {
+                "name": "Response 200",
+                "direction": "response",
+                "fields": [
+                    {
+                        "name": "id",
+                        "type": "integer",
+                        "require": true
+                    },
+                    {
+                        "name": "name",
+                        "type": "string",
+                        "require": false
+                    }
+                ]
+            }
+        ],
+        "meta": [],
+        "errors": [
+            {
+                "path": "",
+                "line": 0,
+                "column": 0,
+                "severity": "error",
+                "message": "operation not found: GETUSER; candidates: getUser, createUser"
+            }
+        ],
+        "warnings": []
+    },
+    "openapi.missing": {
+        "operation": "nope",
+        "messages": [
+            {
+                "name": "Request",
+                "direction": "request",
+                "fields": [
+                    {
+                        "name": "id",
+                        "type": "integer",
+                        "require": true,
+                        "desc": "",
+                        "in": "path"
+                    }
+                ]
+            },
+            {
+                "name": "Response 200",
+                "direction": "response",
+                "fields": [
+                    {
+                        "name": "id",
+                        "type": "integer",
+                        "require": true
+                    },
+                    {
+                        "name": "name",
+                        "type": "string",
+                        "require": false
+                    }
+                ]
+            }
+        ],
+        "meta": [],
+        "errors": [
+            {
+                "path": "",
+                "line": 0,
+                "column": 0,
+                "severity": "error",
+                "message": "operation not found: nope; candidates: getUser, createUser"
+            }
+        ],
+        "warnings": []
+    },
+    "openapi.swagger": {
+        "operation": "ping",
+        "messages": [
+            {
+                "name": "Request",
+                "direction": "request",
+                "fields": []
+            },
+            {
+                "name": "Response 200",
+                "direction": "response",
+                "fields": [
+                    {
+                        "name": "ok",
+                        "type": "boolean",
+                        "require": false
+                    }
+                ]
+            }
+        ],
+        "meta": [],
+        "errors": [],
+        "warnings": []
+    },
+    "openapi.lone-list": {
+        "operation": "",
+        "messages": [],
+        "meta": [],
+        "errors": [
+            {
+                "path": "",
+                "line": 0,
+                "column": 0,
+                "severity": "error",
+                "message": "OpenAPI paths are missing"
+            }
+        ],
+        "warnings": []
+    },
+    "openapi.lone-map": {
+        "operation": "",
+        "messages": [],
+        "meta": [],
+        "errors": [
+            {
+                "path": "",
+                "line": 0,
+                "column": 0,
+                "severity": "error",
+                "message": "OpenAPI paths are missing"
+            }
+        ],
+        "warnings": []
+    },
+    "asyncapi.v2": {
+        "operation": "sensors/+/temp:publish",
+        "messages": [
+            {
+                "name": "Temperature",
+                "direction": "event",
+                "fields": [
+                    {
+                        "name": "value",
+                        "type": "number",
+                        "require": true
+                    },
+                    {
+                        "name": "unit",
+                        "type": "string",
+                        "require": false
+                    }
+                ]
+            }
+        ],
+        "meta": [],
+        "errors": [],
+        "warnings": []
+    },
+    "asyncapi.v3-external": {
+        "operation": "receiveUserSignedUp",
+        "messages": [
+            {
+                "name": "UserSignedUp",
+                "direction": "event",
+                "fields": [
+                    {
+                        "name": "id",
+                        "type": "integer",
+                        "require": true
+                    },
+                    {
+                        "name": "name",
+                        "type": "string",
+                        "require": false
+                    }
+                ]
+            }
+        ],
+        "meta": [],
+        "errors": [],
+        "warnings": []
+    },
+    "asyncapi.v3-bad-channel": {
+        "operation": "receiveUserSignedUp",
+        "messages": [
+            {
+                "name": "UserSignedUp",
+                "direction": "event",
+                "fields": [
+                    {
+                        "name": "id",
+                        "type": "integer",
+                        "require": true
+                    },
+                    {
+                        "name": "name",
+                        "type": "string",
+                        "require": false
+                    }
+                ]
+            }
+        ],
+        "meta": [],
+        "errors": [
+            {
+                "path": "",
+                "line": 0,
+                "column": 0,
+                "severity": "error",
+                "message": "unable to resolve $ref: ./missing.yaml#/channels/userSignedUp"
+            }
+        ],
+        "warnings": []
+    },
+    "asyncapi.version-float": {
+        "operation": "",
+        "messages": [],
+        "meta": [],
+        "errors": [
+            {
+                "path": "",
+                "line": 0,
+                "column": 0,
+                "severity": "error",
+                "message": "unsupported AsyncAPI version: 3"
+            },
+            {
+                "path": "",
+                "line": 0,
+                "column": 0,
+                "severity": "error",
+                "message": "operation required; candidates: "
+            }
+        ],
+        "warnings": []
+    },
+    "graphql.user": {
+        "operation": "Query.user",
+        "messages": [
+            {
+                "name": "Request",
+                "direction": "request",
+                "fields": [
+                    {
+                        "type": "string",
+                        "require": true,
+                        "name": "id"
+                    }
+                ]
+            },
+            {
+                "name": "Response",
+                "direction": "response",
+                "fields": [
+                    {
+                        "type": "string",
+                        "require": true,
+                        "name": "id"
+                    },
+                    {
+                        "type": "string",
+                        "require": false,
+                        "name": "name"
+                    },
+                    {
+                        "type": "array",
+                        "require": true,
+                        "childrenType": "string",
+                        "name": "tags"
+                    }
+                ]
+            }
+        ],
+        "meta": [],
+        "errors": [],
+        "warnings": []
+    },
+    "graphql.missing": {
+        "operation": "Query.nope",
+        "messages": [],
+        "meta": [],
+        "errors": [
+            {
+                "path": "",
+                "line": 0,
+                "column": 0,
+                "severity": "error",
+                "message": "operation not found: Query.nope; candidates: Query.user"
+            }
+        ],
+        "warnings": []
+    },
+    "proto.sayHello": {
+        "operation": "helloworld.Greeter/SayHello",
+        "messages": [
+            {
+                "name": "HelloRequest",
+                "direction": "request",
+                "fields": [
+                    {
+                        "name": "name",
+                        "type": "string",
+                        "require": false,
+                        "fieldNumber": 1
+                    },
+                    {
+                        "name": "meta",
+                        "type": "object",
+                        "require": false,
+                        "fieldNumber": 2,
+                        "ref": "common.Meta",
+                        "children": [
+                            {
+                                "name": "trace_id",
+                                "type": "string",
+                                "require": false,
+                                "fieldNumber": 1
+                            }
+                        ]
+                    },
+                    {
+                        "name": "tags",
+                        "type": "array",
+                        "require": false,
+                        "fieldNumber": 3,
+                        "repeated": true,
+                        "childrenType": "string"
+                    }
+                ],
+                "clientStream": false
+            },
+            {
+                "name": "HelloReply",
+                "direction": "response",
+                "fields": [
+                    {
+                        "name": "message",
+                        "type": "string",
+                        "require": false,
+                        "fieldNumber": 1
+                    }
+                ],
+                "serverStream": false
+            }
+        ],
+        "meta": {
+            "package": "helloworld"
+        },
+        "errors": [],
+        "warnings": []
+    },
+    "proto.unsupported": {
+        "operation": "",
+        "messages": [],
+        "meta": [],
+        "errors": [
+            {
+                "path": "",
+                "line": 2,
+                "column": 1,
+                "severity": "error",
+                "message": "unsupported construct: extend"
+            },
+            {
+                "path": "",
+                "line": 0,
+                "column": 0,
+                "severity": "error",
+                "message": "operation required; candidates: "
+            }
+        ],
+        "warnings": []
+    },
+    "proto.strict-off": {
+        "operation": "S/Op",
+        "messages": [
+            {
+                "name": "Req",
+                "direction": "request",
+                "fields": [
+                    {
+                        "name": "a",
+                        "type": "string",
+                        "require": false,
+                        "fieldNumber": 1
+                    }
+                ],
+                "clientStream": false
+            },
+            {
+                "name": "Res",
+                "direction": "response",
+                "fields": [
+                    {
+                        "name": "b",
+                        "type": "string",
+                        "require": false,
+                        "fieldNumber": 1
+                    }
+                ],
+                "serverStream": false
+            }
+        ],
+        "meta": {
+            "package": ""
+        },
+        "errors": [],
+        "warnings": [
+            {
+                "path": "",
+                "line": 2,
+                "column": 1,
+                "severity": "warning",
+                "message": "unsupported construct: extend"
+            }
+        ]
+    },
+    "wsdl.add": {
+        "operation": "CalculatorService/CalculatorPort/Add",
+        "messages": [
+            {
+                "name": "AddRequest",
+                "direction": "request",
+                "fields": [
+                    {
+                        "name": "a",
+                        "type": "integer",
+                        "require": true,
+                        "typeName": "int"
+                    },
+                    {
+                        "name": "b",
+                        "type": "integer",
+                        "require": true,
+                        "typeName": "int"
+                    }
+                ]
+            },
+            {
+                "name": "AddResponse",
+                "direction": "response",
+                "fields": [
+                    {
+                        "name": "result",
+                        "type": "integer",
+                        "require": true,
+                        "typeName": "int"
+                    }
+                ]
+            }
+        ],
+        "meta": {
+            "service": "CalculatorService",
+            "port": "CalculatorPort"
+        },
+        "errors": [],
+        "warnings": []
+    },
+    "wsdl.element-fallback": {
+        "operation": "Port/Op",
+        "messages": [
+            {
+                "name": "Req",
+                "direction": "request",
+                "fields": [
+                    {
+                        "name": "x",
+                        "type": "integer"
+                    }
+                ]
+            },
+            {
+                "name": "Response",
+                "direction": "response",
+                "fields": []
+            }
+        ],
+        "meta": {
+            "service": "",
+            "port": ""
+        },
+        "errors": [],
+        "warnings": []
+    },
+    "edmx.products": {
+        "operation": "Products",
+        "messages": [
+            {
+                "name": "Products",
+                "direction": "response",
+                "fields": [
+                    {
+                        "name": "ID",
+                        "type": "integer",
+                        "require": true
+                    },
+                    {
+                        "name": "Name",
+                        "type": "string",
+                        "require": false
+                    },
+                    {
+                        "name": "Price",
+                        "type": "number",
+                        "require": false
+                    }
+                ]
+            }
+        ],
+        "meta": {
+            "direction": "response"
+        },
+        "errors": [],
+        "warnings": []
+    },
+    "edmx.empty": {
+        "operation": "",
+        "messages": [],
+        "meta": [],
+        "errors": [
+            {
+                "path": "",
+                "line": 0,
+                "column": 0,
+                "severity": "error",
+                "message": "DOMDocument::loadXML(): Argument #1 ($source) must not be empty"
+            }
+        ],
+        "warnings": []
+    },
+    "json-schema.user": {
+        "operation": "",
+        "messages": [
+            {
+                "name": "User",
+                "direction": "request",
+                "fields": [
+                    {
+                        "name": "id",
+                        "type": "integer",
+                        "require": true
+                    },
+                    {
+                        "name": "name",
+                        "type": "string",
+                        "require": false
+                    },
+                    {
+                        "name": "roles",
+                        "type": "array",
+                        "require": false
+                    }
+                ],
+                "sample": "{\"id\":1,\"name\":\"a\"}",
+                "sampleValidation": {
+                    "ok": true,
+                    "errors": [],
+                    "warnings": []
+                }
+            }
+        ],
+        "meta": [],
+        "errors": [],
+        "warnings": []
+    },
+    "json-schema.invalid": {
+        "operation": "",
+        "messages": [],
+        "meta": [],
+        "errors": [
+            {
+                "path": "",
+                "line": 0,
+                "column": 0,
+                "severity": "error",
+                "message": "JSON parse error: Syntax error"
+            }
+        ],
+        "warnings": []
+    },
+    "json-schema.recursive": {
+        "operation": "",
+        "messages": [
+            {
+                "name": "Recursive",
+                "direction": "request",
+                "fields": [
+                    {
+                        "name": "next",
+                        "type": "object",
+                        "require": false,
+                        "children": [
+                            {
+                                "name": "next",
+                                "type": "object",
+                                "require": false
+                            }
+                        ]
+                    }
+                ],
+                "sample": "",
+                "sampleValidation": {
+                    "ok": true,
+                    "errors": [],
+                    "warnings": []
+                }
+            }
+        ],
+        "meta": [],
+        "errors": [],
+        "warnings": [
+            {
+                "path": "",
+                "line": 0,
+                "column": 0,
+                "severity": "warning",
+                "message": "$ref cycle detected: #"
+            }
+        ]
+    },
+    "json-schema.multi": {
+        "operation": "",
+        "messages": [
+            {
+                "name": "Multi",
+                "direction": "request",
+                "fields": [
+                    {
+                        "name": "deep",
+                        "type": "object",
+                        "require": false,
+                        "children": [
+                            {
+                                "name": "inner",
+                                "type": "object",
+                                "require": false,
+                                "children": [
+                                    {
+                                        "name": "label",
+                                        "type": "string",
+                                        "require": true
+                                    }
+                                ]
+                            },
+                            {
+                                "name": "sibling",
+                                "type": "object",
+                                "require": false,
+                                "children": [
+                                    {
+                                        "name": "sku",
+                                        "type": "string",
+                                        "require": false
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                ],
+                "sample": "",
+                "sampleValidation": {
+                    "ok": true,
+                    "errors": [],
+                    "warnings": []
+                }
+            }
+        ],
+        "meta": [],
+        "errors": [],
+        "warnings": []
+    },
+    "json-schema.chain": {
+        "operation": "",
+        "messages": [
+            {
+                "name": "Chain",
+                "direction": "request",
+                "fields": [
+                    {
+                        "name": "name",
+                        "type": "string",
+                        "require": true
+                    }
+                ],
+                "sample": "",
+                "sampleValidation": {
+                    "ok": true,
+                    "errors": [],
+                    "warnings": []
+                }
+            }
+        ],
+        "meta": [],
+        "errors": [],
+        "warnings": []
+    },
+    "json-schema.webhook": {
+        "operation": "",
+        "messages": [
+            {
+                "name": "Hook",
+                "direction": "request",
+                "fields": [
+                    {
+                        "name": "event",
+                        "type": "string",
+                        "require": false
+                    }
+                ],
+                "sample": "",
+                "sampleValidation": {
+                    "ok": true,
+                    "errors": [],
+                    "warnings": []
+                }
+            }
+        ],
+        "meta": {
+            "header": "X-Signature",
+            "algorithm": "hmac-sha256",
+            "encoding": "hex"
+        },
+        "errors": [],
+        "warnings": []
+    },
+    "json-rpc.valid": {
+        "operation": "user.get",
+        "messages": [
+            {
+                "name": "Params",
+                "direction": "request",
+                "fields": [
+                    {
+                        "name": "id",
+                        "type": "integer",
+                        "require": true
+                    }
+                ],
+                "sampleValidation": {
+                    "ok": true,
+                    "errors": [],
+                    "warnings": []
+                }
+            },
+            {
+                "name": "Result",
+                "direction": "response",
+                "fields": [
+                    {
+                        "name": "id",
+                        "type": "integer",
+                        "require": false
+                    },
+                    {
+                        "name": "name",
+                        "type": "string",
+                        "require": false
+                    }
+                ]
+            }
+        ],
+        "meta": [],
+        "errors": [],
+        "warnings": []
+    },
+    "json-rpc.bad-sample": {
+        "operation": "user.get",
+        "messages": [
+            {
+                "name": "Params",
+                "direction": "request",
+                "fields": [
+                    {
+                        "name": "id",
+                        "type": "integer",
+                        "require": true
+                    }
+                ],
+                "sampleValidation": {
+                    "ok": false,
+                    "errors": [
+                        {
+                            "path": "$.id",
+                            "severity": "error",
+                            "message": "is required"
+                        }
+                    ],
+                    "warnings": []
+                }
+            },
+            {
+                "name": "Result",
+                "direction": "response",
+                "fields": [
+                    {
+                        "name": "id",
+                        "type": "integer",
+                        "require": false
+                    },
+                    {
+                        "name": "name",
+                        "type": "string",
+                        "require": false
+                    }
+                ]
+            }
+        ],
+        "meta": [],
+        "errors": [],
+        "warnings": []
+    },
+    "xml-rpc.add": {
+        "operation": "add",
+        "messages": [
+            {
+                "name": "Params",
+                "direction": "request",
+                "fields": [
+                    {
+                        "name": "a",
+                        "type": "integer",
+                        "require": true
+                    },
+                    {
+                        "name": "b",
+                        "type": "integer",
+                        "require": true
+                    }
+                ]
+            },
+            {
+                "name": "Result",
+                "direction": "response",
+                "fields": [
+                    {
+                        "name": "result",
+                        "type": "integer",
+                        "require": true
+                    }
+                ]
+            }
+        ],
+        "meta": [],
+        "errors": [],
+        "warnings": []
+    },
+    "xml-rpc.missing": {
+        "operation": "nope",
+        "messages": [],
+        "meta": [],
+        "errors": [
+            {
+                "path": "",
+                "line": 0,
+                "column": 0,
+                "severity": "error",
+                "message": "operation not found: nope; candidates: add"
+            }
+        ],
+        "warnings": []
+    },
+    "xml-rpc.bad-sample": {
+        "operation": "add",
+        "messages": [
+            {
+                "name": "Params",
+                "direction": "request",
+                "fields": [
+                    {
+                        "name": "a",
+                        "type": "integer",
+                        "require": true
+                    },
+                    {
+                        "name": "b",
+                        "type": "integer",
+                        "require": true
+                    }
+                ],
+                "sampleValidation": {
+                    "ok": false,
+                    "errors": [
+                        {
+                            "path": "$",
+                            "severity": "error",
+                            "message": "methodName mismatch"
+                        }
+                    ],
+                    "warnings": []
+                }
+            },
+            {
+                "name": "Result",
+                "direction": "response",
+                "fields": [
+                    {
+                        "name": "result",
+                        "type": "integer",
+                        "require": true
+                    }
+                ]
+            }
+        ],
+        "meta": [],
+        "errors": [],
+        "warnings": []
+    }
+}

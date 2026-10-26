@@ -1,0 +1,6 @@
+{
+  "title": "Hook",
+  "type": "object",
+  "properties": {"event": {"type": "string"}},
+  "x-webhook-signature": {"header": "X-Signature", "algorithm": "hmac-sha256", "encoding": "hex"}
+}

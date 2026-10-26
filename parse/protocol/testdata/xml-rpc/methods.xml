@@ -1,0 +1,9 @@
+<xmlrpc>
+  <method name="add">
+    <params>
+      <param name="a" type="int"/>
+      <param name="b" type="int"/>
+    </params>
+    <result type="int"/>
+  </method>
+</xmlrpc>

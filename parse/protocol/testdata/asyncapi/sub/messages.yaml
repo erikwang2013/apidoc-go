@@ -1,0 +1,10 @@
+Reading:
+  type: number
+Temperature:
+  name: Temperature
+  payload:
+    type: object
+    required: [value]
+    properties:
+      value: {$ref: '#/Reading'}
+      unit: {$ref: './types.yaml#/Unit'}

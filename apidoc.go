@@ -33,6 +33,9 @@ type Config struct {
 	// ShareDir stores UIC-1 share records; empty means a directory under
 	// os.TempDir().
 	ShareDir string
+	// DefinitionRoot confines @definition files; empty means the process
+	// working directory.
+	DefinitionRoot string
 	// Generator and CodeTemplates are the declarative UIC-1 generator
 	// descriptors; rendering is side-effect free.
 	Generator     []GeneratorSpec
@@ -172,20 +175,21 @@ func (s *Server) Handler() http.Handler {
 			}
 		}
 		s.handler = server.Handler(server.Opts{
-			Prefix:        s.cfg.Prefix,
-			Store:         s.st,
-			Auth:          s.cfg.Auth,
-			AppPWs:        s.appPw,
-			DebugOrigins:  s.cfg.DebugOrigins,
-			GlobalParams:  s.cfg.GlobalParams,
-			PublicHost:    s.cfg.PublicHost,
-			AppHosts:      appHosts,
-			ShareDir:      s.cfg.ShareDir,
-			Generator:     s.cfg.Generator,
-			CodeTemplates: s.cfg.CodeTemplates,
-			ShareActions:  s.cfg.ShareActions,
-			Debug:         s.cfg.Debug,
-			UIPath:        s.cfg.UIPath,
+			Prefix:         s.cfg.Prefix,
+			Store:          s.st,
+			Auth:           s.cfg.Auth,
+			AppPWs:         s.appPw,
+			DebugOrigins:   s.cfg.DebugOrigins,
+			GlobalParams:   s.cfg.GlobalParams,
+			PublicHost:     s.cfg.PublicHost,
+			AppHosts:       appHosts,
+			ShareDir:       s.cfg.ShareDir,
+			DefinitionRoot: s.cfg.DefinitionRoot,
+			Generator:      s.cfg.Generator,
+			CodeTemplates:  s.cfg.CodeTemplates,
+			ShareActions:   s.cfg.ShareActions,
+			Debug:          s.cfg.Debug,
+			UIPath:         s.cfg.UIPath,
 		})
 	})
 	return s.handler

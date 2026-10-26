@@ -26,3 +26,6 @@ type Response = model.Response
 
 // Event describes one message of a streaming protocol.
 type Event = model.DocEvent
+
+// Definition declares a UIC-1 protocol definition file or inline payload.
+type Definition = model.Definition
