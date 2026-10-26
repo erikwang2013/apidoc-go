@@ -51,6 +51,45 @@ func TestTags(t *testing.T) {
 	}
 }
 
+func TestDefinitionTag(t *testing.T) {
+	res, err := parse.ParseSource("defs.go", []byte(src(
+		"package p",
+		"// @apidoc",
+		"// @definition json-schema/user.json format=json-schema operation=getUser message=User strict=false sample={\"id\":1}",
+		"// @definition inline={\"type\":\"object\"} format=json-schema",
+		"func GetUser() {}",
+	)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(res) != 1 {
+		t.Fatalf("want 1 result, got %d", len(res))
+	}
+	strict := false
+	want := []model.Definition{
+		{File: "json-schema/user.json", Format: "json-schema", Operation: "getUser",
+			Message: "User", Strict: &strict, Sample: `{"id":1}`},
+		{Inline: `{"type":"object"}`, Format: "json-schema"},
+	}
+	if !reflect.DeepEqual(res[0].Doc.Definitions, want) {
+		t.Fatalf("definitions mismatch: %+v", res[0].Doc.Definitions)
+	}
+}
+
+func TestDefinitionTagErrors(t *testing.T) {
+	cases := []string{
+		"// @definition format=json-schema",
+		"// @definition file=a.json unknown=1",
+		"// @definition file=a.json strict=maybe",
+	}
+	for _, line := range cases {
+		res, err := parse.ParseSource("defs.go", []byte(src("package p", "// @apidoc", line, "func F() {}")))
+		if err == nil || len(res) != 0 {
+			t.Errorf("%q: want parse error, got %v %+v", line, err, res)
+		}
+	}
+}
+
 func TestParams(t *testing.T) {
 	res, err := parse.ParseSource("params.go", []byte(src(
 		"package p",

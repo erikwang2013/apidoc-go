@@ -184,6 +184,11 @@ func parseTags(fset *token.FileSet, f *ast.File, fn *ast.FuncDecl, r *Result) er
 			if ev, err = parseEvent(toks); err == nil {
 				r.Doc.Events = append(r.Doc.Events, ev)
 			}
+		case "definition":
+			var def model.Definition
+			if def, err = parseDefinition(toks); err == nil {
+				r.Doc.Definitions = append(r.Doc.Definitions, def)
+			}
 		case "app":
 			r.Doc.App = strings.Join(toks, " ")
 		case "version":
@@ -301,6 +306,55 @@ func parseEvent(toks []string) (model.DocEvent, error) {
 		return ev, fmt.Errorf("event wants name")
 	}
 	return ev, nil
+}
+
+// parseDefinition parses "@definition file=... [format=...] [operation=...]
+// [message=...] [direction=...] [sample=...] [sample-file=...]
+// [sample-encoding=...] [strict=false] [inline=...]". Values are single tokens.
+func parseDefinition(toks []string) (model.Definition, error) {
+	var def model.Definition
+	for i, tok := range toks {
+		if i == 0 && !strings.Contains(tok, "=") {
+			def.File = tok
+			continue
+		}
+		key, val, ok := strings.Cut(tok, "=")
+		if !ok {
+			return def, fmt.Errorf("bad definition token %q", tok)
+		}
+		switch key {
+		case "file":
+			def.File = val
+		case "inline":
+			def.Inline = val
+		case "format":
+			def.Format = val
+		case "operation":
+			def.Operation = val
+		case "message":
+			def.Message = val
+		case "direction":
+			def.Direction = val
+		case "sample":
+			def.Sample = val
+		case "sampleFile", "sample-file":
+			def.SampleFile = val
+		case "sampleEncoding", "sample-encoding":
+			def.SampleEncoding = val
+		case "strict":
+			strict, err := strconv.ParseBool(val)
+			if err != nil {
+				return def, fmt.Errorf("bad strict %q", val)
+			}
+			def.Strict = &strict
+		default:
+			return def, fmt.Errorf("unknown definition key %q", key)
+		}
+	}
+	if def.File == "" && def.Inline == "" {
+		return def, fmt.Errorf("definition wants file= or inline=")
+	}
+	return def, nil
 }
 
 // parseResponse parses "@success [name] type [desc]". A leading token

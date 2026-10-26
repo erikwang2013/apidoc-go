@@ -47,6 +47,7 @@ type Action struct {
 	Sort         int               `json:"sort"`
 	ProtocolOpts map[string]string `json:"protocol_opts,omitempty"`
 	Events       []DocEvent        `json:"events,omitempty"`
+	Definitions  []Definition      `json:"definitions,omitempty"`
 }
 
 // DocEvent describes one message of a streaming protocol.
@@ -95,4 +96,5 @@ type Doc struct {
 	Sort                     int
 	ProtocolOpts             map[string]string
 	Events                   []DocEvent
+	Definitions              []Definition
 }
