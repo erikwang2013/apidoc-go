@@ -156,6 +156,7 @@ var (
 var relayOrder = []string{
 	"http", "http2", "http3", "soap", "graphql", "jsonrpc", "xmlrpc", "odata", "mcp", "a2a", "webhook",
 	"tcp", "udp", "raw", "unix", "mqtt", "stomp", "amqp", "kafka", "xmpp",
+	"coap", "lwm2m", "modbus", "dnp3", "iec104", "bacnet", "opcua",
 	"grpc", "thrift", "dubbo", "hessian", "iso8583",
 }
 

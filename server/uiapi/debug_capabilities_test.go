@@ -20,6 +20,7 @@ func TestDebugCapabilitiesTagged(t *testing.T) {
 	wantRelay := []any{
 		"http", "http2", "http3", "soap", "graphql", "jsonrpc", "xmlrpc", "odata", "mcp", "a2a", "webhook",
 		"tcp", "udp", "raw", "unix", "mqtt", "stomp", "amqp", "kafka", "xmpp",
+		"coap", "lwm2m", "modbus", "dnp3", "iec104", "bacnet", "opcua",
 		"grpc", "thrift", "dubbo", "hessian", "iso8583",
 	}
 	if !reflect.DeepEqual(debug["relay"], wantRelay) {
@@ -92,8 +93,8 @@ func TestDebugDetailRelayModesTagged(t *testing.T) {
 
 	data = debugDetail(t, enabled, modbusID)
 	protocol = data["protocol"].(map[string]any)
-	if protocol["mode"] != "relay-unary" || protocol["debuggable"] != false ||
-		!strings.Contains(protocol["debugReason"].(string), "not compiled") {
+	if protocol["mode"] != "relay-unary" || protocol["debuggable"] != true ||
+		protocol["debugReason"] != "" {
 		t.Fatalf("modbus protocol: %+v", protocol)
 	}
 

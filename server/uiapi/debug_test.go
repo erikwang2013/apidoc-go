@@ -150,11 +150,11 @@ func TestDebugRequestTargetOnlyFromServerConfig(t *testing.T) {
 }
 
 func TestDebugExecuteUncompiledFailsClosed(t *testing.T) {
-	if _, err := debug.Execute(debug.Config{}, &debug.Request{Kind: "modbus"}); err == nil ||
+	if _, err := debug.Execute(debug.Config{}, &debug.Request{Kind: "socketio"}); err == nil ||
 		!strings.Contains(err.Error(), "not compiled in this build") {
 		t.Fatalf("execute: %v", err)
 	}
-	if _, err := debug.OpenStream(debug.Config{}, &debug.Request{Kind: "modbus"}); err == nil ||
+	if _, err := debug.OpenStream(debug.Config{}, &debug.Request{Kind: "socketio"}); err == nil ||
 		!strings.Contains(err.Error(), "not compiled in this build") {
 		t.Fatalf("open stream: %v", err)
 	}
