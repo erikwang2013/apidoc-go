@@ -191,6 +191,40 @@ func TestCapabilities(t *testing.T) {
 	}
 }
 
+// Auth capabilities must mirror what verifyAuth actually accepts: Enable
+// without a password fails closed, and app tokens need a non-empty app
+// password.
+func TestAuthCapabilities(t *testing.T) {
+	cases := []struct {
+		name       string
+		auth       auth.Config
+		appPWs     map[string]string
+		wantGlobal bool
+		wantApp    bool
+	}{
+		{"off", auth.Config{}, nil, false, false},
+		{"enable without password", auth.Config{Enable: true}, nil, false, false},
+		{"password without enable", auth.Config{Password: "pw"}, nil, false, false},
+		{"global on", auth.Config{Enable: true, Password: "pw"}, nil, true, false},
+		{"empty app password", auth.Config{Enable: true, Password: "pw"}, map[string]string{"a": ""}, true, false},
+		{"app password", auth.Config{Enable: true, Password: "pw"}, map[string]string{"a": "", "b": "bpw"}, true, true},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			h := newHandlerWith(t, Options{Auth: c.auth, AppPWs: c.appPWs})
+			features := decodeData(t, do(t, h, "GET", "/ui/v1/capabilities", "", ""))["features"].(map[string]any)
+			authFeatures := features["auth"].(map[string]any)
+			if authFeatures["global"] != c.wantGlobal || authFeatures["app"] != c.wantApp {
+				t.Fatalf("auth capabilities: want global=%v app=%v, got %+v",
+					c.wantGlobal, c.wantApp, authFeatures)
+			}
+			if authFeatures["shareToken"] != true {
+				t.Fatalf("shareToken: %+v", authFeatures)
+			}
+		})
+	}
+}
+
 // The Go capabilities block must stay in sync with the shared contract fixture.
 func TestCapabilitiesMatchGoFixture(t *testing.T) {
 	b, err := os.ReadFile("../../contract/uic-1/fixtures/capabilities.json")
@@ -215,10 +249,12 @@ func TestCapabilitiesMatchGoFixture(t *testing.T) {
 	if want == nil {
 		t.Fatal("no go capabilities fixture")
 	}
-	// The fixture describes a server with share actions and both cache
-	// callbacks wired, so compare against that configuration.
+	// The fixture describes a server with global auth, an app password,
+	// share actions and both cache callbacks wired, so compare against that
+	// configuration.
 	live := decodeData(t, do(t, newHandlerWith(t, Options{
 		Auth:         auth.Config{Enable: true, Password: "pw", Secret: "secret", Expire: time.Hour},
+		AppPWs:       map[string]string{"default": "apppw"},
 		ShareActions: []ShareActionSpec{{Name: "Copy", Action: "copy"}},
 		CacheClear:   func() {},
 		CacheWarm:    func() {},
