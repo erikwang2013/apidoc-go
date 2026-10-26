@@ -24,7 +24,9 @@ func (h *handler) verifyAuth(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusNotFound, 404, "share not exists")
 			return
 		}
-		if rec.PasswordHash != "" && !sharePasswordOK(rec, body.Password) {
+		// Public shares need no token for reads, so logging into one is a
+		// password error rather than a token for any/empty password (PHP parity).
+		if rec.PasswordHash == "" || !sharePasswordOK(rec, body.Password) {
 			writeError(w, http.StatusUnauthorized, 401, "password error")
 			return
 		}

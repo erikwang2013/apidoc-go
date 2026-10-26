@@ -118,7 +118,7 @@ func (h *handler) config(w http.ResponseWriter, r *http.Request) {
 		"title":         project.Name,
 		"desc":          "",
 		"apps":          apps,
-		"cache":         map[string]any{"enable": h.o.CacheClear != nil || h.o.CacheWarm != nil},
+		"cache":         map[string]any{"enable": h.cacheManageable()},
 		"params":        h.globalParams(),
 		"responses":     map[string]any{"success": []any{}, "error": []any{}},
 		"generator":     generator,

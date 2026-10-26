@@ -106,8 +106,8 @@ func (h *handler) capabilitiesData() map[string]any {
 				"relay":   []string{},
 				"modes":   []string{"browser-http", "browser-websocket", "browser-sse"},
 			},
-			"share": map[string]any{"link": true, "records": true, "actions": true},
-			"cache": map[string]any{"manage": true, "mode": "server"},
+			"share": map[string]any{"link": true, "records": true, "actions": h.shareActionsAvailable()},
+			"cache": map[string]any{"manage": h.cacheManageable(), "mode": "server"},
 			"generator": map[string]any{
 				"forms": true, "templates": true, "sideEffects": false,
 			},
@@ -123,6 +123,23 @@ func (h *handler) capabilitiesData() map[string]any {
 
 func (h *handler) capabilities(w http.ResponseWriter, _ *http.Request) {
 	writeJSON(w, http.StatusOK, ok(h.capabilitiesData()))
+}
+
+// cacheManageable reports whether both cache controls are wired; otherwise
+// one of them answers 501 and the UI must not advertise it.
+func (h *handler) cacheManageable() bool {
+	return h.o.CacheClear != nil && h.o.CacheWarm != nil
+}
+
+// shareActionsAvailable reports whether handleApiShareAction can return a
+// declarative {action,params} map for at least one configured index.
+func (h *handler) shareActionsAvailable() bool {
+	for _, action := range h.o.ShareActions {
+		if action.Action != "" {
+			return true
+		}
+	}
+	return false
 }
 
 const appTokenTTL = time.Hour

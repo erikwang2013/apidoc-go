@@ -140,12 +140,12 @@ func TestCapabilities(t *testing.T) {
 	}
 	features := data["features"].(map[string]any)
 	share := features["share"].(map[string]any)
-	if share["records"] != true || share["actions"] != true {
-		t.Fatalf("share features: %+v", share)
+	if share["records"] != true || share["actions"] != false {
+		t.Fatalf("unwired share features: %+v", share)
 	}
 	cache := features["cache"].(map[string]any)
-	if cache["manage"] != true || cache["mode"] != "server" {
-		t.Fatalf("cache features: %+v", cache)
+	if cache["manage"] != false || cache["mode"] != "server" {
+		t.Fatalf("unwired cache features: %+v", cache)
 	}
 	generator := features["generator"].(map[string]any)
 	if generator["forms"] != true || generator["templates"] != true || generator["sideEffects"] != false {
@@ -165,6 +165,29 @@ func TestCapabilities(t *testing.T) {
 	}
 	if features["auth"].(map[string]any)["shareToken"] != true {
 		t.Fatalf("shareToken: %+v", features["auth"])
+	}
+
+	// Wired controls are advertised; unwired ones above are not.
+	wired := newHandlerWith(t, Options{
+		Auth:         auth.Config{Enable: true, Password: "pw", Secret: "secret", Expire: time.Hour},
+		ShareActions: []ShareActionSpec{{Name: "Copy", Action: "copy"}},
+		CacheClear:   func() {},
+		CacheWarm:    func() {},
+	})
+	wiredFeatures := decodeData(t, do(t, wired, "GET", "/ui/v1/capabilities", "", ""))["features"].(map[string]any)
+	if wiredFeatures["share"].(map[string]any)["actions"] != true ||
+		wiredFeatures["cache"].(map[string]any)["manage"] != true {
+		t.Fatalf("wired capabilities: %+v", wiredFeatures)
+	}
+
+	// One cache callback is not enough: the other control would answer 501.
+	halfWired := newHandlerWith(t, Options{
+		Auth:       auth.Config{Enable: true, Password: "pw", Secret: "secret", Expire: time.Hour},
+		CacheClear: func() {},
+	})
+	halfFeatures := decodeData(t, do(t, halfWired, "GET", "/ui/v1/capabilities", "", ""))["features"].(map[string]any)
+	if halfFeatures["cache"].(map[string]any)["manage"] != false {
+		t.Fatalf("half-wired cache capabilities: %+v", halfFeatures)
 	}
 }
 
@@ -192,7 +215,14 @@ func TestCapabilitiesMatchGoFixture(t *testing.T) {
 	if want == nil {
 		t.Fatal("no go capabilities fixture")
 	}
-	live := decodeData(t, do(t, newHandler(t), http.MethodGet, "/ui/v1/capabilities", "", ""))["features"]
+	// The fixture describes a server with share actions and both cache
+	// callbacks wired, so compare against that configuration.
+	live := decodeData(t, do(t, newHandlerWith(t, Options{
+		Auth:         auth.Config{Enable: true, Password: "pw", Secret: "secret", Expire: time.Hour},
+		ShareActions: []ShareActionSpec{{Name: "Copy", Action: "copy"}},
+		CacheClear:   func() {},
+		CacheWarm:    func() {},
+	}), http.MethodGet, "/ui/v1/capabilities", "", ""))["features"]
 	if !reflect.DeepEqual(jsonRoundTrip(t, live), jsonRoundTrip(t, want)) {
 		t.Fatalf("capabilities drift:\nlive %#v\nwant %#v", live, want)
 	}
@@ -581,6 +611,12 @@ func TestShareLoginAndScope(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("open share menus: %d %s", rec.Code, rec.Body.String())
 	}
+	// A public share cannot be logged into: reads need no token, so any or
+	// empty password is a password error (PHP parity).
+	rec = do(t, h, "POST", "/ui/v1/verifyAuth", `{"shareKey":"open","password":""}`, "")
+	if rec.Code != http.StatusUnauthorized || !strings.Contains(rec.Body.String(), "password error") {
+		t.Fatalf("public share login: %d %s", rec.Code, rec.Body.String())
+	}
 
 	// An API-scoped share only exposes the selected menuKey.
 	rec = do(t, h, "POST", "/ui/v1/menus", `{"appKey":"default|v1","shareKey":"s2"}`, apiToken)
@@ -777,6 +813,113 @@ func TestExportAllData(t *testing.T) {
 	}
 	if rec = do(t, h2, "POST", "/ui/v1/exportAllData", `{"appKey":"b|v1"}`, appToken); rec.Code != http.StatusUnauthorized {
 		t.Fatalf("cross-app export: %d", rec.Code)
+	}
+}
+
+// Global auth off: an anonymous export may only see unprotected apps, while a
+// named protected app and password-protected shares still need their token.
+func TestExportAllDataMixedAuth(t *testing.T) {
+	h := newHandlerWith(t, Options{
+		Store:  newMultiAppStore(),
+		Auth:   auth.Config{Secret: "secret"},
+		AppPWs: map[string]string{"default": "pw1"},
+	})
+	itemsID := store.ActionID("default", "v1", "GET", "/items")
+	wsID := store.ActionID("default", "v1", "SUBSCRIBE", "ws://example.com/chat")
+	bID := store.ActionID("b", "v1", "GET", "/b-items")
+	appToken := loginApp(t, h, "default|v1", "pw1")
+
+	// Empty body: only the unprotected app is exported.
+	apiData := decodeData(t, do(t, h, "POST", "/ui/v1/exportAllData", `{}`, ""))["apiData"].([]any)
+	if len(apiData) != 1 || apiData[0].(map[string]any)["appKey"] != "b|v1" {
+		t.Fatalf("anonymous all-apps export: %+v", apiData)
+	}
+	if leaves := exportLeafKeys(apiData); len(leaves) != 1 || leaves[0] != bID {
+		t.Fatalf("anonymous export leaves: %+v", leaves)
+	}
+
+	// Named apps: the protected one needs its own token, the public one stays
+	// open.
+	if rec := do(t, h, "POST", "/ui/v1/exportAllData", `{"appKey":"default|v1"}`, ""); rec.Code != http.StatusUnauthorized {
+		t.Fatalf("protected export without token: %d", rec.Code)
+	}
+	rec := do(t, h, "POST", "/ui/v1/exportAllData", `{"appKey":"default|v1"}`, appToken)
+	if leaves := exportLeafKeys(decodeData(t, rec)["apiData"].([]any)); len(leaves) != 2 || leaves[0] != itemsID || leaves[1] != wsID {
+		t.Fatalf("protected export leaves: %+v", leaves)
+	}
+	if rec = do(t, h, "POST", "/ui/v1/exportAllData", `{"appKey":"b|v1"}`, ""); rec.Code != http.StatusOK {
+		t.Fatalf("public app export: %d", rec.Code)
+	}
+
+	// Shares: management is open with global auth off, so seed both records
+	// anonymously. A password-protected share still needs its share token.
+	for _, body := range []string{
+		`{"key":"s-pw","name":"Protected","type":"app","appKeys":["default"],"password":"sp"}`,
+		`{"key":"s-open","name":"Open","type":"app","appKeys":["b"]}`,
+	} {
+		if !decodeDataOf[bool](t, do(t, h, "POST", "/ui/v1/addApiShare", body, "")) {
+			t.Fatalf("add %s", body)
+		}
+	}
+	rec = do(t, h, "POST", "/ui/v1/exportAllData", `{"key":"s-open"}`, "")
+	if leaves := exportLeafKeys(decodeData(t, rec)["apiData"].([]any)); len(leaves) != 1 || leaves[0] != bID {
+		t.Fatalf("open share export leaves: %+v", leaves)
+	}
+	if rec = do(t, h, "POST", "/ui/v1/exportAllData", `{"key":"s-pw"}`, ""); rec.Code != http.StatusUnauthorized {
+		t.Fatalf("password share export without token: %d", rec.Code)
+	}
+	if rec = do(t, h, "POST", "/ui/v1/exportAllData", `{"key":"s-pw"}`, appToken); rec.Code != http.StatusUnauthorized {
+		t.Fatalf("password share export with app token: %d", rec.Code)
+	}
+	shareToken := decodeData(t, do(t, h, "POST", "/ui/v1/verifyAuth", `{"shareKey":"s-pw","password":"sp"}`, ""))["token"].(string)
+	rec = do(t, h, "POST", "/ui/v1/exportAllData", `{"key":"s-pw"}`, shareToken)
+	if leaves := exportLeafKeys(decodeData(t, rec)["apiData"].([]any)); len(leaves) != 2 {
+		t.Fatalf("password share export leaves: %+v", leaves)
+	}
+}
+
+// An app token can read its own app but must not reach any management
+// endpoint; only a global session may.
+func TestAppTokenCannotManage(t *testing.T) {
+	h := newHandlerWith(t, Options{
+		Store:        newMultiAppStore(),
+		Auth:         auth.Config{Enable: true, Password: "pw", Secret: "secret", Expire: time.Hour},
+		AppPWs:       map[string]string{"default": "pw1", "b": "pw2"},
+		ShareActions: []ShareActionSpec{{Name: "Copy", Action: "copy"}},
+		CacheClear:   func() {},
+		CacheWarm:    func() {},
+		Generator: []GeneratorSpec{{
+			Name: "model", Title: "Model",
+			Files: []GeneratorFile{{Name: "a", Path: "a", Template: "x"}},
+		}},
+	})
+	admin := login(t, h)
+	if !decodeDataOf[bool](t, do(t, h, "POST", "/ui/v1/addApiShare",
+		`{"key":"s1","name":"S","type":"all","password":"sp"}`, admin)) {
+		t.Fatal("seed share failed")
+	}
+	appToken := loginApp(t, h, "default|v1", "pw1")
+
+	for _, tc := range []struct{ name, path, body string }{
+		{"add share", "/ui/v1/addApiShare", `{"name":"x","type":"all"}`},
+		{"share list", "/ui/v1/getApiShareList", `{}`},
+		{"share detail", "/ui/v1/getApiShareDetail", `{"key":"s1"}`},
+		{"share delete", "/ui/v1/deleteApiShare", `{"key":"s1"}`},
+		{"share action", "/ui/v1/handleApiShareAction", `{"key":"s1","index":0}`},
+		{"cache clear", "/ui/v1/cache/clear", `{}`},
+		{"cache warm", "/ui/v1/cache/warm", `{}`},
+		{"generator", "/ui/v1/generator", `{"index":0}`},
+		{"export share by key", "/ui/v1/exportAllData", `{"key":"s1"}`},
+		{"export all apps", "/ui/v1/exportAllData", `{}`},
+	} {
+		rec := do(t, h, "POST", tc.path, tc.body, appToken)
+		if rec.Code != http.StatusUnauthorized {
+			t.Fatalf("%s with app token: %d %s", tc.name, rec.Code, rec.Body.String())
+		}
+	}
+	// The seeded share is untouched.
+	if detail := decodeData(t, do(t, h, "POST", "/ui/v1/getApiShareDetail", `{"key":"s1"}`, admin)); detail["name"] != "S" {
+		t.Fatalf("share mutated: %+v", detail)
 	}
 }
 

@@ -239,15 +239,19 @@ func (h *handler) exportAllData(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, 400, "invalid body")
 		return
 	}
+	admin := h.hasSession(r)
 	var rec *shareRecord
 	switch {
 	case body.Key != "":
-		if !h.requireAdmin(w, r) {
-			return
-		}
 		rec, _ = h.shares.get(body.Key)
 		if rec == nil {
 			writeError(w, http.StatusNotFound, 404, "share not exists")
+			return
+		}
+		// The owner exports with the global token; a password-protected share
+		// also accepts its own share token.
+		if rec.PasswordHash != "" && !admin && !shareTokenValid(rec, r) {
+			writeError(w, http.StatusUnauthorized, 401, "token error")
 			return
 		}
 	case body.AppKey != "":
@@ -257,7 +261,8 @@ func (h *handler) exportAllData(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	default:
-		if !h.requireAdmin(w, r) {
+		if h.o.Auth.Enable && !admin {
+			writeError(w, http.StatusUnauthorized, 401, "unauthorized")
 			return
 		}
 	}
@@ -268,6 +273,11 @@ func (h *handler) exportAllData(w http.ResponseWriter, r *http.Request) {
 	}
 	apiData := []map[string]any{}
 	for _, app := range project.Apps {
+		// With global auth off an anonymous all-apps export stays public for
+		// unprotected apps only; a global session still sees everything.
+		if rec == nil && body.AppKey == "" && !admin && h.o.AppPWs[app.Key] != "" {
+			continue
+		}
 		for _, version := range app.Versions {
 			canonical := canonicalAppKey(app.Key, version.Name)
 			if body.AppKey != "" && !matchesAppKey(app.Key, version.Name, body.AppKey) {

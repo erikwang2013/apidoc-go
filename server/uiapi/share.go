@@ -188,14 +188,17 @@ func (h *handler) shareAuth(w http.ResponseWriter, r *http.Request, shareKey str
 		writeError(w, http.StatusNotFound, 404, "share not exists")
 		return nil, false
 	}
-	if rec.PasswordHash != "" {
-		scope, ok := auth.Verify(rec.Secret, bearerToken(r))
-		if !ok || scope != "share:"+rec.Key {
-			writeError(w, http.StatusUnauthorized, 401, "token error")
-			return nil, false
-		}
+	if rec.PasswordHash != "" && !shareTokenValid(rec, r) {
+		writeError(w, http.StatusUnauthorized, 401, "token error")
+		return nil, false
 	}
 	return rec, true
+}
+
+// shareTokenValid reports whether the request carries a token issued for rec.
+func shareTokenValid(rec *shareRecord, r *http.Request) bool {
+	scope, ok := auth.Verify(rec.Secret, bearerToken(r))
+	return ok && scope == "share:"+rec.Key
 }
 
 // authorize gates a UIC-1 read. With a shareKey the share (and its optional
@@ -262,12 +265,18 @@ func (h *handler) requireAdmin(w http.ResponseWriter, r *http.Request) bool {
 	if !h.o.Auth.Enable {
 		return true
 	}
-	scope, ok := auth.Verify(h.o.Auth.Secret, bearerToken(r))
-	if !ok || scope != "session" {
+	if !h.hasSession(r) {
 		writeError(w, http.StatusUnauthorized, 401, "unauthorized")
 		return false
 	}
 	return true
+}
+
+// hasSession reports whether the request carries a valid global token,
+// independent of whether global auth is currently enabled.
+func (h *handler) hasSession(r *http.Request) bool {
+	scope, ok := auth.Verify(h.o.Auth.Secret, bearerToken(r))
+	return ok && scope == "session"
 }
 
 func (h *handler) addShare(w http.ResponseWriter, r *http.Request) {
